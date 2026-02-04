@@ -14,9 +14,33 @@ import { StickyCTA } from './StickyCTA';
 // Import secciones implementadas
 import { Section01Hero } from './sections/Section01Hero';
 import { Section02ExecutiveSummary } from './sections/Section02ExecutiveSummary';
+import { Section03Transparencia } from './sections/Section03Transparencia';
+import { Section04Riesgo } from './sections/Section04Riesgo';
+import { Section05FallasModelo } from './sections/Section05FallasModelo';
+import { Section06CostoReal } from './sections/Section06CostoReal';
+import { Section07SistemaCapas } from './sections/Section07SistemaCapas';
+import { Section08CuatroPilares } from './sections/Section08CuatroPilares';
+import { Section09ComoOperamos } from './sections/Section09ComoOperamos';
+import { Section10Supervision } from './sections/Section10Supervision';
+import { Section11Reportabilidad } from './sections/Section11Reportabilidad';
+import { Section12Cumplimiento } from './sections/Section12Cumplimiento';
+import { Section13Certificaciones } from './sections/Section13Certificaciones';
+import { Section14Tecnologia } from './sections/Section14Tecnologia';
+import { Section15Seleccion } from './sections/Section15Seleccion';
+import { Section16NuestraGente } from './sections/Section16NuestraGente';
+import { Section17Continuidad } from './sections/Section17Continuidad';
+import { Section18KPIs } from './sections/Section18KPIs';
 import { Section19Resultados } from './sections/Section19Resultados';
+import { Section20Clientes } from './sections/Section20Clientes';
+import { Section21Sectores } from './sections/Section21Sectores';
+import { Section22TCO } from './sections/Section22TCO';
 import { Section23PropuestaEconomica } from './sections/Section23PropuestaEconomica';
+import { Section24TerminosCondiciones } from './sections/Section24TerminosCondiciones';
 import { Section25Comparacion } from './sections/Section25Comparacion';
+import { Section26PorqueEligen } from './sections/Section26PorqueEligen';
+import { Section27Implementacion } from './sections/Section27Implementacion';
+import { Section28Cierre } from './sections/Section28Cierre';
+import { Section29Contacto } from './sections/Section29Contacto';
 import { PlaceholderSection } from './sections/PlaceholderSection';
 
 interface PresentationRendererProps {
@@ -44,181 +68,85 @@ export function PresentationRenderer({ payload }: PresentationRendererProps) {
           <Section02ExecutiveSummary data={sections.s02_executive_summary} />
           
           {/* S03 - Transparencia */}
-          <PlaceholderSection 
-            id="s03" 
-            title="Compromiso de Transparencia"
-            data={sections.s03_transparencia}
-          />
+          <Section03Transparencia data={sections.s03_transparencia} />
           
           {/* S04 - El Riesgo Real */}
-          <PlaceholderSection 
-            id="s04" 
-            title="El Riesgo Real"
-            data={sections.s04_riesgo}
-          />
+          <Section04Riesgo data={sections.s04_riesgo} />
           
           {/* S05 - Fallas del Modelo Tradicional */}
-          <PlaceholderSection 
-            id="s05" 
-            title="Fallas del Modelo Tradicional"
-            data={sections.s05_fallas_modelo}
-          />
+          <Section05FallasModelo data={sections.s05_fallas_modelo} />
           
           {/* S06 - Costo Real */}
-          <PlaceholderSection 
-            id="s06" 
-            title="Costo Real del Riesgo"
-            data={sections.s06_costo_real}
-          />
+          <Section06CostoReal data={sections.s06_costo_real} />
           
           {/* S07 - Sistema de Capas */}
-          <PlaceholderSection 
-            id="s07" 
-            title="Seguridad como Sistema"
-            data={sections.s07_sistema_capas}
-          />
+          <Section07SistemaCapas data={sections.s07_sistema_capas} />
           
           {/* S08 - 4 Pilares */}
-          <PlaceholderSection 
-            id="s08" 
-            title="4 Pilares del Modelo GARD"
-            data={sections.s08_4_pilares}
-          />
+          <Section08CuatroPilares data={sections.s08_4_pilares} />
           
           {/* S09 - Cómo Operamos */}
-          <PlaceholderSection 
-            id="s09" 
-            title="Cómo Operamos"
-            data={sections.s09_como_operamos}
-          />
+          <Section09ComoOperamos data={sections.s09_como_operamos} />
           
           {/* S10 - Supervisión */}
-          <PlaceholderSection 
-            id="s10" 
-            title="Supervisión Activa"
-            data={sections.s10_supervision}
-          />
+          <Section10Supervision data={sections.s10_supervision} />
           
           {/* S11 - Reportabilidad */}
-          <PlaceholderSection 
-            id="s11" 
-            title="Reportabilidad Ejecutiva"
-            data={sections.s11_reportabilidad}
-          />
+          <Section11Reportabilidad data={sections.s11_reportabilidad} />
           
           {/* S12 - Cumplimiento */}
-          <PlaceholderSection 
-            id="s12" 
-            title="Cumplimiento Laboral"
-            data={sections.s12_cumplimiento}
-          />
+          <Section12Cumplimiento data={sections.s12_cumplimiento} />
           
           {/* S13 - Certificaciones */}
-          <PlaceholderSection 
-            id="s13" 
-            title="Certificaciones y Estándares"
-            data={sections.s13_certificaciones}
-          />
+          <Section13Certificaciones data={sections.s13_certificaciones} />
           
           {/* S14 - Tecnología */}
-          <PlaceholderSection 
-            id="s14" 
-            title="Tecnología que Controla"
-            data={sections.s14_tecnologia}
-          />
+          <Section14Tecnologia data={sections.s14_tecnologia} />
           
           {/* S15 - Selección de Personal */}
-          <PlaceholderSection 
-            id="s15" 
-            title="Selección de Personal"
-            data={sections.s15_seleccion}
-          />
+          <Section15Seleccion data={sections.s15_seleccion} />
           
           {/* S16 - Nuestra Gente */}
-          <PlaceholderSection 
-            id="s16" 
-            title="Nuestra Gente"
-            data={sections.s16_nuestra_gente}
-          />
+          <Section16NuestraGente data={sections.s16_nuestra_gente} />
           
           {/* S17 - Continuidad */}
-          <PlaceholderSection 
-            id="s17" 
-            title="Continuidad del Servicio"
-            data={sections.s17_continuidad}
-          />
+          <Section17Continuidad data={sections.s17_continuidad} />
           
           {/* S18 - KPIs */}
-          <PlaceholderSection 
-            id="s18" 
-            title="Indicadores de Gestión"
-            data={sections.s18_kpis}
-          />
+          <Section18KPIs data={sections.s18_kpis} />
           
           {/* S19 - Resultados */}
           <Section19Resultados data={sections.s19_resultados} />
           
           {/* S20 - Clientes */}
-          <PlaceholderSection 
-            id="s20" 
-            title="Nuestros Clientes"
-            data={sections.s20_clientes}
-          />
+          <Section20Clientes data={sections.s20_clientes} />
           
           {/* S21 - Sectores */}
-          <PlaceholderSection 
-            id="s21" 
-            title="Sectores donde Aplicamos"
-            data={sections.s21_sectores}
-          />
+          <Section21Sectores data={sections.s21_sectores} />
           
           {/* S22 - TCO */}
-          <PlaceholderSection 
-            id="s22" 
-            title="Costo Total de Propiedad (TCO)"
-            data={sections.s22_tco}
-          />
+          <Section22TCO data={sections.s22_tco} />
           
           {/* S23 - Propuesta Económica */}
           <Section23PropuestaEconomica data={sections.s23_propuesta_economica} />
           
           {/* S24 - Términos y Condiciones */}
-          <PlaceholderSection 
-            id="s24" 
-            title="Términos y Condiciones"
-            data={sections.s24_terminos_condiciones}
-          />
+          <Section24TerminosCondiciones data={sections.s24_terminos_condiciones} />
           
           {/* S25 - Comparación Competitiva */}
           <Section25Comparacion data={sections.s25_comparacion} />
           
           {/* S26 - Por Qué Nos Eligen */}
-          <PlaceholderSection 
-            id="s26" 
-            title="Por Qué Nos Eligen"
-            data={sections.s26_porque_eligen}
-          />
+          <Section26PorqueEligen data={sections.s26_porque_eligen} />
           
           {/* S27 - Implementación */}
-          <PlaceholderSection 
-            id="s27" 
-            title="Proceso de Implementación"
-            data={sections.s27_implementacion}
-          />
+          <Section27Implementacion data={sections.s27_implementacion} />
           
           {/* S28 - Cierre + CTA */}
-          <PlaceholderSection 
-            id="s28" 
-            title="¿Listo para Comenzar?"
-            data={sections.s28_cierre}
-          />
+          <Section28Cierre data={sections.s28_cierre} />
           
           {/* S29 - Contacto */}
-          <PlaceholderSection 
-            id="s29" 
-            title="Contacto"
-            data={sections.s29_contacto}
-          />
+          <Section29Contacto data={sections.s29_contacto} />
         </main>
         
         {/* Footer */}
