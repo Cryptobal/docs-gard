@@ -19,18 +19,23 @@ interface StickyCTAProps {
 export function StickyCTA({ cta, className }: StickyCTAProps) {
   const theme = useThemeClasses();
   const [isVisible, setIsVisible] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   
   useEffect(() => {
+    setIsMounted(true);
+    
     // Mostrar CTA después de scroll inicial
     const handleScroll = () => {
       setIsVisible(window.scrollY > 300);
     };
     
     window.addEventListener('scroll', handleScroll);
+    handleScroll(); // Check inicial
+    
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
   
-  if (!isVisible) return null;
+  if (!isMounted) return null;
   
   return (
     <div
@@ -40,13 +45,13 @@ export function StickyCTA({ cta, className }: StickyCTAProps) {
         'border-t',
         theme.border,
         'backdrop-blur-lg',
-        'bg-opacity-95',
         theme.backgroundAlt,
         'shadow-lg',
         'transition-transform duration-300',
         isVisible ? 'translate-y-0' : 'translate-y-full',
         className
       )}
+      style={{ opacity: isVisible ? 1 : 0 }}
     >
       <div className="container mx-auto px-4 py-3">
         <div className="flex gap-3">
