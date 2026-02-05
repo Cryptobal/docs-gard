@@ -87,45 +87,33 @@ export function Section01Hero({ data, payload, showTokens = false }: Section01He
             {microcopy}
           </motion.p>
           
-          {/* CTAs - OPTIMIZADOS */}
+          {/* KPIs de Valor - REEMPLAZAN CTAs */}
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8, duration: 0.8 }}
-            className="flex flex-col sm:flex-row gap-4"
+            className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8"
           >
-            <a
-              href={payload.cta.meeting_link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn-premium inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl text-base font-bold text-white bg-gradient-to-r from-teal-500 to-teal-400 hover:from-teal-400 hover:to-teal-300 transition-all duration-300 hover:scale-105 shadow-xl shadow-teal-500/50 border-2 border-teal-400/50"
-            >
-              <Calendar className="w-5 h-5" />
-              <span>{data.cta_primary_text}</span>
-              <ArrowRight className="w-5 h-5" />
-            </a>
-            
-            <a
-              href={`mailto:${payload.contact.email}`}
-              className="inline-flex items-center justify-center gap-3 px-8 py-4 rounded-xl text-base font-bold text-white glass-card border-2 border-white/30 hover:bg-white/20 hover:border-white/50 transition-all duration-300 hover:scale-105"
-            >
-              <span>{data.cta_secondary_text}</span>
-              <ArrowRight className="w-5 h-5" />
-            </a>
-          </motion.div>
-          
-          {/* Trust indicators - MÁS COMPACTO */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1, duration: 0.8 }}
-            className="flex flex-wrap items-center gap-3 mt-5 text-xs sm:text-sm text-white/70"
-          >
-            {['✓ Sin costo', '✓ Respuesta 24h', '✓ Visita incluida'].map((text, i) => (
-              <div key={i} className="flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" style={{ animationDelay: `${i * 0.5}s` }} />
-                <span className="font-semibold">{text}</span>
-              </div>
+            {[
+              { value: '67%', label: 'Reducción incidentes' },
+              { value: '96%', label: 'Rondas cumplidas' },
+              { value: '100%', label: 'Eventos documentados' },
+              { value: '24h', label: 'Respuesta consultas' },
+            ].map((kpi, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 1 + i * 0.1, duration: 0.5 }}
+                className="glass-card p-4 rounded-xl border border-teal-400/20 hover:border-teal-400/40 transition-all text-center"
+              >
+                <div className="text-3xl font-black bg-gradient-to-br from-teal-400 to-blue-400 bg-clip-text text-transparent mb-1">
+                  {kpi.value}
+                </div>
+                <div className="text-xs text-white/70 font-semibold">
+                  {kpi.label}
+                </div>
+              </motion.div>
             ))}
           </motion.div>
         </div>

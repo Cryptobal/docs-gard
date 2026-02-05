@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * PresentationHeader - Header optimizado 100%
+ * PresentationHeader - Header MINIMALISTA
  */
 
 import { CTALinks } from '@/types';
@@ -32,15 +32,14 @@ export function PresentationHeader({
   const whatsappMessage = `Hola, soy ${contactName} de ${companyName}, vi ${quoteName} y me gustaría conversar`;
   const whatsappLink = `https://wa.me/56982307771?text=${encodeURIComponent(whatsappMessage)}`;
   
-  // Mostrar tokens o datos reales
   const displayCompany = showTokens ? '[ACCOUNT_NAME]' : companyName;
   const displayQuoteNumber = showTokens ? '[QUOTE_NUMBER]' : quoteNumber;
   const displayContact = showTokens ? '[CONTACT_NAME]' : contactName;
   
   return (
-    <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/95 border-b border-teal-500/20 shadow-2xl">
+    <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/95 border-b border-white/10 shadow-2xl">
       <div className="w-full px-4 sm:px-6">
-        {/* Info propuesta - CON SOPORTE TOKENS */}
+        {/* Info propuesta */}
         {(companyName || quoteNumber) && companyName !== 'tu empresa' && (
           <div className="py-2 border-b border-white/5">
             <div className="flex items-center justify-center gap-2 text-xs text-white/70">
@@ -56,11 +55,11 @@ export function PresentationHeader({
           </div>
         )}
         
-        {/* Main header */}
-        <div className="flex items-center justify-between h-16 sm:h-18">
+        {/* Main header - MINIMALISTA */}
+        <div className="flex items-center justify-between h-14 sm:h-16">
           {/* Logo */}
           <a href="https://gard.cl" target="_blank" rel="noopener noreferrer" className="flex-shrink-0 group">
-            <div className="relative w-24 h-8 sm:w-32 sm:h-12 transition-transform group-hover:scale-110">
+            <div className="relative w-28 h-10 sm:w-32 sm:h-12 transition-transform group-hover:scale-110">
               <Image
                 src={logo}
                 alt="Gard Security"
@@ -71,53 +70,31 @@ export function PresentationHeader({
             </div>
           </a>
           
-          {/* Desktop CTAs */}
-          <div className="hidden md:flex items-center gap-3">
-            {/* WhatsApp - MISMO TAMAÑO que Agendar */}
+          {/* CTAs Minimalistas */}
+          <div className="flex items-center gap-3">
+            {/* WhatsApp - Solo icon */}
             <a
               href={whatsappLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-black text-white uppercase tracking-wide bg-green-600 hover:bg-green-500 transition-all duration-300 hover:scale-105 shadow-lg shadow-green-600/40 border-2 border-green-500"
+              className="group relative"
+              title="WhatsApp"
             >
-              <MessageCircle className="w-5 h-5" />
-              <span>WhatsApp</span>
+              <div className="w-10 h-10 rounded-full bg-green-500/10 border border-green-500/30 hover:bg-green-500 hover:border-green-500 flex items-center justify-center transition-all hover:scale-110">
+                <MessageCircle className="w-5 h-5 text-green-500 group-hover:text-white transition-colors" />
+              </div>
             </a>
             
-            {/* Agendar - PULSANDO */}
+            {/* Agendar - Minimalista */}
             <a
               href={cta.meeting_link}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl text-sm font-black text-white uppercase tracking-wide bg-gradient-to-r from-teal-500 to-teal-400 hover:from-teal-400 hover:to-teal-300 transition-all duration-300 hover:scale-105 shadow-lg shadow-teal-500/50 border-2 border-teal-400 animate-pulse"
-            >
-              <Calendar className="w-5 h-5" />
-              <span>Agendar visita</span>
-            </a>
-          </div>
-          
-          {/* Mobile CTAs */}
-          <div className="md:hidden flex items-center gap-2">
-            {/* WhatsApp Mobile */}
-            <a
-              href={whatsappLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-white bg-green-600 shadow-md"
-            >
-              <MessageCircle className="w-4 h-4" />
-              <span>WhatsApp</span>
-            </a>
-            
-            {/* Agendar Mobile */}
-            <a
-              href={cta.meeting_link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-white bg-gradient-to-r from-teal-500 to-teal-400 shadow-md animate-pulse"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-teal-500/30 hover:bg-teal-500 hover:border-teal-500 text-white/80 hover:text-white transition-all hover:scale-105 text-sm font-semibold"
+              title="Agendar visita técnica"
             >
               <Calendar className="w-4 h-4" />
-              <span>Agendar</span>
+              <span className="hidden sm:inline">Agendar</span>
             </a>
           </div>
         </div>

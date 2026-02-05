@@ -43,7 +43,7 @@ export function getMockPresentationPayload(): PresentationPayload {
       valid_until: '2026-03-06',
       created_date: '2026-02-04',
       subject: 'Propuesta de Servicio de Seguridad Integral',
-      description: 'Servicio de guardias 24/7 con supervisión activa y control de trazabilidad para planta industrial en Til Til.',
+      description: 'Hemos diseñado esta propuesta específicamente para Polpaico considerando la naturaleza crítica de sus operaciones de manufactura de cemento, donde la continuidad operacional 24/7 no es negociable. Su planta en Til Til requiere no solo presencia física de guardias, sino un sistema completo de supervisión, trazabilidad y reportabilidad que garantice control total sobre la seguridad de sus activos, personal y procesos productivos. A diferencia de otros proveedores, entendemos que en su industria, un incidente de seguridad puede significar detención de producción, pérdida de inventario crítico y exposición legal significativa.',
       subtotal: 5300000,
       tax: 1007000,
       total: 6307000,

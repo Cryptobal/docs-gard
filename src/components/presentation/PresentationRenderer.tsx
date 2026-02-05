@@ -79,7 +79,15 @@ export function PresentationRenderer({ payload, showTokens = false }: Presentati
           />
           
           {/* S02 - Executive Summary */}
-          <Section02ExecutiveSummary data={sections.s02_executive_summary} />
+          <Section02ExecutiveSummary 
+            data={sections.s02_executive_summary}
+            quoteDescription={payload.quote.description}
+            companyName={payload.client.company_name}
+            industry={payload.client.industry}
+            sitesCount={payload.service.sites.length}
+            coverageHours={payload.service.coverage_hours}
+            showTokens={showTokens}
+          />
           
           {/* S03 - Transparencia */}
           <Section03Transparencia data={sections.s03_transparencia} />
