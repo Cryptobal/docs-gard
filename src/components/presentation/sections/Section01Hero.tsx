@@ -16,15 +16,17 @@ import { motion } from 'framer-motion';
 interface Section01HeroProps {
   data: Section01_Hero;
   payload: PresentationPayload;
+  showTokens?: boolean;
 }
 
-export function Section01Hero({ data, payload }: Section01HeroProps) {
+export function Section01Hero({ data, payload, showTokens = false }: Section01HeroProps) {
   const theme = useThemeClasses();
   
-  const headline = replaceTokens(data.headline, payload);
-  const subheadline = replaceTokens(data.subheadline, payload);
-  const microcopy = replaceTokens(data.microcopy, payload);
-  const personalization = replaceTokens(data.personalization, payload);
+  // Si showTokens=true, NO reemplazar los tokens
+  const headline = showTokens ? data.headline : replaceTokens(data.headline, payload);
+  const subheadline = showTokens ? data.subheadline : replaceTokens(data.subheadline, payload);
+  const microcopy = showTokens ? data.microcopy : replaceTokens(data.microcopy, payload);
+  const personalization = showTokens ? data.personalization : replaceTokens(data.personalization, payload);
   
   return (
     <SectionWrapper id="s01-hero" animation="none" className="relative overflow-hidden p-0">

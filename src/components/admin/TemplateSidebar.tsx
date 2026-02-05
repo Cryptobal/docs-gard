@@ -128,6 +128,7 @@ export function TemplateSidebar({
   );
   
   useEffect(() => {
+    // Intersection Observer para active section
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -146,8 +147,20 @@ export function TemplateSidebar({
       });
     });
     
-    return () => observer.disconnect();
-  }, []);
+    // ESC para cerrar
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    
+    window.addEventListener('keydown', handleEsc);
+    
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, [isOpen, onClose]);
   
   const toggleGroup = (groupName: string) => {
     setExpandedGroups((prev) => {
@@ -201,61 +214,70 @@ export function TemplateSidebar({
             className="fixed left-0 top-0 h-screen w-80 bg-slate-950/95 backdrop-blur-xl border-r border-white/10 z-50 flex flex-col shadow-2xl overflow-hidden"
           >
             {/* Header FIJO - SIN SCROLL */}
-            <div className="flex-shrink-0 flex items-center justify-between p-4 border-b border-white/10">
+            <div className="flex-shrink-0 flex items-center justify-between p-3 border-b border-white/10 bg-slate-900/50">
               <div>
-                <h2 className="text-base font-black text-white">Preview</h2>
-                <p className="text-xs text-white/50">Commercial</p>
+                <h2 className="text-sm font-black text-white">Preview Navigator</h2>
+                <p className="text-[10px] text-white/50">Template: Commercial</p>
               </div>
               <button
                 onClick={onClose}
-                className="w-8 h-8 rounded-lg bg-white/5 hover:bg-red-500/20 hover:border-red-500/50 border border-white/10 flex items-center justify-center transition-all"
+                className="w-10 h-10 rounded-lg bg-red-500/10 hover:bg-red-500 border-2 border-red-500/30 hover:border-red-500 flex items-center justify-center transition-all hover:scale-110 shadow-lg"
+                title="Cerrar (ESC)"
               >
-                <X className="w-5 h-5 text-white/70" />
+                <X className="w-6 h-6 text-red-400 hover:text-white font-bold" strokeWidth={3} />
               </button>
             </div>
             
-            {/* Controls FIJOS - SIN SCROLL */}
-            <div className="flex-shrink-0 p-3 space-y-2 border-b border-white/10">
-              {/* Toggle tokens - COMPACTO */}
+            {/* Controls FIJOS - COMPACTO */}
+            <div className="flex-shrink-0 p-2.5 space-y-2 border-b border-white/10 bg-slate-900/30">
+              {/* Toggle tokens */}
               <button
                 onClick={onToggleTokens}
                 className={cn(
-                  'w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all text-xs font-bold',
+                  'w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all text-[11px] font-bold',
                   showTokens 
-                    ? 'bg-amber-500/20 border border-amber-400/30 text-amber-400' 
-                    : 'bg-teal-500/20 border border-teal-400/30 text-teal-400'
+                    ? 'bg-amber-500/20 border border-amber-400/40 text-amber-300' 
+                    : 'bg-teal-500/20 border border-teal-400/40 text-teal-300'
                 )}
               >
-                <span>{showTokens ? 'Ver tokens' : 'Ver datos'}</span>
+                <span>{showTokens ? '🔤 Tokens' : '📝 Datos'}</span>
                 <div className={cn(
-                  'w-8 h-5 rounded-full transition-colors relative',
+                  'w-9 h-5 rounded-full transition-all relative shadow-inner',
                   showTokens ? 'bg-amber-500' : 'bg-teal-500'
                 )}>
                   <div className={cn(
-                    'absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform',
-                    showTokens ? 'left-0.5' : 'left-3.5'
+                    'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-md transition-all',
+                    showTokens ? 'left-0.5' : 'left-[18px]'
                   )} />
                 </div>
               </button>
               
-              {/* Theme selector - COMPACTO */}
-              <div className="grid grid-cols-3 gap-1.5">
-                {(['executive', 'ops', 'trust'] as ThemeVariant[]).map((theme) => (
-                  <button
-                    key={theme}
-                    onClick={() => onThemeChange(theme)}
-                    className={cn(
-                      'px-2 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all',
-                      currentTheme === theme
-                        ? 'bg-teal-500 text-white shadow-lg'
-                        : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/80'
-                    )}
-                  >
-                    {theme === 'executive' && 'Exec'}
-                    {theme === 'ops' && 'Ops'}
-                    {theme === 'trust' && 'Trust'}
-                  </button>
-                ))}
+              {/* Theme selector */}
+              <div>
+                <label className="text-[9px] font-bold text-white/50 uppercase tracking-wider mb-1.5 block px-1">
+                  Theme Variant
+                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {(['executive', 'ops', 'trust'] as ThemeVariant[]).map((theme) => (
+                    <button
+                      key={theme}
+                      onClick={() => {
+                        console.log('Theme clicked:', theme);
+                        onThemeChange(theme);
+                      }}
+                      className={cn(
+                        'px-2 py-2 rounded-lg text-[10px] font-black uppercase transition-all',
+                        currentTheme === theme
+                          ? 'bg-gradient-to-br from-teal-500 to-teal-400 text-white shadow-lg scale-105'
+                          : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/80 hover:scale-105'
+                      )}
+                    >
+                      {theme === 'executive' && 'Exec'}
+                      {theme === 'ops' && 'Ops'}
+                      {theme === 'trust' && 'Trust'}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
             

@@ -46,9 +46,10 @@ import { PlaceholderSection } from './sections/PlaceholderSection';
 
 interface PresentationRendererProps {
   payload: PresentationPayload;
+  showTokens?: boolean;
 }
 
-export function PresentationRenderer({ payload }: PresentationRendererProps) {
+export function PresentationRenderer({ payload, showTokens = false }: PresentationRendererProps) {
   const { theme, sections, assets, cta, contact } = payload;
   
   return (
@@ -69,7 +70,11 @@ export function PresentationRenderer({ payload }: PresentationRendererProps) {
         {/* Secciones S01-S29 */}
         <main>
           {/* S01 - Hero */}
-          <Section01Hero data={sections.s01_hero} payload={payload} />
+          <Section01Hero 
+            data={sections.s01_hero} 
+            payload={payload}
+            showTokens={showTokens}
+          />
           
           {/* S02 - Executive Summary */}
           <Section02ExecutiveSummary data={sections.s02_executive_summary} />
@@ -135,7 +140,10 @@ export function PresentationRenderer({ payload }: PresentationRendererProps) {
           <Section22TCO data={sections.s22_tco} />
           
           {/* S23 - Propuesta Económica */}
-          <Section23PropuestaEconomica data={sections.s23_propuesta_economica} />
+          <Section23PropuestaEconomica 
+            data={sections.s23_propuesta_economica} 
+            showTokens={showTokens}
+          />
           
           {/* S24 - Términos y Condiciones */}
           <Section24TerminosCondiciones data={sections.s24_terminos_condiciones} />

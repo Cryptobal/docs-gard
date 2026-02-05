@@ -27,10 +27,8 @@ export function TemplatePreviewWrapper({
   const [currentTheme, setCurrentTheme] = useState<ThemeVariant>(initialTheme);
   const [showTokens, setShowTokens] = useState(showTokensByDefault);
   
-  // Crear payload con o sin tokens reemplazados
-  const displayPayload: PresentationPayload = showTokens 
-    ? createTokenizedPayload(initialPayload)
-    : initialPayload;
+  // Usar payload directo (los componentes manejan showTokens)
+  const displayPayload: PresentationPayload = initialPayload;
   
   // Actualizar theme del payload
   displayPayload.theme = currentTheme;
@@ -61,7 +59,11 @@ export function TemplatePreviewWrapper({
       />
       
       {/* Presentación - key para forzar re-render */}
-      <PresentationRenderer key={renderKey} payload={displayPayload} />
+      <PresentationRenderer 
+        key={renderKey} 
+        payload={displayPayload}
+        showTokens={showTokens}
+      />
     </>
   );
 }
