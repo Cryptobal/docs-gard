@@ -14,7 +14,7 @@ interface SendEmailModalProps {
   contactName: string;
   contactEmail: string;
   onClose: () => void;
-  onSuccess: (result: { uniqueId: string; publicUrl: string; recipientEmail: string }) => void;
+  onSuccess: (result: { uniqueId: string; publicUrl: string; recipientEmail: string; recipientPhone?: string }) => void;
 }
 
 export function SendEmailModal({ sessionId, companyName, contactName, contactEmail, onClose, onSuccess }: SendEmailModalProps) {
