@@ -13,7 +13,6 @@ export default async function UsuariosPage() {
     redirect('/login');
   }
 
-  // Verificar permisos
   const canManageUsers = hasPermission(
     session.user.role as Role,
     PERMISSIONS.MANAGE_USERS
@@ -23,16 +22,14 @@ export default async function UsuariosPage() {
     redirect('/inicio');
   }
 
-  // Obtener usuarios e invitaciones
   const usersResult = await listUsers();
   const invitationsResult = await listPendingInvitations();
 
-  const users = usersResult.success ? usersResult.users : [];
-  const invitations = invitationsResult.success ? invitationsResult.invitations : [];
+  const users = usersResult.success && usersResult.users ? usersResult.users : [];
+  const invitations = invitationsResult.success && invitationsResult.invitations ? invitationsResult.invitations : [];
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
@@ -49,9 +46,7 @@ export default async function UsuariosPage() {
         </div>
       </div>
 
-      {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* Usuarios activos */}
         <div className="bg-white rounded-lg shadow">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">
@@ -64,7 +59,6 @@ export default async function UsuariosPage() {
           <UsersTable users={users} currentUserId={session.user.id} />
         </div>
 
-        {/* Invitaciones pendientes */}
         {invitations.length > 0 && (
           <div className="bg-white rounded-lg shadow">
             <div className="px-6 py-4 border-b border-gray-200">
