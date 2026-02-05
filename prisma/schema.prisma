@@ -1,0 +1,204 @@
+// Prisma schema for Gard Docs
+// Database: Neon PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── WEBHOOK SESSIONS (temporal) ──────────────────────
+
+model WebhookSession {
+  id        String   @id @default(cuid())
+  sessionId String   @unique
+  zohoData  Json     // Datos completos del webhook de Zoho
+  status    String   // "pending", "completed", "expired"
+  expiresAt DateTime // Expira después de 24 horas
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sessionId])
+  @@index([status])
+}
+
+// ─── TEMPLATES ────────────────────────────────────────
+
+model Template {
+  id            String         @id @default(cuid())
+  name          String         // "Propuesta Comercial", "Propuesta Técnica"
+  slug          String         @unique // "commercial", "technical"
+  description   String?        // Descripción del template
+  type          String         // "presentation", "email"
+  category      String?        // "sales", "technical", "marketing"
+  active        Boolean        @default(true)
+  isDefault     Boolean        @default(false) // Template por defecto
+  thumbnailUrl  String?        // URL de thumbnail para preview
+  
+  // Metadata
+  createdBy     String?        // User ID del creador
+  lastEditedBy  String?        // User ID del último editor
+  usageCount    Int            @default(0) // Cuántas veces se ha usado
+  
+  // Timestamps
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  
+  // Relations
+  presentations Presentation[]
+
+  @@index([slug])
+  @@index([active])
+  @@index([type])
+}
+
+// ─── PRESENTATIONS ────────────────────────────────────
+
+model Presentation {
+  id               String              @id @default(cuid())
+  uniqueId         String              @unique // URL-friendly ID para /p/[uniqueId]
+  
+  // Template
+  templateId       String
+  template         Template            @relation(fields: [templateId], references: [id])
+  
+  // Client data (from Zoho)
+  clientData       Json                // Todos los datos del cliente, quote, deal, contact
+  
+  // Rendered content (optional - si queremos cachear el HTML)
+  renderedContent  Json?               // Contenido renderizado con tokens
+  
+  // Status
+  status           String              @default("draft") // "draft", "sent", "viewed", "expired"
+  
+  // Delivery
+  recipientEmail   String?             // Email del destinatario
+  recipientName    String?             // Nombre del destinatario
+  emailSentAt      DateTime?           // Cuándo se envió el email
+  emailProvider    String?             // "resend", "sendgrid", etc.
+  emailMessageId   String?             // ID del mensaje en el proveedor
+  
+  whatsappSharedAt DateTime?           // Cuándo se compartió por WhatsApp
+  whatsappNumber   String?             // Número de WhatsApp
+  
+  // Analytics
+  viewCount        Int                 @default(0)
+  firstViewedAt    DateTime?           // Primera vez que se vio
+  lastViewedAt     DateTime?           // Última vez que se vio
+  
+  // Metadata
+  expiresAt        DateTime?           // Fecha de expiración (opcional)
+  notes            String?             // Notas internas
+  tags             String[]            // Tags para categorización
+  
+  // Creator
+  createdBy        String?             // User ID del creador
+  
+  // Timestamps
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  
+  // Relations
+  views            PresentationView[]
+
+  @@index([uniqueId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([templateId])
+  @@index([recipientEmail])
+}
+
+// ─── PRESENTATION VIEWS ───────────────────────────────
+
+model PresentationView {
+  id             String       @id @default(cuid())
+  
+  // Presentation
+  presentationId String
+  presentation   Presentation @relation(fields: [presentationId], references: [id], onDelete: Cascade)
+  
+  // Viewer info
+  ipAddress      String?
+  userAgent      String?
+  country        String?      // País del viewer (de IP)
+  city           String?      // Ciudad del viewer (de IP)
+  device         String?      // "desktop", "mobile", "tablet"
+  browser        String?      // "chrome", "safari", etc.
+  
+  // Timing
+  viewedAt       DateTime     @default(now())
+  duration       Int?         // Segundos en la página (opcional)
+  
+  // Session tracking
+  sessionId      String?      // Para agrupar vistas de la misma sesión
+  
+  @@index([presentationId])
+  @@index([viewedAt])
+  @@index([sessionId])
+}
+
+// ─── ADMINS (usuarios) ────────────────────────────────
+
+model Admin {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String   // Hash bcrypt
+  name      String
+  role      String   @default("admin") // "admin", "editor", "viewer"
+  active    Boolean  @default(true)
+  
+  // Metadata
+  lastLoginAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([email])
+  @@index([active])
+}
+
+// ─── AUDIT LOG (opcional) ─────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  
+  // Who
+  userId    String?
+  userEmail String?
+  
+  // What
+  action    String   // "presentation_created", "presentation_sent", "template_edited"
+  entity    String   // "presentation", "template", "admin"
+  entityId  String?
+  
+  // Details
+  details   Json?    // Datos adicionales del evento
+  ipAddress String?
+  userAgent String?
+  
+  // When
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+}
+
+// ─── SETTINGS (configuración global) ──────────────────
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique // "smtp_host", "default_template_id", etc.
+  value     String   // Valor de la configuración
+  type      String   // "string", "number", "boolean", "json"
+  category  String?  // "email", "general", "security"
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([key])
+  @@index([category])
+}
