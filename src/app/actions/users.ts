@@ -18,19 +18,16 @@ export async function inviteUser(email: string, role: Role) {
     return { success: false, error: 'No autenticado' };
   }
 
-  // Verificar permisos
   if (!hasPermission(session.user.role as Role, PERMISSIONS.INVITE_USERS)) {
     return { success: false, error: 'Sin permisos para invitar usuarios' };
   }
 
-  // Validar rol
   if (!isValidRole(role)) {
     return { success: false, error: 'Rol inválido' };
   }
 
   const emailLower = email.trim().toLowerCase();
 
-  // Verificar si el usuario ya existe
   const existingUser = await prisma.admin.findUnique({
     where: { email: emailLower },
   });
@@ -39,7 +36,6 @@ export async function inviteUser(email: string, role: Role) {
     return { success: false, error: 'El usuario ya existe' };
   }
 
-  // Verificar si ya hay una invitación pendiente
   const existingInvitation = await prisma.userInvitation.findFirst({
     where: {
       email: emailLower,
@@ -54,23 +50,20 @@ export async function inviteUser(email: string, role: Role) {
     return { success: false, error: 'Ya existe una invitación pendiente' };
   }
 
-  // Generar token seguro
   const token = randomBytes(32).toString('hex');
   const tokenHash = await bcrypt.hash(token, 10);
 
-  // Crear invitación
   const invitation = await prisma.userInvitation.create({
     data: {
       email: emailLower,
       role,
       tenantId: session.user.tenantId,
       token: tokenHash,
-      expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000), // 48 horas
+      expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
       invitedBy: session.user.id,
     },
   });
 
-  // Enviar email de invitación
   const activationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/activate?token=${token}`;
   
   try {
@@ -90,106 +83,11 @@ export async function inviteUser(email: string, role: Role) {
           Este enlace expira en 48 horas.
         </p>
       `,
-'use server';
-
-import { auth } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import { hasPermission, PERMISSIONS, isValidRole, type Role } from '@/lib/rbac';
-import * as bcrypt from 'bcryptjs';
-import { randomBytes } from 'crypto';
-import { Resend } from 'resend';
-import { render } from '@react-email/components';
-import UserInvitationEmail from '@/emails/UserInvitation';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-/**
- * Invitar un nuevo usuario al tenant
- */
-export async function inviteUser(email: string, role: Role) {
-  const session = await auth();
-  if (!session?.user) {
-    return { success: false, error: 'No autenticado' };
-  }
-
-  // Verificar permisos
-  if (!hasPermission(session.user.role as Role, PERMISSIONS.INVITE_USERS)) {
-    return { success: false, error: 'Sin permisos para invitar usuarios' };
-  }
-
-  // Validar rol
-  if (!isValidRole(role)) {
-    return { success: false, error: 'Rol inválido' };
-  }
-
-  const emailLower = email.trim().toLowerCase();
-
-  // Verificar si el usuario ya existe
-  const existingUser = await prisma.admin.findUnique({
-    where: { email: emailLower },
-  });
-
-  if (existingUser) {
-    return { success: false, error: 'El usuario ya existe' };
-  }
-
-  // Verificar si ya hay una invitación pendiente
-  const existingInvitation = await prisma.userInvitation.findFirst({
-    where: {
-      email: emailLower,
-      tenantId: session.user.tenantId,
-      acceptedAt: null,
-      revokedAt: null,
-      expiresAt: { gte: new Date() },
-    },
-  });
-
-  if (existingInvitation) {
-    return { success: false, error: 'Ya existe una invitación pendiente' };
-  }
-
-  // Generar token seguro
-  const token = randomBytes(32).toString('hex');
-  const tokenHash = await bcrypt.hash(token, 10);
-
-  // Crear invitación
-  const invitation = await prisma.userInvitation.create({
-    data: {
-      email: emailLower,
-      role,
-      tenantId: session.user.tenantId,
-      token: tokenHash,
-      expiresAt: new Date(Date.now() + 48 * 60 * 60 * 1000), // 48 horas
-      invitedBy: session.user.id,
-    },
-  });
-
-  // Enviar email de invitación con template React Email
-  const activationUrl = `${process.env.NEXT_PUBLIC_APP_URL}/activate?token=${token}`;
-  
-  try {
-    const emailHtml = await render(
-      UserInvitationEmail({
-        inviterName: session.user.name,
-        inviteeEmail: emailLower,
-        role,
-        activationUrl,
-        expiresInHours: 48,
-      })
-    );
-
-    await resend.emails.send({
-      from: process.env.EMAIL_FROM || 'no-reply@gard.cl',
-      to: emailLower,
-      subject: 'Invitación a Gard Docs',
-      html: emailHtml,
     });
   } catch (error) {
     console.error('Error enviando email de invitación:', error);
-    // No fallar si el email falla, la invitación ya está creada
   }
 
-  // Auditoría
   await prisma.auditLog.create({
     data: {
       tenantId: session.user.tenantId,
@@ -204,8 +102,9 @@ export async function inviteUser(email: string, role: Role) {
 
   return { success: true, invitationId: invitation.id };
 }
+
 /**
- * Activar cuenta de usuario (desde link de invitación)
+ * Activar cuenta de usuario
  */
 export async function activateAccount(token: string, name: string, password: string) {
   if (!name || !password) {
@@ -216,7 +115,6 @@ export async function activateAccount(token: string, name: string, password: str
     return { success: false, error: 'La contraseña debe tener al menos 8 caracteres' };
   }
 
-  // Buscar invitación válida
   const invitations = await prisma.userInvitation.findMany({
     where: {
       acceptedAt: null,
@@ -238,7 +136,6 @@ export async function activateAccount(token: string, name: string, password: str
     return { success: false, error: 'Token inválido o expirado' };
   }
 
-  // Verificar que el usuario no exista
   const existingUser = await prisma.admin.findUnique({
     where: { email: invitation.email },
   });
@@ -247,10 +144,8 @@ export async function activateAccount(token: string, name: string, password: str
     return { success: false, error: 'El usuario ya existe' };
   }
 
-  // Hash de contraseña
   const passwordHash = await bcrypt.hash(password, 10);
 
-  // Crear usuario
   const user = await prisma.admin.create({
     data: {
       email: invitation.email,
@@ -265,13 +160,11 @@ export async function activateAccount(token: string, name: string, password: str
     },
   });
 
-  // Marcar invitación como aceptada
   await prisma.userInvitation.update({
     where: { id: invitation.id },
     data: { acceptedAt: new Date() },
   });
 
-  // Auditoría
   await prisma.auditLog.create({
     data: {
       tenantId: invitation.tenantId,
@@ -295,17 +188,14 @@ export async function changeUserRole(userId: string, newRole: Role) {
     return { success: false, error: 'No autenticado' };
   }
 
-  // Verificar permisos
   if (!hasPermission(session.user.role as Role, PERMISSIONS.MANAGE_USERS)) {
     return { success: false, error: 'Sin permisos para gestionar usuarios' };
   }
 
-  // Validar rol
   if (!isValidRole(newRole)) {
     return { success: false, error: 'Rol inválido' };
   }
 
-  // Obtener usuario
   const user = await prisma.admin.findUnique({
     where: { id: userId },
   });
@@ -314,12 +204,10 @@ export async function changeUserRole(userId: string, newRole: Role) {
     return { success: false, error: 'Usuario no encontrado' };
   }
 
-  // No permitir cambiar rol a uno mismo
   if (userId === session.user.id) {
     return { success: false, error: 'No puedes cambiar tu propio rol' };
   }
 
-  // Verificar que no sea el último owner
   if (user.role === 'owner') {
     const ownerCount = await prisma.admin.count({
       where: {
@@ -334,13 +222,11 @@ export async function changeUserRole(userId: string, newRole: Role) {
     }
   }
 
-  // Actualizar rol
   await prisma.admin.update({
     where: { id: userId },
     data: { role: newRole },
   });
 
-  // Auditoría
   await prisma.auditLog.create({
     data: {
       tenantId: session.user.tenantId,
@@ -365,12 +251,10 @@ export async function toggleUserStatus(userId: string) {
     return { success: false, error: 'No autenticado' };
   }
 
-  // Verificar permisos
   if (!hasPermission(session.user.role as Role, PERMISSIONS.MANAGE_USERS)) {
     return { success: false, error: 'Sin permisos para gestionar usuarios' };
   }
 
-  // Obtener usuario
   const user = await prisma.admin.findUnique({
     where: { id: userId },
   });
@@ -379,12 +263,10 @@ export async function toggleUserStatus(userId: string) {
     return { success: false, error: 'Usuario no encontrado' };
   }
 
-  // No permitir desactivarse a sí mismo
   if (userId === session.user.id) {
     return { success: false, error: 'No puedes desactivarte a ti mismo' };
   }
 
-  // Verificar que no sea el último owner activo
   if (user.role === 'owner' && user.status === 'active') {
     const activeOwnerCount = await prisma.admin.count({
       where: {
@@ -401,13 +283,11 @@ export async function toggleUserStatus(userId: string) {
 
   const newStatus = user.status === 'active' ? 'disabled' : 'active';
 
-  // Actualizar estado
   await prisma.admin.update({
     where: { id: userId },
     data: { status: newStatus },
   });
 
-  // Auditoría
   await prisma.auditLog.create({
     data: {
       tenantId: session.user.tenantId,
@@ -431,7 +311,6 @@ export async function revokeInvitation(invitationId: string) {
     return { success: false, error: 'No autenticado' };
   }
 
-  // Verificar permisos
   if (!hasPermission(session.user.role as Role, PERMISSIONS.MANAGE_USERS)) {
     return { success: false, error: 'Sin permisos para gestionar invitaciones' };
   }
@@ -453,7 +332,6 @@ export async function revokeInvitation(invitationId: string) {
     data: { revokedAt: new Date() },
   });
 
-  // Auditoría
   await prisma.auditLog.create({
     data: {
       tenantId: session.user.tenantId,
