@@ -191,22 +191,22 @@ export function TemplateSidebar({
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop (mobile) */}
+          {/* Backdrop (mobile) - Por encima de todo excepto sidebar */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[55] lg:hidden"
           />
           
-          {/* Sidebar - SIN SCROLL EXTERNO */}
+          {/* Sidebar - Por encima de header y todo */}
           <motion.aside
             initial={{ x: -320 }}
             animate={{ x: 0 }}
             exit={{ x: -320 }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed left-0 top-0 h-screen w-80 bg-slate-950/95 backdrop-blur-xl border-r border-white/10 z-50 flex flex-col shadow-2xl overflow-hidden"
+            className="fixed left-0 top-0 h-screen w-80 bg-slate-950/98 backdrop-blur-xl border-r-2 border-teal-500/20 z-[60] flex flex-col shadow-2xl overflow-hidden"
           >
             {/* Header FIJO - SIN SCROLL */}
             <div className="flex-shrink-0 flex items-center justify-between p-3 border-b border-white/10 bg-slate-900/50">
