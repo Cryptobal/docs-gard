@@ -71,7 +71,7 @@ export function Section20Clientes({ data }: Section20ClientesProps) {
             Clientes destacados
           </h3>
           
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-3 md:grid-cols-5 gap-6">
             {data.client_logos.map((logo, index) => (
               <motion.div
                 key={index}
