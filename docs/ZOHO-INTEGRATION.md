@@ -118,37 +118,51 @@ string button.crearDocumento(String quoteId)
             }
         }
         
-        // 7. Procesar productos
+        // 7. Procesar productos - CORREGIDO
         products = List();
-        for each  product in productDetails
+        for each product in productDetails
         {
             productMap = Map();
+            
+            // Nombre del producto (de productData)
             productData = product.get("product");
             if(!productData.isNull())
             {
-                productMap.put("product_name",productData.get("name"));
-                productMap.put("description",productData.get("Description"));
+                productMap.put("product_name", productData.get("name"));
             }
             else
             {
-                productMap.put("product_name","Producto");
-                productMap.put("description","");
+                productMap.put("product_name", "Producto");
             }
-            productMap.put("quantity",product.get("quantity"));
-            productMap.put("unit_price",product.get("list_price"));
-            productMap.put("subtotal",product.get("total"));
+            
+            // ⭐ CORRECCIÓN: Descripción está en product.product_description
+            productDescription = product.get("product_description");
+            if(!productDescription.isNull() && productDescription != "")
+            {
+                productMap.put("description", productDescription);
+            }
+            else
+            {
+                productMap.put("description", "");
+            }
+            
+            // Cantidades y precios
+            productMap.put("quantity", product.get("quantity"));
+            productMap.put("unit_price", product.get("list_price"));
+            productMap.put("subtotal", product.get("total"));
+            
             products.add(productMap);
         }
-        payload.put("product_details",products);
+        payload.put("product_details", products);
         
         // 8. Agregar metadatos
-        payload.put("quote_id",quoteId);
-        payload.put("timestamp",zoho.currenttime.toString("yyyy-MM-dd'T'HH:mm:ss"));
+        payload.put("quote_id", quoteId);
+        payload.put("timestamp", zoho.currenttime.toString("yyyy-MM-dd'T'HH:mm:ss"));
         
         // 9. Configurar headers
         headers = Map();
-        headers.put("Authorization","Bearer 2da045c6e8e4edb4d02b03907c223ed1d8ab401410e20788acaf39b30497ac0d");
-        headers.put("Content-Type","application/json");
+        headers.put("Authorization", "Bearer 2da045c6e8e4edb4d02b03907c223ed1d8ab401410e20788acaf39b30497ac0d");
+        headers.put("Content-Type", "application/json");
         
         // 10. Enviar webhook
         info "📤 Enviando webhook a Gard Docs...";
@@ -191,7 +205,7 @@ string button.crearDocumento(String quoteId)
             // Intentar abrir URL (puede ser bloqueado por navegador)
             try
             {
-                openUrl(previewUrl,"same window");
+                openUrl(previewUrl, "same window");
                 info "✅ openUrl ejecutado (si no abrió, revisa bloqueador de popups)";
             }
             catch (openError)
