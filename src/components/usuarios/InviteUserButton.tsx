@@ -51,18 +51,18 @@ export default function InviteUserButton() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button className="bg-teal-600 hover:bg-teal-500 text-white">
           <Plus className="w-4 h-4 mr-2" />
           Invitar Usuario
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="bg-slate-900 border-slate-700 text-white">
         <DialogHeader>
-          <DialogTitle>Invitar Nuevo Usuario</DialogTitle>
+          <DialogTitle className="text-white">Invitar Nuevo Usuario</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email" className="text-slate-300">Email</Label>
             <Input
               id="email"
               type="email"
@@ -70,39 +70,45 @@ export default function InviteUserButton() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="usuario@ejemplo.com"
               required
+              className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 mt-1.5"
             />
           </div>
 
           <div>
-            <Label htmlFor="role">Rol</Label>
+            <Label htmlFor="role" className="text-slate-300">Rol</Label>
             <Select value={role} onValueChange={(v) => setRole(v as Role)}>
-              <SelectTrigger>
+              <SelectTrigger className="bg-slate-800 border-slate-700 text-white mt-1.5">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ROLES.VIEWER}>Visualizador</SelectItem>
-                <SelectItem value={ROLES.EDITOR}>Editor</SelectItem>
-                <SelectItem value={ROLES.ADMIN}>Administrador</SelectItem>
-                <SelectItem value={ROLES.OWNER}>Propietario</SelectItem>
+              <SelectContent className="bg-slate-800 border-slate-700">
+                <SelectItem value={ROLES.VIEWER} className="text-white hover:bg-slate-700">Visualizador</SelectItem>
+                <SelectItem value={ROLES.EDITOR} className="text-white hover:bg-slate-700">Editor</SelectItem>
+                <SelectItem value={ROLES.ADMIN} className="text-white hover:bg-slate-700">Administrador</SelectItem>
+                <SelectItem value={ROLES.OWNER} className="text-white hover:bg-slate-700">Propietario</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {error && (
-            <div className="text-sm text-red-600 bg-red-50 p-3 rounded">
+            <div className="text-sm text-red-400 bg-red-900/20 border border-red-800 p-3 rounded">
               {error}
             </div>
           )}
 
-          <div className="flex justify-end gap-3">
+          <div className="flex justify-end gap-3 pt-4">
             <Button
               type="button"
               variant="outline"
               onClick={() => setOpen(false)}
+              className="border-slate-700 text-slate-300 hover:bg-slate-800"
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button 
+              type="submit" 
+              disabled={loading}
+              className="bg-teal-600 hover:bg-teal-500 text-white"
+            >
               {loading ? 'Enviando...' : 'Enviar Invitación'}
             </Button>
           </div>

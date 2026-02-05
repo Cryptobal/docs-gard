@@ -29,15 +29,16 @@ export default async function UsuariosPage() {
   const invitations = invitationsResult.success && invitationsResult.invitations ? invitationsResult.invitations : [];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="bg-white border-b">
+    <div className="min-h-screen bg-slate-950">
+      {/* Header */}
+      <div className="bg-slate-900 border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-3xl font-bold text-white">
                 Gestión de Usuarios
               </h1>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-slate-400">
                 Administra los usuarios y permisos de tu equipo
               </p>
             </div>
@@ -46,26 +47,29 @@ export default async function UsuariosPage() {
         </div>
       </div>
 
+      {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">
+        {/* Usuarios activos */}
+        <div className="bg-slate-900 rounded-lg shadow-xl border border-slate-800">
+          <div className="px-6 py-4 border-b border-slate-800">
+            <h2 className="text-lg font-semibold text-white">
               Usuarios Activos
             </h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-slate-400">
               {users.length} {users.length === 1 ? 'usuario' : 'usuarios'}
             </p>
           </div>
-          <UsersTable users={users} currentUserId={session.user.id} />
+          <UsersTable users={users} currentUserId={session.user.id} currentUserRole={session.user.role} />
         </div>
 
+        {/* Invitaciones pendientes */}
         {invitations.length > 0 && (
-          <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">
+          <div className="bg-slate-900 rounded-lg shadow-xl border border-slate-800">
+            <div className="px-6 py-4 border-b border-slate-800">
+              <h2 className="text-lg font-semibold text-white">
                 Invitaciones Pendientes
               </h2>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-slate-400">
                 {invitations.length}{' '}
                 {invitations.length === 1 ? 'invitación' : 'invitaciones'}{' '}
                 esperando aceptación
