@@ -5,6 +5,7 @@
 
 import { signIn } from '@/lib/auth';
 import { redirect } from 'next/navigation';
+import { AuthError } from 'next-auth';
 
 export const metadata = {
   title: 'Iniciar sesión - Gard Docs',
@@ -20,6 +21,25 @@ export default async function LoginPage({
   const callbackUrl = params.callbackUrl || '/inicio';
   const error = params.error;
 
+  async function authenticate(formData: FormData) {
+    'use server';
+    
+    try {
+      await signIn('credentials', {
+        email: String(formData.get('email') ?? ''),
+        password: String(formData.get('password') ?? ''),
+        redirect: false,
+      });
+    } catch (error) {
+      if (error instanceof AuthError) {
+        return redirect('/login?error=CredentialsSignin');
+      }
+      throw error;
+    }
+    
+    redirect(callbackUrl);
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-900 px-4">
       <div className="w-full max-w-sm space-y-8">
@@ -27,17 +47,7 @@ export default async function LoginPage({
           <h1 className="text-2xl font-bold text-white">Gard Docs</h1>
           <p className="text-slate-400 mt-1">Iniciar sesión</p>
         </div>
-        <form
-          action={async (formData: FormData) => {
-            'use server';
-            await signIn('credentials', {
-              email: String(formData.get('email') ?? ''),
-              password: String(formData.get('password') ?? ''),
-              redirectTo: callbackUrl,
-            });
-          }}
-          className="space-y-4"
-        >
+        <form action={authenticate} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-1">
               Email
