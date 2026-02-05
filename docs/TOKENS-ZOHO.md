@@ -25,7 +25,7 @@
 | `[QUOTE_ID]` | "5847392000001234567" | ID interno de Zoho | `quote.id` |
 | `[QUOTE_NUMBER]` | "COT-2026-00342" | Número de cotización | `quote.Quote_Number` |
 | `[QUOTE_SUBJECT]` | "Servicio de Seguridad 24/7" | Asunto/Título | `quote.Subject` |
-| `[QUOTE_DESCRIPTION]` | "Servicio de guardias..." | Descripción detallada | `quote.Descripcion_Al` |
+| `[QUOTE_DESCRIPTION]` | "Servicio de guardias..." | Descripción detallada | `quote.Descripcion_AI` |
 | `[QUOTE_SUBTOTAL]` | "$5.300.000" | Subtotal sin IVA | `quote.Sub_Total` |
 | `[QUOTE_TAX]` | "$1.007.000" | IVA (19%) | `quote.Tax` |
 | `[QUOTE_TOTAL]` | "$6.307.000" | Total con IVA | `quote.Grand_Total` |
