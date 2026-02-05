@@ -45,19 +45,20 @@ async function main() {
 
   console.log('✅ Template "Commercial" created:', commercialTemplate.id);
 
-  // 2. Crear admin user (con tenantId)
+  // 2. Crear admin user (con tenantId y status en lugar de active)
   const hashedPassword = await bcrypt.hash('GardSecurity2026!', 10);
   
   const admin = await prisma.admin.upsert({
     where: { email: 'carlos.irigoyen@gard.cl' },
-    update: { tenantId: tenant.id },
+    update: { tenantId: tenant.id, status: 'active' },
     create: {
       email: 'carlos.irigoyen@gard.cl',
       password: hashedPassword,
       name: 'Carlos Irigoyen',
-      role: 'admin',
-      active: true,
+      role: 'owner',
+      status: 'active',
       tenantId: tenant.id,
+      activatedAt: new Date(),
     },
   });
 
