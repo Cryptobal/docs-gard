@@ -1,8 +1,7 @@
 'use client';
 
 /**
- * Section27Implementacion - Timeline de implementación
- * 4 semanas para go-live
+ * Section27Implementacion - Grid 2x2 compacto
  */
 
 import { Section27_Implementacion } from '@/types/presentation';
@@ -10,6 +9,7 @@ import { SectionWrapper, ContainerWrapper, StaggerContainer, StaggerItem } from 
 import { useThemeClasses } from '../ThemeProvider';
 import { cn } from '@/lib/utils';
 import { Calendar, CheckCircle2, Clock } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface Section27ImplementacionProps {
   data: Section27_Implementacion;
@@ -23,91 +23,86 @@ export function Section27Implementacion({ data }: Section27ImplementacionProps) 
       <ContainerWrapper size="xl">
         {/* Header */}
         <div className="text-center mb-12">
-          <div className={cn('inline-flex items-center justify-center w-16 h-16 rounded-full mb-6', theme.accent, 'bg-opacity-20')}>
-            <Calendar className={cn('w-8 h-8', theme.accent.replace('bg-', 'text-'))} />
-          </div>
+          <Calendar className="w-14 h-14 mx-auto mb-6 text-teal-400" />
           
-          <h2 className={cn('text-3xl md:text-5xl font-bold mb-4', theme.text, theme.headlineWeight)}>
+          <h2 className="text-3xl md:text-5xl font-black mb-4 text-white leading-tight">
             Proceso de implementación
           </h2>
           
-          <p className={cn('text-lg md:text-xl mb-2', theme.textMuted)}>
+          <p className="text-lg md:text-xl text-white/70 mb-4 max-w-2xl mx-auto">
             De la firma del contrato al servicio operativo
           </p>
           
-          <div className={cn('inline-flex items-center gap-2 px-4 py-2 rounded-full', theme.accent, 'text-white')}>
-            <Clock className="w-4 h-4" />
-            <span className="font-semibold">{data.total_duration}</span>
+          <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full glass-card border border-teal-400/30">
+            <Clock className="w-4 h-4 text-teal-400" />
+            <span className="font-bold text-white">{data.total_duration}</span>
           </div>
         </div>
         
-        {/* Timeline */}
-        <StaggerContainer className="max-w-4xl mx-auto space-y-8">
+        {/* Grid 2x2 - MEJOR PARA WEB */}
+        <StaggerContainer className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
           {data.phases.map((phase, index) => (
             <StaggerItem key={index}>
-              <div className={cn('relative p-6 md:p-8 rounded-lg border', theme.border, theme.secondary)}>
-                {/* Week badge */}
-                <div className={cn('absolute -top-4 left-6 px-4 py-1 rounded-full text-sm font-semibold', theme.accent, 'text-white')}>
-                  Semana {phase.week}
+              <motion.div
+                whileHover={{ scale: 1.02, y: -5 }}
+                className="relative glass-card rounded-2xl p-8 border border-white/10 hover:border-teal-400/30 transition-all h-full group"
+              >
+                {/* Badge semana */}
+                <div className="absolute -top-3 -left-3 w-14 h-14 rounded-full bg-gradient-to-br from-teal-500 to-teal-400 flex items-center justify-center text-xl font-black text-white shadow-lg shadow-teal-500/30 group-hover:scale-110 transition-transform">
+                  {phase.week}
                 </div>
                 
-                <div className="grid md:grid-cols-2 gap-6 mt-4">
-                  {/* Left: Title & Description */}
-                  <div>
-                    <h3 className={cn('text-2xl font-bold mb-3', theme.text)}>
-                      {phase.title}
-                    </h3>
-                    <p className={cn('text-base mb-4', theme.textMuted)}>
-                      {phase.description}
-                    </p>
-                    
-                    {/* Client requirements */}
-                    {phase.client_requirements && phase.client_requirements.length > 0 && (
-                      <div className="mt-4">
-                        <h4 className={cn('text-sm font-semibold mb-2', theme.text)}>
-                          Necesitamos de ti:
-                        </h4>
-                        <ul className="space-y-1">
-                          {phase.client_requirements.map((req, i) => (
-                            <li key={i} className={cn('text-sm flex items-start gap-2', theme.textMuted)}>
-                              <span className="mt-1">•</span>
-                              <span>{req}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
+                {/* Contenido */}
+                <div className="pt-6">
+                  <h3 className="text-xl font-black text-white mb-3">
+                    {phase.title}
+                  </h3>
                   
-                  {/* Right: Deliverables */}
-                  <div>
-                    <h4 className={cn('text-sm font-semibold mb-3', theme.text)}>
+                  <p className="text-base text-white/70 mb-4 leading-relaxed">
+                    {phase.description}
+                  </p>
+                  
+                  {/* Entregables */}
+                  <div className="pt-4 border-t border-white/10">
+                    <h4 className="text-xs font-bold text-white/50 uppercase tracking-wider mb-3">
                       Entregables:
                     </h4>
                     <div className="space-y-2">
                       {phase.deliverables.map((deliverable, i) => (
                         <div key={i} className="flex items-start gap-2">
-                          <CheckCircle2 className={cn('w-5 h-5 flex-shrink-0 mt-0.5', theme.accent.replace('bg-', 'text-'))} />
-                          <span className={cn('text-sm', theme.text)}>
-                            {deliverable}
-                          </span>
+                          <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5 text-teal-400" />
+                          <span className="text-sm text-white/80">{deliverable}</span>
                         </div>
                       ))}
                     </div>
                   </div>
+                  
+                  {/* Requisitos del cliente */}
+                  {phase.client_requirements && phase.client_requirements.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-white/10">
+                      <h4 className="text-xs font-bold text-white/50 uppercase tracking-wider mb-2">
+                        Necesitamos de ti:
+                      </h4>
+                      <ul className="space-y-1">
+                        {phase.client_requirements.map((req, i) => (
+                          <li key={i} className="text-xs text-white/60 flex items-start gap-2">
+                            <span>•</span>
+                            <span>{req}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
-              </div>
+              </motion.div>
             </StaggerItem>
           ))}
         </StaggerContainer>
         
-        {/* Bottom CTA */}
-        <div className="mt-12 text-center">
-          <p className={cn('text-lg mb-4', theme.text)}>
-            ¿Necesitas implementación más rápida?
-          </p>
-          <p className={cn('text-sm', theme.textMuted)}>
-            Podemos acelerar el proceso con coordinación intensiva. Consúltanos.
+        {/* Nota */}
+        <div className="mt-12 text-center max-w-3xl mx-auto">
+          <p className="text-base text-white/70">
+            ¿Necesitas implementación más rápida? Podemos acelerar el proceso con coordinación intensiva.
           </p>
         </div>
       </ContainerWrapper>

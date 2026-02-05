@@ -605,6 +605,19 @@ export function getMockPresentationPayload(): PresentationPayload {
             ],
             quote: 'La supervisión activa hizo la diferencia. Ahora sabemos que están trabajando.',
           },
+          {
+            sector: 'Construcción',
+            sites: 4,
+            staffing: '16 guardias + 2 supervisores',
+            duration: '18 meses',
+            metrics: [
+              { value: '71%', label: 'Menos robos material' },
+              { value: '97%', label: 'Cumplimiento rondas' },
+              { value: '100%', label: 'Documentación completa' },
+              { value: '4.5/5', label: 'Satisfacción' },
+            ],
+            quote: 'El control de materiales y acceso mejoró radicalmente nuestra operación.',
+          },
         ],
       },
       

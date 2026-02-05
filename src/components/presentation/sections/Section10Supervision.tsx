@@ -95,9 +95,9 @@ export function Section10Supervision({ data }: Section10SupervisionProps) {
                     {item.time}
                   </div>
                   
-                  {/* Actividad */}
-                  <div className="glass-card p-3 rounded-lg border border-white/10">
-                    <p className="text-xs text-white/80 leading-tight">
+                  {/* Actividad - ALTURA FIJA para simetría */}
+                  <div className="glass-card p-3 rounded-lg border border-white/10 min-h-[60px] flex items-center justify-center">
+                    <p className="text-xs text-white/80 leading-tight text-center">
                       {item.activity}
                     </p>
                   </div>

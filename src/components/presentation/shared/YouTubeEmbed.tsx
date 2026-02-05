@@ -29,7 +29,7 @@ export function YouTubeEmbed({ videoId, title = 'Video', className }: YouTubeEmb
       {/* Video container */}
       <div className="relative aspect-video rounded-2xl overflow-hidden border-2 border-white/10 group-hover:border-teal-400/50 transition-all shadow-2xl">
         <iframe
-          src={`https://www.youtube.com/embed/${videoId}`}
+          src={`https://www.youtube.com/embed/${videoId}?controls=1&modestbranding=1&rel=0&showinfo=0`}
           title={title}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen

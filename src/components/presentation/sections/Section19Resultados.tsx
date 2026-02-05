@@ -75,9 +75,9 @@ export function Section19Resultados({ data }: Section19ResultadosProps) {
           </div>
         </motion.div>
         
-        {/* Case Studies con animación stagger */}
+        {/* Case Studies - Grid 2x2 */}
         <StaggerContainer>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
             {data.case_studies.map((caseStudy, index) => (
               <StaggerItem key={index}>
                 <motion.div
