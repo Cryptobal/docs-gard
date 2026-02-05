@@ -12,6 +12,7 @@ import { formatCurrency, formatUF } from '@/lib/utils';
 import { FileText, Calendar, TrendingUp, Sparkles, CheckCircle2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { DownloadPricingButtonV2 } from '../DownloadPricingButtonV2';
+import { ZohoToken } from '../ZohoToken';
 
 interface Section23PropuestaEconomicaProps {
   data: Section23_PropuestaEconomica;
@@ -116,12 +117,8 @@ export function Section23PropuestaEconomica({
                     <td className="px-6 py-5">
                       {/* Nombre del producto */}
                       {showTokens ? (
-                        <div className="font-bold text-white text-base mb-2">
-                          {item.description.includes('Guardias') 
-                            ? '[ITEM_NAME_1]' 
-                            : item.description.includes('Supervisor')
-                            ? '[ITEM_NAME_2]'
-                            : '[ITEM_NAME_N]'}
+                        <div className="mb-2">
+                          <ZohoToken token={`product_details[${index}].product_name`} />
                         </div>
                       ) : item.name ? (
                         <div className="font-bold text-white text-base mb-2">{item.name}</div>
@@ -129,13 +126,11 @@ export function Section23PropuestaEconomica({
                       
                       {/* Descripción detallada */}
                       <div className="font-normal text-white/80 text-sm leading-relaxed">
-                        {showTokens && item.description.includes('Guardias') 
-                          ? '[ITEM_DESCRIPTION_1]' 
-                          : showTokens && item.description.includes('Supervisor')
-                          ? '[ITEM_DESCRIPTION_2]'
-                          : showTokens
-                          ? '[ITEM_DESCRIPTION_N]'
-                          : item.description}
+                        {showTokens ? (
+                          <ZohoToken token={`product_details[${index}].description`} />
+                        ) : (
+                          item.description
+                        )}
                       </div>
                       
                       {/* Notas adicionales */}
@@ -143,17 +138,31 @@ export function Section23PropuestaEconomica({
                         <div className="text-xs mt-1 text-white/50">{item.notes}</div>
                       )}
                       {showTokens && (
-                        <div className="text-xs mt-1 text-amber-400/70">[ITEM_NOTES]</div>
+                        <div className="mt-2">
+                          <ZohoToken token={`product_details[${index}].notes`} />
+                        </div>
                       )}
                     </td>
                     <td className="px-4 py-5 text-center text-white/80 font-medium text-sm">
-                      {showTokens ? '[CANT]' : item.quantity}
+                      {showTokens ? (
+                        <ZohoToken token={`product_details[${index}].quantity`} inline />
+                      ) : (
+                        item.quantity
+                      )}
                     </td>
                     <td className="px-4 py-5 text-right text-white/70 font-medium text-sm">
-                      {showTokens ? '[P_UNIT]' : formatPrice(item.unit_price)}
+                      {showTokens ? (
+                        <ZohoToken token={`product_details[${index}].unit_price`} inline />
+                      ) : (
+                        formatPrice(item.unit_price)
+                      )}
                     </td>
                     <td className="px-6 py-5 text-right font-bold text-white text-base">
-                      {showTokens ? '[SUBTOTAL]' : formatPrice(item.subtotal)}
+                      {showTokens ? (
+                        <ZohoToken token={`product_details[${index}].subtotal`} inline />
+                      ) : (
+                        formatPrice(item.subtotal)
+                      )}
                     </td>
                   </motion.tr>
                 ))}
@@ -165,7 +174,11 @@ export function Section23PropuestaEconomica({
                   </td>
                   <td className="px-6 py-8 text-right">
                     <div className="text-4xl font-black bg-gradient-to-br from-teal-400 to-blue-400 bg-clip-text text-transparent leading-tight">
-                      {showTokens ? '[QUOTE_SUBTOTAL]' : formatPrice(pricing.subtotal)}
+                      {showTokens ? (
+                        <ZohoToken token="quote.Sub_Total" inline />
+                      ) : (
+                        formatPrice(pricing.subtotal)
+                      )}
                     </div>
                     <div className="text-xs text-white/50 mt-2">
                       Valores netos. IVA se factura según ley.
@@ -190,8 +203,8 @@ export function Section23PropuestaEconomica({
             >
               {/* Nombre del producto */}
               {showTokens ? (
-                <div className="font-bold text-white text-base mb-2">
-                  {`[ITEM_NAME_${index + 1}]`}
+                <div className="mb-2">
+                  <ZohoToken token={`product_details[${index}].product_name`} />
                 </div>
               ) : item.name ? (
                 <div className="font-bold text-white text-base mb-2">{item.name}</div>
@@ -199,24 +212,40 @@ export function Section23PropuestaEconomica({
               
               {/* Descripción */}
               <div className="font-normal text-white/80 text-sm mb-3">
-                {showTokens ? `[ITEM_${index + 1}_DESC]` : item.description}
+                {showTokens ? (
+                  <ZohoToken token={`product_details[${index}].description`} />
+                ) : (
+                  item.description
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <span className="text-white/50">Cantidad:</span>
                   <span className="ml-2 font-semibold text-white">
-                    {showTokens ? '[CANT]' : item.quantity}
+                    {showTokens ? (
+                      <ZohoToken token={`product_details[${index}].quantity`} inline />
+                    ) : (
+                      item.quantity
+                    )}
                   </span>
                 </div>
                 <div>
                   <span className="text-white/50">P. Unit:</span>
                   <span className="ml-2 font-semibold text-white">
-                    {showTokens ? '[P_UNIT]' : formatPrice(item.unit_price)}
+                    {showTokens ? (
+                      <ZohoToken token={`product_details[${index}].unit_price`} inline />
+                    ) : (
+                      formatPrice(item.unit_price)
+                    )}
                   </span>
                 </div>
               </div>
               <div className="mt-3 pt-3 border-t border-white/10 text-right text-xl font-bold text-teal-400">
-                {showTokens ? '[SUBTOTAL]' : formatPrice(item.subtotal)}
+                {showTokens ? (
+                  <ZohoToken token={`product_details[${index}].subtotal`} inline />
+                ) : (
+                  formatPrice(item.subtotal)
+                )}
               </div>
             </motion.div>
           ))}
@@ -227,7 +256,11 @@ export function Section23PropuestaEconomica({
               <div className="flex justify-between items-center mb-2">
                 <span className="text-xl font-black text-white">TOTAL NETO MENSUAL</span>
                 <span className="text-3xl font-black bg-gradient-to-br from-teal-400 to-blue-400 bg-clip-text text-transparent">
-                  {showTokens ? '[SUBTOTAL]' : formatPrice(pricing.subtotal)}
+                  {showTokens ? (
+                    <ZohoToken token="quote.Sub_Total" inline />
+                  ) : (
+                    formatPrice(pricing.subtotal)
+                  )}
                 </span>
               </div>
               <p className="text-xs text-white/50">Valores netos. IVA se factura según ley.</p>
@@ -247,12 +280,16 @@ export function Section23PropuestaEconomica({
               <FileText className="w-10 h-10 mb-4 text-teal-400 group-hover:scale-110 transition-transform" />
               <h4 className="font-bold text-white mb-2">Forma de Pago</h4>
               <p className="text-sm text-white/70">
-                {showTokens ? '[PAYMENT_TERMS]' : pricing.payment_terms}
+                {showTokens ? (
+                  <ZohoToken token="template.payment_terms" inline />
+                ) : (
+                  pricing.payment_terms
+                )}
               </p>
             </motion.div>
           )}
           
-          {pricing.billing_frequency && (
+          {(pricing.billing_frequency || showTokens) && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -263,12 +300,16 @@ export function Section23PropuestaEconomica({
               <Calendar className="w-10 h-10 mb-4 text-teal-400 group-hover:scale-110 transition-transform" />
               <h4 className="font-bold text-white mb-2">Frecuencia</h4>
               <p className="text-sm text-white/70">
-                {showTokens ? '[BILLING_FREQ]' : `Facturación ${pricing.billing_frequency === 'monthly' ? 'mensual' : pricing.billing_frequency === 'quarterly' ? 'trimestral' : 'anual'}`}
+                {showTokens ? (
+                  <ZohoToken token="template.billing_frequency" inline />
+                ) : (
+                  `Facturación ${pricing.billing_frequency === 'monthly' ? 'mensual' : pricing.billing_frequency === 'quarterly' ? 'trimestral' : 'anual'}`
+                )}
               </p>
             </motion.div>
           )}
           
-          {pricing.adjustment_terms && (
+          {(pricing.adjustment_terms || showTokens) && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -279,7 +320,11 @@ export function Section23PropuestaEconomica({
               <TrendingUp className="w-10 h-10 mb-4 text-teal-400 group-hover:scale-110 transition-transform" />
               <h4 className="font-bold text-white mb-2">Reajuste</h4>
               <p className="text-sm text-white/70">
-                {showTokens ? '[ADJUSTMENT]' : pricing.adjustment_terms}
+                {showTokens ? (
+                  <ZohoToken token="template.adjustment_terms" inline />
+                ) : (
+                  pricing.adjustment_terms
+                )}
               </p>
             </motion.div>
           )}

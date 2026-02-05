@@ -7,6 +7,7 @@
 import { CTALinks } from '@/types';
 import Image from 'next/image';
 import { Calendar, MessageCircle, Sparkles } from 'lucide-react';
+import { ZohoToken } from '@/components/presentation/ZohoToken';
 
 interface PresentationHeaderProps {
   logo?: string;
@@ -43,26 +44,44 @@ export function PresentationHeader({
               <div className="flex items-center gap-2">
                 <Sparkles className="w-3.5 h-3.5 text-teal-400" />
                 <span className="text-white/60">Propuesta para</span>
-                <span className="font-bold text-white">{companyName}</span>
+                {showTokens ? (
+                  <ZohoToken token="account.Account_Name" inline />
+                ) : (
+                  <span className="font-bold text-white">{companyName}</span>
+                )}
               </div>
               
               {/* Centro: Nombre de la propuesta (Subject) */}
-              {quoteName && quoteName !== 'la cotización' && (
+              {(quoteName && quoteName !== 'la cotización') || showTokens ? (
                 <div className="hidden lg:flex items-center gap-2 px-4 py-1.5 rounded-full bg-teal-500/10 border border-teal-400/30">
-                  <span className="font-bold text-teal-400">{quoteName}</span>
+                  {showTokens ? (
+                    <ZohoToken token="quote.Subject" inline />
+                  ) : (
+                    <span className="font-bold text-teal-400">{quoteName}</span>
+                  )}
                 </div>
-              )}
+              ) : null}
               
               {/* Lado derecho: Número + Preparado para */}
               <div className="flex items-center gap-3 text-white/70">
-                {quoteNumber && (
-                  <span>
-                    <span className="text-white/50">N°</span> <span className="font-semibold text-teal-400">{quoteNumber}</span>
+                {(quoteNumber || showTokens) && (
+                  <span className="flex items-center gap-1">
+                    <span className="text-white/50">N°</span> 
+                    {showTokens ? (
+                      <ZohoToken token="quote.Quote_Number" inline />
+                    ) : (
+                      <span className="font-semibold text-teal-400">{quoteNumber}</span>
+                    )}
                   </span>
                 )}
                 <span className="hidden sm:inline text-white/30">•</span>
-                <span className="hidden sm:inline">
-                  Preparado para <span className="font-semibold text-white">{contactName}</span>
+                <span className="hidden sm:inline flex items-center gap-1">
+                  Preparado para{' '}
+                  {showTokens ? (
+                    <ZohoToken token="contact.Full_Name" inline />
+                  ) : (
+                    <span className="font-semibold text-white">{contactName}</span>
+                  )}
                 </span>
               </div>
             </div>
