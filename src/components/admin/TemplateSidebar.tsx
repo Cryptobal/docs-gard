@@ -16,7 +16,6 @@ import {
   Link as LinkIcon,
   X
 } from 'lucide-react';
-import { ThemeVariant } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Section {
@@ -108,8 +107,6 @@ const SECTION_GROUPS: SectionGroup[] = [
 interface TemplateSidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  currentTheme: ThemeVariant;
-  onThemeChange: (theme: ThemeVariant) => void;
   showTokens: boolean;
   onToggleTokens: () => void;
 }
@@ -117,8 +114,6 @@ interface TemplateSidebarProps {
 export function TemplateSidebar({
   isOpen,
   onClose,
-  currentTheme,
-  onThemeChange,
   showTokens,
   onToggleTokens,
 }: TemplateSidebarProps) {
@@ -228,57 +223,29 @@ export function TemplateSidebar({
               </button>
             </div>
             
-            {/* Controls FIJOS - COMPACTO */}
-            <div className="flex-shrink-0 p-2.5 space-y-2 border-b border-white/10 bg-slate-900/30">
+            {/* Controls FIJOS - SOLO TOGGLE TOKENS */}
+            <div className="flex-shrink-0 p-3 border-b border-white/10 bg-slate-900/30">
               {/* Toggle tokens */}
               <button
                 onClick={onToggleTokens}
                 className={cn(
-                  'w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all text-[11px] font-bold',
+                  'w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all text-sm font-bold',
                   showTokens 
-                    ? 'bg-amber-500/20 border border-amber-400/40 text-amber-300' 
-                    : 'bg-teal-500/20 border border-teal-400/40 text-teal-300'
+                    ? 'bg-amber-500/20 border-2 border-amber-400/50 text-amber-300 shadow-lg shadow-amber-500/20' 
+                    : 'bg-teal-500/20 border-2 border-teal-400/50 text-teal-300 shadow-lg shadow-teal-500/20'
                 )}
               >
-                <span>{showTokens ? '🔤 Tokens' : '📝 Datos'}</span>
+                <span>{showTokens ? '🔤 Ver Tokens' : '📝 Ver Datos'}</span>
                 <div className={cn(
-                  'w-9 h-5 rounded-full transition-all relative shadow-inner',
+                  'w-11 h-6 rounded-full transition-all relative shadow-inner',
                   showTokens ? 'bg-amber-500' : 'bg-teal-500'
                 )}>
                   <div className={cn(
-                    'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-md transition-all',
-                    showTokens ? 'left-0.5' : 'left-[18px]'
+                    'absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-all',
+                    showTokens ? 'left-0.5' : 'left-[22px]'
                   )} />
                 </div>
               </button>
-              
-              {/* Theme selector */}
-              <div>
-                <label className="text-[9px] font-bold text-white/50 uppercase tracking-wider mb-1.5 block px-1">
-                  Theme Variant
-                </label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {(['executive', 'ops', 'trust'] as ThemeVariant[]).map((theme) => (
-                    <button
-                      key={theme}
-                      onClick={() => {
-                        console.log('Theme clicked:', theme);
-                        onThemeChange(theme);
-                      }}
-                      className={cn(
-                        'px-2 py-2 rounded-lg text-[10px] font-black uppercase transition-all',
-                        currentTheme === theme
-                          ? 'bg-gradient-to-br from-teal-500 to-teal-400 text-white shadow-lg scale-105'
-                          : 'bg-white/5 text-white/50 hover:bg-white/10 hover:text-white/80 hover:scale-105'
-                      )}
-                    >
-                      {theme === 'executive' && 'Exec'}
-                      {theme === 'ops' && 'Ops'}
-                      {theme === 'trust' && 'Trust'}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
             
             {/* Navigation - SOLO ESTA PARTE TIENE SCROLL INTERNO */}

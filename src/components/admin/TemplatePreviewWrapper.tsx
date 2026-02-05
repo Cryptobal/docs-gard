@@ -24,17 +24,16 @@ export function TemplatePreviewWrapper({
   showTokensByDefault = false,
 }: TemplatePreviewWrapperProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [currentTheme, setCurrentTheme] = useState<ThemeVariant>(initialTheme);
   const [showTokens, setShowTokens] = useState(showTokensByDefault);
   
-  // Crear payload con theme actualizado
+  // Payload con theme fijo (executive)
   const displayPayload: PresentationPayload = {
     ...initialPayload,
-    theme: currentTheme,
+    theme: initialTheme,
   };
   
-  // Key para forzar re-render
-  const renderKey = `${currentTheme}-${showTokens}`;
+  // Key solo basado en showTokens
+  const renderKey = `render-${showTokens}`;
   
   return (
     <>
@@ -42,12 +41,6 @@ export function TemplatePreviewWrapper({
       <TemplateSidebar
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
-        currentTheme={currentTheme}
-        onThemeChange={(newTheme) => {
-          console.log('Changing theme to:', newTheme);
-          setCurrentTheme(newTheme);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
         showTokens={showTokens}
         onToggleTokens={() => setShowTokens(!showTokens)}
       />
@@ -58,7 +51,7 @@ export function TemplatePreviewWrapper({
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
       />
       
-      {/* Presentación - key para forzar re-render */}
+      {/* Presentación */}
       <PresentationRenderer 
         key={renderKey} 
         payload={displayPayload}
