@@ -101,8 +101,10 @@ export async function simulatePayslip(
   // 13. DESCUENTOS ADICIONALES
   const additional_deductions_obj = input.additional_deductions || {};
   const additional_deductions_total =
+    (additional_deductions_obj.pension_alimenticia || 0) +
     (additional_deductions_obj.loan || 0) +
     (additional_deductions_obj.advance || 0) +
+    (additional_deductions_obj.caja_loan || 0) +
     (additional_deductions_obj.other || 0);
 
   // 14. TOTAL DESCUENTOS
@@ -127,8 +129,10 @@ export async function simulatePayslip(
   const afc_employer_total = afc_employer_cic + afc_employer_fcs;
 
   // Mutual (usar base_rate si existe, sino employer_rate_default)
-  const work_injury_rate = params.work_injury.base_rate || params.work_injury.employer_rate_default || 0.0093;
-  const work_injury_amount = base_pension * work_injury_rate;
+  const work_injury_base_rate = params.work_injury.base_rate || 0.0093;
+  const work_injury_additional_rate = params.work_injury.additional_rate_default || 0;
+  const work_injury_total_rate = work_injury_base_rate + work_injury_additional_rate;
+  const work_injury_amount = base_pension * work_injury_total_rate;
 
   const employer_cost_total =
     total_taxable +
@@ -176,29 +180,49 @@ export async function simulatePayslip(
   // 19. Return result
   return {
     simulation_id,
-    total_taxable_income: Math.round(total_taxable * 100) / 100,
-    total_non_taxable_income: Math.round(total_non_taxable * 100) / 100,
-    gross_salary: Math.round(gross_salary * 100) / 100,
+
+    haberes: {
+      base_salary: Math.round(proportional_base * 100) / 100,
+      gratification: 0, // TODO: Implementar gratificación
+      overtime_50: Math.round(overtime_50 * 100) / 100,
+      overtime_100: Math.round(overtime_100 * 100) / 100,
+      commissions: 0, // TODO: Implementar comisiones
+      other_taxable: Math.round((input.other_taxable_allowances || 0) * 100) / 100,
+      total_taxable: Math.round(total_taxable * 100) / 100,
+      
+      transport: Math.round((non_taxable.transport || 0) * 100) / 100,
+      meal: Math.round((non_taxable.meal || 0) * 100) / 100,
+      family_allowance: Math.round((non_taxable.family || 0) * 100) / 100,
+      maternal_allowance: Math.round((non_taxable.maternal || 0) * 100) / 100,
+      other_non_taxable: Math.round((non_taxable.other || 0) * 100) / 100,
+      total_non_taxable: Math.round(total_non_taxable * 100) / 100,
+      
+      gross_salary: Math.round(gross_salary * 100) / 100,
+    },
 
     deductions: {
       afp: {
         base_rate: afp_base_rate,
         commission_rate: afp_commission,
         total_rate: afp_total_rate,
-        base: Math.round(base_pension * 100) / 100,
+        base_imponible: Math.round(base_pension * 100) / 100,
         amount: Math.round(afp_amount * 100) / 100,
       },
       health: {
         rate: health_rate,
-        base: Math.round(base_pension * 100) / 100,
+        base_imponible: Math.round(base_pension * 100) / 100,
         amount: Math.round(health_amount * 100) / 100,
       },
       afc: {
         worker_cic_rate: afc_worker_config.cic_rate,
         worker_fcs_rate: afc_worker_config.fcs_rate,
         total_rate: afc_worker_config.total_rate,
-        base: Math.round(base_afc * 100) / 100,
+        base_imponible: Math.round(base_afc * 100) / 100,
         amount: Math.round(afc_worker_amount * 100) / 100,
+      },
+      apv: {
+        amount: Math.round((additional_deductions_obj.apv || 0) * 100) / 100,
+        rebate_tax: true,
       },
       tax: {
         base_clp: Math.round(taxable_base_clp * 100) / 100,
@@ -210,7 +234,15 @@ export async function simulatePayslip(
       total_legal: Math.round(total_legal_deductions * 100) / 100,
     },
 
-    additional_deductions: Math.round(additional_deductions_total * 100) / 100,
+    voluntary_deductions: {
+      pension_alimenticia: Math.round((additional_deductions_obj.pension_alimenticia || 0) * 100) / 100,
+      loan: Math.round((additional_deductions_obj.loan || 0) * 100) / 100,
+      advance: Math.round((additional_deductions_obj.advance || 0) * 100) / 100,
+      caja_loan: Math.round((additional_deductions_obj.caja_loan || 0) * 100) / 100,
+      other: Math.round((additional_deductions_obj.other || 0) * 100) / 100,
+      total: Math.round(additional_deductions_total * 100) / 100,
+    },
+
     total_deductions: Math.round(total_deductions * 100) / 100,
     net_salary: Math.round(net_salary * 100) / 100,
 
@@ -230,7 +262,9 @@ export async function simulatePayslip(
         total_amount: Math.round(afc_employer_total * 100) / 100,
       },
       work_injury: {
-        rate: work_injury_rate,
+        base_rate: work_injury_base_rate,
+        additional_rate: work_injury_additional_rate,
+        total_rate: work_injury_total_rate,
         base: Math.round(base_pension * 100) / 100,
         amount: Math.round(work_injury_amount * 100) / 100,
       },

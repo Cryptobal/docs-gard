@@ -59,8 +59,8 @@ export async function computeEmployerCost(
   // 6. Gratificación
   let gratification = 0;
   if (includeGratification) {
-    const monthly_gratification = base_salary * params.gratification.monthly_rate;
-    const annual_cap = references.imm_clp * params.gratification.annual_cap_imm_multiple;
+    const monthly_gratification = base_salary * params.gratification.regime_25_monthly.monthly_rate;
+    const annual_cap = references.imm_clp * params.gratification.regime_25_monthly.annual_cap_imm_multiple;
     const monthly_cap = annual_cap / 12;
     gratification = Math.min(monthly_gratification, monthly_cap);
   }
@@ -80,22 +80,27 @@ export async function computeEmployerCost(
   const sis_employer = imponible_base * params.sis.employer_rate;
 
   // 9. Mutual/Accidentes del Trabajo
-  let work_injury_rate: number;
+  let work_injury_base_rate: number;
+  let work_injury_additional_rate: number;
+  let work_injury_total_rate: number;
 
   if (input.assumptions?.work_injury_override?.total_rate) {
-    work_injury_rate = input.assumptions.work_injury_override.total_rate;
+    work_injury_total_rate = input.assumptions.work_injury_override.total_rate;
+    work_injury_base_rate = params.work_injury.base_rate;
+    work_injury_additional_rate = work_injury_total_rate - work_injury_base_rate;
   } else if (input.assumptions?.work_injury_override) {
     const override = input.assumptions.work_injury_override;
-    work_injury_rate =
-      (override.basic_rate || 0) +
-      (override.additional_rate || 0) +
-      (override.extra_rate || 0);
+    work_injury_base_rate = override.basic_rate || params.work_injury.base_rate;
+    work_injury_additional_rate = (override.additional_rate || 0) + (override.extra_rate || 0);
+    work_injury_total_rate = work_injury_base_rate + work_injury_additional_rate;
   } else {
     // Usar base_rate (0.93%) si existe, sino risk_levels
-    work_injury_rate = params.work_injury.base_rate || params.work_injury.risk_levels?.[work_injury_risk] || 0.0093;
+    work_injury_total_rate = params.work_injury.base_rate || params.work_injury.risk_levels?.[work_injury_risk] || 0.0093;
+    work_injury_base_rate = params.work_injury.base_rate;
+    work_injury_additional_rate = work_injury_total_rate - work_injury_base_rate;
   }
 
-  const work_injury_employer = imponible_base * work_injury_rate;
+  const work_injury_employer = imponible_base * work_injury_total_rate;
 
   // 10. Costo directo
   const direct_cost =
@@ -144,13 +149,28 @@ export async function computeEmployerCost(
     breakdown: {
       base_salary: Math.round(base_salary * 100) / 100,
       gratification: Math.round(gratification * 100) / 100,
+      overtime: 0, // TODO: Implementar horas extras
+      total_taxable_income: Math.round((base_salary + gratification) * 100) / 100,
+      
+      // Haberes no imponibles
+      transport_allowance: 0, // TODO: Implementar desde input
+      meal_allowance: 0, // TODO: Implementar desde input
+      family_allowance: 0, // TODO: Implementar asignación familiar
+      total_non_taxable_income: 0,
+      
+      // Aportes empleador
       sis_employer: Math.round(sis_employer * 100) / 100,
       afc_employer: {
         cic: Math.round(afc_employer_cic * 100) / 100,
         fcs: Math.round(afc_employer_fcs * 100) / 100,
         total: Math.round(afc_employer_total * 100) / 100,
       },
-      work_injury_employer: Math.round(work_injury_employer * 100) / 100,
+      work_injury_employer: {
+        base_rate: Math.round(work_injury_base_rate * 10000) / 10000,
+        additional_rate: Math.round(work_injury_additional_rate * 10000) / 10000,
+        total_rate: Math.round(work_injury_total_rate * 10000) / 10000,
+        amount: Math.round(work_injury_employer * 100) / 100,
+      },
       vacation_provision: Math.round(vacation_provision * 100) / 100,
       severance_provision: Math.round(severance_provision * 100) / 100,
       subtotal_direct_cost: Math.round(direct_cost * 100) / 100,

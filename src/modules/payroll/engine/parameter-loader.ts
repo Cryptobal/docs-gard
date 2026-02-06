@@ -25,7 +25,7 @@ export async function loadActiveParameters(): Promise<{
 
   return {
     id: activeVersion.id,
-    data: activeVersion.data as PayrollParameters,
+    data: activeVersion.data as unknown as PayrollParameters,
     effectiveFrom: activeVersion.effectiveFrom,
     effectiveUntil: activeVersion.effectiveUntil,
   };
@@ -50,7 +50,7 @@ export async function loadParametersById(versionId: string): Promise<{
 
   return {
     id: version.id,
-    data: version.data as PayrollParameters,
+    data: version.data as unknown as PayrollParameters,
     effectiveFrom: version.effectiveFrom,
     effectiveUntil: version.effectiveUntil,
   };
@@ -82,7 +82,7 @@ export async function loadParametersByDate(date: Date): Promise<{
 
   return {
     id: version.id,
-    data: version.data as PayrollParameters,
+    data: version.data as unknown as PayrollParameters,
     effectiveFrom: version.effectiveFrom,
     effectiveUntil: version.effectiveUntil,
   };
