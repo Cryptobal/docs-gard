@@ -7,8 +7,7 @@
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "prisma generate && npx playwright install chromium",
-    "setup:playwright": "npx playwright install chromium --with-deps"
+    "postinstall": "prisma generate"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
@@ -22,8 +21,8 @@
     "@react-email/components": "^1.0.7",
     "@react-email/render": "^2.0.4",
     "@react-pdf/renderer": "^4.3.2",
+    "@sparticuz/chromium": "^143.0.4",
     "bcryptjs": "^3.0.3",
-    "chromium": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
@@ -32,7 +31,7 @@
     "nanoid": "^5.1.6",
     "next": "^15.0.3",
     "next-auth": "^5.0.0-beta.30",
-    "playwright": "^1.58.1",
+    "playwright-core": "^1.58.2",
     "react": "^18.3.1",
     "react-countup": "^6.5.3",
     "react-dom": "^18.3.1",

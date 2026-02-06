@@ -2,13 +2,12 @@
  * API Route para generar PDF de propuesta económica usando Playwright
  * Genera PDFs idénticos al template HTML
  * 
- * PRODUCCIÓN: Requiere chromium instalado
- * - Vercel: Usa playwright con chromium
- * - Local: npx playwright install chromium
+ * PRODUCCIÓN: Usa @sparticuz/chromium optimizado para Vercel
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { chromium } from 'playwright';
+import { chromium } from 'playwright-core';
+import chromiumPkg from '@sparticuz/chromium';
 import { PricingData } from '@/types/presentation';
 
 export const dynamic = 'force-dynamic';
@@ -349,16 +348,20 @@ export async function POST(request: NextRequest) {
     // Generar HTML
     const html = generatePricingHTML(body);
     
+    // Configuración para Vercel
+    const isDev = process.env.NODE_ENV === 'development';
+    const executablePath = isDev 
+      ? undefined // En desarrollo usa el chromium local de playwright
+      : await chromiumPkg.executablePath();
+    
     // Lanzar Playwright con configuración para Vercel
     browser = await chromium.launch({
+      executablePath,
       headless: true,
-      args: [
+      args: isDev ? [
         '--no-sandbox',
         '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--disable-gpu'
-      ]
+      ] : chromiumPkg.args,
     });
     
     const context = await browser.newContext();
