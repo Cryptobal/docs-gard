@@ -15,6 +15,7 @@ import {
   Users, 
   LogOut, 
   Bell,
+  UserCircle,
 } from 'lucide-react';
 import { Presentation, PresentationView } from '@prisma/client';
 
@@ -102,6 +103,20 @@ export function AppNavigation({ userRole, presentations = [] }: AppNavigationPro
                 </span>
               )}
             </button>
+
+            {/* Perfil */}
+            <Link
+              href="/opai/perfil"
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                pathname === '/opai/perfil'
+                  ? 'bg-white/10 text-white'
+                  : 'text-white/60 hover:text-white hover:bg-white/5'
+              }`}
+              title="Mi perfil"
+            >
+              <UserCircle className="w-4 h-4" />
+              <span className="hidden sm:inline">Perfil</span>
+            </Link>
 
             {/* Salir */}
             <Link

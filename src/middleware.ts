@@ -30,6 +30,7 @@ function isPublicPath(pathname: string): boolean {
 
   // Páginas públicas
   if (pathname === '/' || pathname === '/opai' || pathname === '/opai/login' || pathname.startsWith('/activate')) return true;
+  if (pathname === '/opai/forgot-password' || pathname === '/opai/reset-password') return true;
 
   // Assets y estáticos
   if (pathname.startsWith('/_next') || pathname.startsWith('/favicon') || pathname.startsWith('/images') || pathname.startsWith('/logos')) return true;

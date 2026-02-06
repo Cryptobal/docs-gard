@@ -49,7 +49,7 @@ function ActivateForm() {
     if (result.success) {
       setSuccess(true);
       setTimeout(() => {
-        router.push('/login');
+        router.push('/opai/login?success=account-activated');
       }, 2000);
     } else {
       setError(result.error || 'Error al activar la cuenta');
