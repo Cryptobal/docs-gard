@@ -25,7 +25,7 @@ string button.crearDocumento(String quoteId)
         info "📋 Quote ID: " + quoteId;
         
         // 1. Obtener datos de la cotización
-        quoteInfo = zoho.crm.getRecordById("Quotes",quoteId);
+        quoteInfo = zoho.crm.getRecordById("Quotes", quoteId.toLong());
         if(quoteInfo.isNull())
         {
             info "❌ Error: No se pudo obtener la cotización";
