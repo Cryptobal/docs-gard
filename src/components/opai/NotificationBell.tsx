@@ -102,7 +102,7 @@ export function NotificationBell({ presentations }: NotificationBellProps) {
             </div>
           </div>
         ) : (
-          <div className="p-8 text-center">
+          <div className="p-8 text-center bg-muted/20">
             <Bell className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
             <p className="text-sm text-muted-foreground">
               No hay notificaciones pendientes

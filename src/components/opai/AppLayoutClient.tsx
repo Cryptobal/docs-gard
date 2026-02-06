@@ -8,6 +8,7 @@ import {
   LogOut,
   Building2,
   Grid3x3,
+  LayoutTemplate,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
 
@@ -30,6 +31,12 @@ export function AppLayoutClient({
       href: '/opai/inicio', 
       label: 'Documentos', 
       icon: FileText,
+      show: true 
+    },
+    { 
+      href: '/opai/templates', 
+      label: 'Templates', 
+      icon: LayoutTemplate,
       show: true 
     },
     { 

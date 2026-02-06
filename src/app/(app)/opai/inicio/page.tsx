@@ -14,15 +14,11 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getDefaultTenantId } from '@/lib/tenant';
-import { PageHeader, KpiCard, TemplatesDropdown, NotificationBell } from '@/components/opai';
-import { PresentationsList } from '@/components/admin/PresentationsList';
-import { 
-  FileText, 
-  Send, 
-  Eye, 
-  Mail,
-  TrendingUp,
-} from 'lucide-react';
+import { PageHeader, TemplatesDropdown, NotificationBell, ReloadButton } from '@/components/opai';
+import { DocumentosContent } from '@/components/opai/DocumentosContent';
+import { Button } from '@/components/ui/button';
+import { Plus } from 'lucide-react';
+import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -71,12 +67,19 @@ export default async function DashboardPage() {
 
   return (
     <>
-      {/* Page Header con Templates y Notificaciones en la misma línea */}
+      {/* Page Header con acciones */}
       <PageHeader
         title="Documentos Comerciales"
         description="Gestiona y monitorea tus presentaciones comerciales enviadas"
         actions={
           <>
+            <Link href="/opai/templates">
+              <Button variant="default" size="sm" className="gap-2">
+                <Plus className="h-4 w-4" />
+                Nueva Presentación
+              </Button>
+            </Link>
+            <ReloadButton />
             <TemplatesDropdown />
             <NotificationBell presentations={presentationsForBell} />
           </>
@@ -84,46 +87,11 @@ export default async function DashboardPage() {
         className="mb-4"
       />
 
-      {/* KPI Cards - OPAI Design System (sin description para altura uniforme) */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5 mb-6">
-        <KpiCard
-          title="Total"
-          value={stats.total}
-          icon={<FileText className="h-4 w-4" />}
-        />
-        <KpiCard
-          title="Enviadas"
-          value={stats.sent}
-          icon={<Send className="h-4 w-4" />}
-          trend={stats.sent > 0 ? 'up' : 'neutral'}
-        />
-        <KpiCard
-          title="Vistas"
-          value={stats.viewed}
-          icon={<Eye className="h-4 w-4" />}
-          trend={stats.viewed > 0 ? 'up' : 'neutral'}
-          trendValue={`${stats.totalViews} total`}
-        />
-        <KpiCard
-          title="Sin Leer"
-          value={stats.pending}
-          icon={<Mail className="h-4 w-4" />}
-          trend={stats.pending > 0 ? 'down' : 'up'}
-          trendValue={`${stats.sent > 0 ? ((stats.pending / stats.sent) * 100).toFixed(0) : 0}%`}
-        />
-        <KpiCard
-          title="Conversión"
-          value={`${conversionRate.toFixed(1)}%`}
-          icon={<TrendingUp className="h-4 w-4" />}
-          trend={conversionRate > 50 ? 'up' : conversionRate > 25 ? 'neutral' : 'down'}
-          trendValue="Vista/Env"
-        />
-      </div>
-
-      {/* Presentations List */}
-      <PresentationsList 
+      {/* Content con KPIs clickeables */}
+      <DocumentosContent
         presentations={presentations}
-        initialFilter="all"
+        stats={stats}
+        conversionRate={conversionRate}
       />
     </>
   );

@@ -34,3 +34,7 @@ export type { LoadingStateProps, LoadingStateType } from './LoadingState';
 export { TemplatesDropdown } from './TemplatesDropdown';
 export { NotificationBell } from './NotificationBell';
 export { DocumentosTopbar } from './DocumentosTopbar';
+export { ReloadButton } from './ReloadButton';
+
+// Page Components
+export { DocumentosContent } from './DocumentosContent';
