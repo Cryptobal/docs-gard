@@ -87,7 +87,6 @@ function generatePricingHTML(data: PricingRequest): string {
     
     .page {
       width: 210mm;
-      min-height: 297mm;
       padding: 0;
       margin: 0 auto;
       background: white;
@@ -145,7 +144,8 @@ function generatePricingHTML(data: PricingRequest): string {
     }
     
     .content {
-      padding: 40px 50px;
+      padding: 40px 50px 20px 50px;
+      min-height: 600px;
     }
     
     table {
@@ -234,16 +234,14 @@ function generatePricingHTML(data: PricingRequest): string {
     }
     
     .footer {
-      position: fixed;
-      bottom: 40px;
-      left: 50px;
-      right: 50px;
-      padding-top: 20px;
+      padding: 20px 50px 40px 50px;
+      margin-top: auto;
       border-top: 1px solid #e2e8f0;
       display: flex;
       justify-content: space-between;
       font-size: 10px;
       color: #64748b;
+      page-break-inside: avoid;
     }
     
     .footer-left,
@@ -271,7 +269,7 @@ function generatePricingHTML(data: PricingRequest): string {
         <div class="logo-container">
           <img src="${LOGO_SVG_BASE64}" alt="Gard Security" class="logo" />
         </div>
-        <div class="page-number">Página 1 de 1</div>
+        <div class="page-number"></div>
       </div>
       
       <h1 class="title">PROPUESTA ECONÓMICA</h1>
