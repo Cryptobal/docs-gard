@@ -5,11 +5,17 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 
 const safeNumber = (value: unknown) => Number(value || 0);
 const normalizePct = (value: number) => (value > 1 ? value / 100 : value);
+const normalizeDecimal = (value: unknown) => {
+  if (value instanceof Prisma.Decimal) return value;
+  if (value === null || value === undefined) return new Prisma.Decimal(0);
+  return new Prisma.Decimal(Number(value));
+};
 const normalizeUnitPrice = (value: number, unit?: string | null) => {
   if (!unit) return value;
   const normalized = unit.toLowerCase();
@@ -455,7 +461,7 @@ export async function PUT(
             quoteId: id,
             catalogItemId: item.catalogItemId,
             calcMode: item.calcMode || "per_month",
-            quantity: item.quantity ?? 1,
+            quantity: normalizeDecimal(item.quantity ?? 1),
             unitPriceOverride: item.unitPriceOverride ?? null,
             isEnabled: item.isEnabled ?? true,
             visibility: item.visibility || "visible",
@@ -468,7 +474,7 @@ export async function PUT(
           ...item,
           quoteId: id,
           calcMode: item.calcMode || "per_month",
-          quantity: item.quantity ?? 1,
+          quantity: normalizeDecimal(item.quantity ?? 1),
           unitPriceOverride: item.unitPriceOverride ?? null,
           isEnabled: item.isEnabled ?? true,
           visibility: item.visibility || "visible",
@@ -481,7 +487,7 @@ export async function PUT(
             quoteId: id,
             catalogItemId: item.id,
             calcMode: "per_month",
-            quantity: 1,
+            quantity: new Prisma.Decimal(1),
             unitPriceOverride: null,
             isEnabled: true,
             visibility: item.defaultVisibility || "visible",
@@ -495,7 +501,7 @@ export async function PUT(
           quoteId: id,
           catalogItemId: item.catalogItemId,
           calcMode: item.calcMode || "per_month",
-          quantity: item.quantity ?? 1,
+          quantity: normalizeDecimal(item.quantity ?? 1),
           unitPriceOverride: item.unitPriceOverride ?? null,
           isEnabled: item.isEnabled ?? true,
           visibility: item.visibility || "visible",
