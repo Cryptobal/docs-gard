@@ -28,9 +28,10 @@ async function refreshQuoteTotals(quoteId: string) {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
 
     const {
@@ -91,7 +92,7 @@ export async function POST(
     const result = await prisma.$transaction(async (tx) => {
       const position = await tx.cpqPosition.create({
         data: {
-          quoteId: params.id,
+          quoteId: id,
           puestoTrabajoId,
           customName: customName?.trim() || null,
           description: description?.trim() || null,
@@ -114,7 +115,7 @@ export async function POST(
         },
       });
 
-      await refreshQuoteTotals(params.id);
+      await refreshQuoteTotals(id);
       return position;
     });
 
