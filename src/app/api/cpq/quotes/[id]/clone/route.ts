@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
@@ -97,7 +98,10 @@ export async function POST(
             employerCost: position.employerCost,
             netSalary: position.netSalary,
             monthlyPositionCost: position.monthlyPositionCost,
-            payrollSnapshot: position.payrollSnapshot,
+            payrollSnapshot:
+              position.payrollSnapshot === null || position.payrollSnapshot === undefined
+                ? Prisma.DbNull
+                : position.payrollSnapshot,
             payrollVersionId: position.payrollVersionId,
             calculatedAt: position.calculatedAt,
           })),
