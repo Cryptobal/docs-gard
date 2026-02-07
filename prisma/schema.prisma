@@ -6,7 +6,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["public", "payroll", "fx"]
+  schemas  = ["public", "payroll", "fx", "cpq"]
 }
 
 model Tenant {
@@ -361,4 +361,113 @@ model PayrollSalaryComponent {
   @@index([code], map: "idx_components_code")
   @@map("salary_components_catalog")
   @@schema("payroll")
+}
+
+// ============================================
+// CPQ MODULE (Configure, Price, Quote)
+// ============================================
+
+model CpqQuote {
+  id             String        @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId       String        @map("tenant_id")
+  code           String        @unique @map("code")
+  status         String        @default("draft")
+  clientName     String?       @map("client_name")
+  validUntil     DateTime?     @map("valid_until") @db.Date
+  notes          String?
+  totalPositions Int           @default(0) @map("total_positions")
+  totalGuards    Int           @default(0) @map("total_guards")
+  monthlyCost    Decimal       @default(0) @map("monthly_cost") @db.Decimal(12, 2)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  positions CpqPosition[]
+
+  @@index([tenantId], map: "idx_cpq_quotes_tenant")
+  @@index([status], map: "idx_cpq_quotes_status")
+  @@index([createdAt(sort: Desc)], map: "idx_cpq_quotes_created_desc")
+  @@map("quotes")
+  @@schema("cpq")
+}
+
+model CpqPosition {
+  id                  String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  quoteId             String   @map("quote_id") @db.Uuid
+  puestoTrabajoId     String   @map("puesto_trabajo_id") @db.Uuid
+  customName          String?  @map("custom_name")
+  description         String?
+  weekdays            String[] @map("weekdays")
+  startTime           String   @map("start_time")
+  endTime             String   @map("end_time")
+  numGuards           Int      @default(1) @map("num_guards")
+  cargoId             String   @map("cargo_id") @db.Uuid
+  rolId               String   @map("rol_id") @db.Uuid
+  baseSalary          Decimal  @map("base_salary") @db.Decimal(12, 2)
+  afpName             String   @default("modelo") @map("afp_name")
+  healthSystem        String   @default("fonasa") @map("health_system")
+  healthPlanPct       Decimal? @map("health_plan_pct") @db.Decimal(5, 4)
+  employerCost        Decimal  @map("employer_cost") @db.Decimal(12, 2)
+  netSalary           Decimal? @map("net_salary") @db.Decimal(12, 2)
+  monthlyPositionCost Decimal  @default(0) @map("monthly_position_cost") @db.Decimal(12, 2)
+  payrollSnapshot     Json?    @map("payroll_snapshot") @db.JsonB
+  payrollVersionId    String?  @map("payroll_version_id") @db.Uuid
+  calculatedAt        DateTime? @map("calculated_at") @db.Timestamptz(6)
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  quote         CpqQuote        @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  puestoTrabajo CpqPuestoTrabajo @relation(fields: [puestoTrabajoId], references: [id])
+  cargo         CpqCargo        @relation(fields: [cargoId], references: [id])
+  rol           CpqRol          @relation(fields: [rolId], references: [id])
+
+  @@index([quoteId], map: "idx_cpq_positions_quote")
+  @@index([puestoTrabajoId], map: "idx_cpq_positions_puesto")
+  @@index([cargoId], map: "idx_cpq_positions_cargo")
+  @@index([rolId], map: "idx_cpq_positions_rol")
+  @@map("positions")
+  @@schema("cpq")
+}
+
+model CpqPuestoTrabajo {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String   @unique
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  positions CpqPosition[]
+
+  @@index([active], map: "idx_cpq_puestos_active")
+  @@map("puestos_trabajo")
+  @@schema("cpq")
+}
+
+model CpqCargo {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String   @unique
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  positions CpqPosition[]
+
+  @@index([active], map: "idx_cpq_cargos_active")
+  @@map("cargos")
+  @@schema("cpq")
+}
+
+model CpqRol {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name        String   @unique
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  positions CpqPosition[]
+
+  @@index([active], map: "idx_cpq_roles_active")
+  @@map("roles")
+  @@schema("cpq")
 }

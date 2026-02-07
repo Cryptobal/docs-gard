@@ -9,6 +9,7 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { seedPayrollData } from './seeds/payroll-initial-data';
+import { seedCpqData } from './seeds/cpq-initial-data';
 
 const prisma = new PrismaClient();
 
@@ -99,6 +100,8 @@ async function main() {
 
   // 4. Seed Payroll data
   await seedPayrollData();
+  // 5. Seed CPQ data
+  await seedCpqData();
 
   console.log('🎉 Seeding completed!');
 }

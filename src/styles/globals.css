@@ -4,68 +4,30 @@
 
 @layer base {
   :root {
-    /* ============================================
-       OPAI Design System - CSS Variables (shadcn)
-       Dark-first theme tokens
-       ============================================ */
-    
-    /* Background & Foreground */
-    --background: 222.2 84% 4.9%;        /* #0a0e17 - Fondo principal oscuro */
-    --foreground: 210 40% 98%;           /* #f8fafc - Texto principal claro */
-
-    /* Cards & Containers */
-    --card: 222.2 84% 10%;               /* #1a1f2e - Fondo de cards */
-    --card-foreground: 210 40% 98%;      /* #f8fafc - Texto en cards */
-    
-    /* Popovers & Dropdowns */
-    --popover: 222.2 84% 10%;            /* #1a1f2e - Fondo popovers */
-    --popover-foreground: 210 40% 98%;   /* #f8fafc - Texto en popovers */
-
-    /* Borders & Inputs */
-    --border: 217.2 32.6% 17.5%;         /* #1e293b - Bordes sutiles */
-    --input: 217.2 32.6% 17.5%;          /* #1e293b - Input borders */
-
-    /* Muted (Estados secundarios) */
-    --muted: 217.2 32.6% 17.5%;          /* #1e293b - Fondo muted */
-    --muted-foreground: 215 20.2% 65.1%; /* #94a3b8 - Texto muted */
-
-    /* Accent (Hover/Focus states) */
-    --accent: 217.2 32.6% 20%;           /* #273548 - Fondo accent (más claro que muted) */
-    --accent-foreground: 210 40% 98%;    /* #f8fafc - Texto accent */
-
-    /* Primary (Teal GARD - Acción principal) */
-    --primary: 173 80% 40%;              /* #00d4aa - Teal principal */
-    --primary-foreground: 222.2 47.4% 11.2%; /* #0f1729 - Texto oscuro en primary */
-
-    /* Secondary (Blue GARD - Acción secundaria) */
-    --secondary: 217.2 91.2% 59.8%;      /* #0056e0 - Azul principal */
-    --secondary-foreground: 210 40% 98%; /* #f8fafc - Texto claro en secondary */
-
-    /* Destructive (Errores/Eliminar) */
-    --destructive: 0 84.2% 60.2%;        /* #ef4444 - Rojo error */
-    --destructive-foreground: 210 40% 98%; /* #f8fafc - Texto en destructive */
-
-    /* Ring (Focus indicators) */
-    --ring: 173 80% 40%;                 /* #00d4aa - Teal para focus ring */
-
-    /* Border Radius (default para componentes) */
-    --radius: 0.5rem;                    /* 8px - Border radius estándar */
-
-    /* Chart Colors */
-    --chart-1: 173 80% 40%;              /* #00d4aa - Teal */
-    --chart-2: 217.2 91.2% 59.8%;        /* #0056e0 - Blue */
-    --chart-3: 142 71% 45%;              /* #10b981 - Green */
-    --chart-4: 47 96% 53%;               /* #fbbf24 - Amber */
-    --chart-5: 340 82% 52%;              /* #ec4899 - Pink */
-
-    /* ============================================
-       Legacy Variables (para templates/presentaciones)
-       ============================================ */
-    --glow-color: 0, 212, 170; /* Teal RGB para efectos glow */
+    --glow-color: 0, 212, 170; /* Teal RGB */
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 48%;
+    --radius: 0.5rem;
   }
 
   * {
-    @apply border-border;
     box-sizing: border-box;
   }
 
@@ -74,12 +36,7 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
-  }
-
-  /* Estilos específicos para templates (aislados con scope) */
-  .template-ui-scope body,
-  .template-ui-scope {
+    @apply bg-slate-950 text-white antialiased;
     background-image: 
       radial-gradient(at 0% 0%, rgba(0, 86, 224, 0.1) 0, transparent 50%),
       radial-gradient(at 100% 0%, rgba(0, 212, 170, 0.1) 0, transparent 50%),

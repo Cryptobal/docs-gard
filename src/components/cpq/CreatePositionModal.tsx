@@ -1,0 +1,357 @@
+/**
+ * Modal para crear puesto de trabajo CPQ
+ */
+
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { formatCurrency, WEEKDAY_ORDER } from "@/components/cpq/utils";
+import type { CpqCargo, CpqRol, CpqPuestoTrabajo } from "@/types/cpq";
+import { Calculator, Plus } from "lucide-react";
+
+interface CreatePositionModalProps {
+  quoteId: string;
+  onCreated?: () => void;
+}
+
+export function CreatePositionModal({ quoteId, onCreated }: CreatePositionModalProps) {
+  const [open, setOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [calculating, setCalculating] = useState(false);
+  const [preview, setPreview] = useState<any>(null);
+  const [cargos, setCargos] = useState<CpqCargo[]>([]);
+  const [roles, setRoles] = useState<CpqRol[]>([]);
+  const [puestos, setPuestos] = useState<CpqPuestoTrabajo[]>([]);
+
+  const [form, setForm] = useState({
+    puestoTrabajoId: "",
+    customName: "",
+    description: "",
+    weekdays: [] as string[],
+    startTime: "08:00",
+    endTime: "20:00",
+    numGuards: 1,
+    cargoId: "",
+    rolId: "",
+    baseSalary: 550000,
+    afpName: "modelo",
+    healthSystem: "fonasa",
+    healthPlanPct: 0.07,
+  });
+
+  const fetchCatalogs = async () => {
+    try {
+      const [cargosRes, rolesRes, puestosRes] = await Promise.all([
+        fetch("/api/cpq/cargos?active=true"),
+        fetch("/api/cpq/roles?active=true"),
+        fetch("/api/cpq/puestos?active=true"),
+      ]);
+      const cargosData = await cargosRes.json();
+      const rolesData = await rolesRes.json();
+      const puestosData = await puestosRes.json();
+      setCargos(cargosData.data || []);
+      setRoles(rolesData.data || []);
+      setPuestos(puestosData.data || []);
+    } catch (err) {
+      console.error("Error loading CPQ catalogs:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (open) fetchCatalogs();
+  }, [open]);
+
+  const toggleWeekday = (day: string) => {
+    setForm((prev) => ({
+      ...prev,
+      weekdays: prev.weekdays.includes(day)
+        ? prev.weekdays.filter((d) => d !== day)
+        : [...prev.weekdays, day],
+    }));
+  };
+
+  const healthPlanPct = useMemo(() => {
+    if (form.healthSystem === "fonasa") return 0.07;
+    return form.healthPlanPct || 0.07;
+  }, [form.healthPlanPct, form.healthSystem]);
+
+  const handleCalculate = async () => {
+    setCalculating(true);
+    try {
+      const res = await fetch("/api/payroll/costing/compute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          base_salary_clp: Number(form.baseSalary),
+          contract_type: "indefinite",
+          afp_name: form.afpName,
+          health_system: form.healthSystem,
+          health_plan_pct: healthPlanPct,
+          assumptions: {
+            include_vacation_provision: true,
+            include_severance_provision: true,
+            vacation_provision_pct: 0.0833,
+            severance_provision_pct: 0.04166,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error?.message || "Error");
+      setPreview(data.data);
+    } catch (err) {
+      console.error("Error computing employer cost:", err);
+      setPreview(null);
+    } finally {
+      setCalculating(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/cpq/quotes/${quoteId}/positions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...form,
+          healthPlanPct,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "Error");
+      setOpen(false);
+      setPreview(null);
+      onCreated?.();
+    } catch (err) {
+      console.error("Error creating position:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" className="gap-2">
+          <Plus className="h-4 w-4" />
+          Agregar Puesto
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Nuevo Puesto de Trabajo</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Datos del puesto */}
+            <div className="space-y-3">
+              <h3 className="text-[10px] font-semibold uppercase text-blue-400">Puesto</h3>
+
+              <div className="space-y-1">
+                <Label className="text-[10px]">Tipo de Puesto *</Label>
+                <select
+                  className="flex h-8 w-full rounded-md border border-input bg-card px-3 text-xs"
+                  value={form.puestoTrabajoId}
+                  onChange={(e) => setForm((p) => ({ ...p, puestoTrabajoId: e.target.value }))}
+                >
+                  <option value="">Selecciona un puesto</option>
+                  {puestos.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[10px]">Nombre personalizado</Label>
+                <Input
+                  value={form.customName}
+                  onChange={(e) => setForm((p) => ({ ...p, customName: e.target.value }))}
+                  placeholder="Ej: Control Acceso Nocturno"
+                  className="h-8 bg-background text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-[10px]">Hora inicio</Label>
+                  <Input
+                    type="time"
+                    value={form.startTime}
+                    onChange={(e) => setForm((p) => ({ ...p, startTime: e.target.value }))}
+                    className="h-8 bg-background text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px]">Hora término</Label>
+                  <Input
+                    type="time"
+                    value={form.endTime}
+                    onChange={(e) => setForm((p) => ({ ...p, endTime: e.target.value }))}
+                    className="h-8 bg-background text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[10px]">Días de servicio</Label>
+                <div className="grid grid-cols-4 gap-2">
+                  {WEEKDAY_ORDER.map((day) => (
+                    <label key={day} className="flex items-center gap-1 text-[10px]">
+                      <input
+                        type="checkbox"
+                        checked={form.weekdays.includes(day)}
+                        onChange={() => toggleWeekday(day)}
+                      />
+                      {day}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[10px]">Cantidad de guardias</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={form.numGuards}
+                  onChange={(e) => setForm((p) => ({ ...p, numGuards: Number(e.target.value) }))}
+                  className="h-8 bg-background text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Estructura de servicio */}
+            <div className="space-y-3">
+              <h3 className="text-[10px] font-semibold uppercase text-purple-400">Estructura</h3>
+
+              <div className="space-y-1">
+                <Label className="text-[10px]">Cargo *</Label>
+                <select
+                  className="flex h-8 w-full rounded-md border border-input bg-card px-3 text-xs"
+                  value={form.cargoId}
+                  onChange={(e) => setForm((p) => ({ ...p, cargoId: e.target.value }))}
+                >
+                  <option value="">Selecciona un cargo</option>
+                  {cargos.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[10px]">Rol *</Label>
+                <select
+                  className="flex h-8 w-full rounded-md border border-input bg-card px-3 text-xs"
+                  value={form.rolId}
+                  onChange={(e) => setForm((p) => ({ ...p, rolId: e.target.value }))}
+                >
+                  <option value="">Selecciona un rol</option>
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[10px]">Sueldo base</Label>
+                <Input
+                  type="number"
+                  value={form.baseSalary}
+                  onChange={(e) => setForm((p) => ({ ...p, baseSalary: Number(e.target.value) }))}
+                  className="h-8 bg-background text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-[10px]">AFP</Label>
+                  <select
+                    className="flex h-8 w-full rounded-md border border-input bg-card px-3 text-xs"
+                    value={form.afpName}
+                    onChange={(e) => setForm((p) => ({ ...p, afpName: e.target.value }))}
+                  >
+                    <option value="modelo">Modelo</option>
+                    <option value="habitat">Habitat</option>
+                    <option value="capital">Capital</option>
+                    <option value="cuprum">Cuprum</option>
+                    <option value="planvital">PlanVital</option>
+                    <option value="provida">Provida</option>
+                    <option value="uno">Uno</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px]">Salud</Label>
+                  <select
+                    className="flex h-8 w-full rounded-md border border-input bg-card px-3 text-xs"
+                    value={form.healthSystem}
+                    onChange={(e) => setForm((p) => ({ ...p, healthSystem: e.target.value }))}
+                  >
+                    <option value="fonasa">Fonasa</option>
+                    <option value="isapre">Isapre</option>
+                  </select>
+                </div>
+              </div>
+
+              {form.healthSystem === "isapre" && (
+                <div className="space-y-1">
+                  <Label className="text-[10px]">Plan Isapre (%)</Label>
+                  <Input
+                    type="number"
+                    value={form.healthPlanPct}
+                    onChange={(e) => setForm((p) => ({ ...p, healthPlanPct: Number(e.target.value) }))}
+                    step="0.01"
+                    className="h-8 bg-background text-xs"
+                  />
+                </div>
+              )}
+
+              <Button type="button" size="sm" variant="outline" className="w-full gap-2" onClick={handleCalculate}>
+                <Calculator className="h-3 w-3" />
+                {calculating ? "Calculando..." : "Calcular costo"}
+              </Button>
+
+              {preview && (
+                <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 p-2 text-[10px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-emerald-400">Empresa c/u</span>
+                    <span className="font-mono text-emerald-400">
+                      {formatCurrency(preview.monthly_employer_cost_clp)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-blue-400">Líquido c/u</span>
+                    <span className="font-mono text-blue-400">
+                      {formatCurrency(preview.worker_net_salary_estimate)}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between border-t pt-1">
+                    <span>Total puesto</span>
+                    <span className="font-mono">
+                      {formatCurrency(preview.monthly_employer_cost_clp * form.numGuards)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <Badge variant="outline" className="text-[10px]">
+              AFP Modelo + Fonasa por defecto
+            </Badge>
+            <Button type="submit" size="sm" disabled={loading}>
+              {loading ? "Guardando..." : "Crear Puesto"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

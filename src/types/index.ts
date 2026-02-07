@@ -27,3 +27,5 @@ export interface CompanyAssets {
   hero_image?: string;
   os10_qr_url?: string;
 }
+
+export * from "./cpq";
