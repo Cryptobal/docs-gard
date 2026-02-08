@@ -28,8 +28,8 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/api/email-preview')) return true;
   if (pathname.startsWith('/api/pdf')) return true;
 
-  // Páginas públicas
-  if (pathname === '/' || pathname === '/opai' || pathname === '/opai/login' || pathname.startsWith('/activate')) return true;
+  // Páginas públicas (raíz / y /opai se manejan abajo para redirigir siempre a login/inicio)
+  if (pathname === '/opai/login' || pathname.startsWith('/activate')) return true;
   if (pathname === '/opai/forgot-password' || pathname === '/opai/reset-password') return true;
 
   // Assets y estáticos
@@ -40,6 +40,17 @@ function isPublicPath(pathname: string): boolean {
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
+
+  // Entrada al sitio: siempre llevar a login (sin sesión) o a inicio (con sesión)
+  if (pathname === '/' || pathname === '/opai') {
+    if (!req.auth) {
+      const loginUrl = new URL('/opai/login', req.nextUrl.origin);
+      loginUrl.searchParams.set('callbackUrl', '/opai/inicio');
+      return Response.redirect(loginUrl);
+    }
+    return Response.redirect(new URL('/opai/inicio', req.nextUrl.origin));
+  }
+
   if (isPublicPath(pathname)) return;
 
   // Rutas protegidas: sin sesión -> login OPAI
