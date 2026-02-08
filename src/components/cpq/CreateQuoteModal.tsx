@@ -53,7 +53,7 @@ export function CreateQuoteModal({ onCreated }: CreateQuoteModalProps) {
           <span className="hidden sm:inline">Nueva Cotización</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-[95vw] sm:max-w-md p-4 sm:p-6">
+      <DialogContent className="left-0 top-0 w-screen max-w-none h-[100dvh] max-h-[100dvh] translate-x-0 translate-y-0 rounded-none overflow-y-auto p-4 sm:p-6 sm:left-[50%] sm:top-[50%] sm:w-full sm:max-w-md sm:h-auto sm:max-h-[90vh] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg">
         <DialogHeader>
           <DialogTitle>Nueva Cotización</DialogTitle>
         </DialogHeader>
