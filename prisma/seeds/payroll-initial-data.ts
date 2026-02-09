@@ -221,7 +221,7 @@ export async function seedPayrollData() {
       tranches: [
         { from_clp: 0, to_clp: 631976, amount_per_dependent: 22007, amount_maternal: 22007, amount_invalidity: 22007 },
         { from_clp: 631977, to_clp: 923067, amount_per_dependent: 13505, amount_maternal: 13505, amount_invalidity: 13505 },
-        { from_clp: 923068, to_clp: 1439668, amount_per_dependent: 4267, amount_maternal: 4267, amount_invalidity: 4267 },
+        { from_clp: 923068, to_clp: 1439668, amount_per_dependent: 4276, amount_maternal: 4276, amount_invalidity: 4276 },
         { from_clp: 1439669, to_clp: null, amount_per_dependent: 0, amount_maternal: 0, amount_invalidity: 0 }
       ],
       imponible_previsional: false,
@@ -229,8 +229,8 @@ export async function seedPayrollData() {
     },
 
     imm: {
-      value_clp: 500000,
-      effective_from: "2024-07-01",
+      value_clp: 539000,
+      effective_from: "2026-01-01",
       imponible_previsional: true,
       imponible_tributario: true,
     },

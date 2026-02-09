@@ -7,6 +7,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import type { PayrollParameters } from "@/modules/payroll/engine";
 
+// NUNCA cachear esta ruta - los parámetros legales deben ser siempre frescos
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 /**
  * GET /api/payroll/parameters
  * Obtener versiones de parámetros
@@ -36,7 +40,7 @@ export async function GET(req: NextRequest) {
         );
       }
 
-      return NextResponse.json({
+      const response = NextResponse.json({
         success: true,
         data: {
           current_version: {
@@ -53,6 +57,8 @@ export async function GET(req: NextRequest) {
           },
         },
       });
+      response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+      return response;
     } else if (effectiveDate) {
       // Versión vigente en fecha específica
       const date = new Date(effectiveDate);
