@@ -16,7 +16,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Loader2, Plus, Building2, Users } from "lucide-react";
+import Link from "next/link";
+import { Loader2, Plus, Building2, Users, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 type AccountFormState = {
@@ -56,15 +57,20 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
   const [creating, setCreating] = useState(false);
   const [open, setOpen] = useState(false);
   const [typeFilter, setTypeFilter] = useState<"all" | "prospect" | "client">("all");
+  const [search, setSearch] = useState("");
   const inputClassName =
     "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
   const selectClassName =
     "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
   const filteredAccounts = useMemo(() => {
-    if (typeFilter === "all") return accounts;
-    return accounts.filter((a) => a.type === typeFilter);
-  }, [accounts, typeFilter]);
+    const q = search.trim().toLowerCase();
+    return accounts.filter((a) => {
+      if (typeFilter !== "all" && a.type !== typeFilter) return false;
+      if (q && !`${a.name} ${a.rut || ""} ${a.industry || ""}`.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [accounts, typeFilter, search]);
 
   const counts = useMemo(() => {
     const prospects = accounts.filter((a) => a.type === "prospect").length;
@@ -190,8 +196,14 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
         </Dialog>
       </div>
 
-      {/* Type filter pills */}
-      <div className="flex items-center gap-2">
+      {/* Search + Type filter */}
+      <Input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Buscar por nombre, RUT o industria..."
+        className={`h-9 ${inputClassName}`}
+      />
+      <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
         <button
           type="button"
           onClick={() => setTypeFilter("all")}
@@ -255,9 +267,10 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
             </p>
           )}
           {filteredAccounts.map((account) => (
-            <div
+            <Link
               key={account.id}
-              className="flex flex-col gap-2 rounded-lg border p-4 md:flex-row md:items-center md:justify-between"
+              href={`/crm/accounts/${account.id}`}
+              className="flex flex-col gap-2 rounded-lg border p-4 transition-colors hover:bg-accent/30 md:flex-row md:items-center md:justify-between group"
             >
               <div className="flex items-start gap-3">
                 <div
@@ -297,8 +310,9 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                 <Badge variant="outline">
                   {account._count?.deals ?? 0} negocios
                 </Badge>
+                <ChevronRight className="h-4 w-4 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 hidden md:block" />
               </div>
-            </div>
+            </Link>
           ))}
         </CardContent>
       </Card>

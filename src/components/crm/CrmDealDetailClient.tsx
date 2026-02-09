@@ -15,7 +15,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Loader2 } from "lucide-react";
+import Link from "next/link";
+import { Loader2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 type QuoteOption = {
@@ -53,7 +54,7 @@ type DealDetail = {
   title: string;
   amount: string;
   stage?: { name: string } | null;
-  account?: { name: string } | null;
+  account?: { id: string; name: string } | null;
   primaryContact?: { name: string; email?: string | null } | null;
   quotes?: DealQuote[];
 };
@@ -192,7 +193,17 @@ export function CrmDealDetailClient({
         <CardContent className="space-y-3 text-sm">
           <div className="flex items-center justify-between">
             <span>Cliente</span>
-            <span className="font-medium">{deal.account?.name}</span>
+            {deal.account ? (
+              <Link
+                href={`/crm/accounts/${deal.account.id}`}
+                className="flex items-center gap-1 font-medium text-primary hover:underline"
+              >
+                {deal.account.name}
+                <ExternalLink className="h-3 w-3" />
+              </Link>
+            ) : (
+              <span className="font-medium">Sin cliente</span>
+            )}
           </div>
           <div className="flex items-center justify-between">
             <span>Etapa</span>
@@ -263,9 +274,10 @@ export function CrmDealDetailClient({
           {linkedQuotes.map((quote) => {
             const info = quotesById[quote.quoteId];
             return (
-              <div
+              <Link
                 key={quote.id}
-                className="flex items-center justify-between rounded-md border px-3 py-2"
+                href={`/crm/cotizaciones/${quote.quoteId}`}
+                className="flex items-center justify-between rounded-md border px-3 py-2 transition-colors hover:bg-accent/30"
               >
                 <div>
                   <p className="font-medium">{info?.code || "CPQ"}</p>
@@ -273,8 +285,32 @@ export function CrmDealDetailClient({
                     {info?.clientName || "Sin cliente"}
                   </p>
                 </div>
-                <Badge variant="outline">{info?.status || "draft"}</Badge>
-              </div>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className={
+                      info?.status === "approved"
+                        ? "border-emerald-500/30 text-emerald-400"
+                        : info?.status === "sent"
+                        ? "border-blue-500/30 text-blue-400"
+                        : info?.status === "rejected"
+                        ? "border-red-500/30 text-red-400"
+                        : ""
+                    }
+                  >
+                    {info?.status === "draft"
+                      ? "Borrador"
+                      : info?.status === "sent"
+                      ? "Enviada"
+                      : info?.status === "approved"
+                      ? "Aprobada"
+                      : info?.status === "rejected"
+                      ? "Rechazada"
+                      : info?.status || "draft"}
+                  </Badge>
+                  <ExternalLink className="h-3 w-3 text-muted-foreground/40" />
+                </div>
+              </Link>
             );
           })}
         </CardContent>

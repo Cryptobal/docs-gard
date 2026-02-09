@@ -12,15 +12,15 @@ import { Users, Building, TrendingUp, Contact, DollarSign, FileText, ChevronRigh
 
 const modules = [
   {
-    title: 'Prospectos',
+    title: 'Leads',
     description: 'Solicitudes entrantes y aprobación manual.',
     icon: Users,
     href: '/crm/leads',
     color: 'text-emerald-400 bg-emerald-400/10',
   },
   {
-    title: 'Clientes',
-    description: 'Base de cuentas y contactos.',
+    title: 'Cuentas',
+    description: 'Prospectos y clientes.',
     icon: Building,
     href: '/crm/accounts',
     color: 'text-blue-400 bg-blue-400/10',
