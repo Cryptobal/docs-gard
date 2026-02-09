@@ -8,7 +8,7 @@ import { hasAppAccess } from "@/lib/app-access";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader, Breadcrumb } from "@/components/opai";
-import { CrmDealDetailClient, CrmSubnav } from "@/components/crm";
+import { CrmDealDetailClient, type DealDetail, CrmSubnav } from "@/components/crm";
 
 export default async function CrmDealDetailPage({
   params,
@@ -67,7 +67,7 @@ export default async function CrmDealDetailPage({
     orderBy: { createdAt: "desc" },
   });
 
-  const initialDeal = JSON.parse(JSON.stringify(deal)) as Record<string, unknown>;
+  const initialDeal = JSON.parse(JSON.stringify(deal)) as DealDetail;
   initialDeal.proposalLink = deal.proposalLink ?? null;
   const initialQuotes = JSON.parse(JSON.stringify(quotes));
   const initialContacts = JSON.parse(JSON.stringify(contacts));

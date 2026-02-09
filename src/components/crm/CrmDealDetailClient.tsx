@@ -52,7 +52,7 @@ type ContactRow = {
   isPrimary?: boolean;
 };
 
-type DealDetail = {
+export type DealDetail = {
   id: string;
   title: string;
   amount: string;
