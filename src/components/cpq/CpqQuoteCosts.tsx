@@ -68,6 +68,7 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activeSection, setActiveSection] = useState<"directos" | "indirectos" | "financieros">("directos");
+  const [decimalDrafts, setDecimalDrafts] = useState<Record<string, string>>({});
   const [catalog, setCatalog] = useState<CpqCatalogItem[]>([]);
   const [summary, setSummary] = useState<CpqQuoteCostSummary | null>(null);
   const [parameters, setParameters] = useState<CpqQuoteParameters>(DEFAULT_PARAMS);
@@ -82,9 +83,33 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
     "h-11 sm:h-9 bg-card text-foreground border-border placeholder:text-muted-foreground";
   const sectionBoxClass = "rounded-md border border-border bg-muted/20 p-3 sm:p-2";
   const isInline = variant === "inline";
+  const getDecimalValue = (
+    key: string,
+    value: number | null | undefined,
+    decimals = 2,
+    allowEmpty = false
+  ) => {
+    if (Object.prototype.hasOwnProperty.call(decimalDrafts, key)) {
+      return decimalDrafts[key];
+    }
+    if (allowEmpty && (value === null || value === undefined)) return "";
+    return formatNumber(Number(value ?? 0), { minDecimals: decimals, maxDecimals: decimals });
+  };
+  const setDecimalValue = (key: string, value: string) => {
+    setDecimalDrafts((prev) => ({ ...prev, [key]: value }));
+  };
+  const clearDecimalValue = (key: string) => {
+    setDecimalDrafts((prev) => {
+      if (!Object.prototype.hasOwnProperty.call(prev, key)) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
 
   const loadData = async () => {
     setLoading(true);
+    setDecimalDrafts({});
     try {
       const [costsRes, catalogRes, settingsRes] = await Promise.all([
         fetch(`/api/cpq/quotes/${quoteId}/costs`),
@@ -1299,6 +1324,11 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
             <span className="text-xs text-muted-foreground">
               Total mensual: {formatCurrency(financialTotal)}
             </span>
+            {summary?.monthlyTotal === 0 && (
+              <span className="text-[10px] text-muted-foreground">
+                Se calcula sobre el precio de venta.
+              </span>
+            )}
             <div className="flex items-center gap-2">
               <select
                 className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
@@ -1356,20 +1386,26 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                           type="text"
                           inputMode="decimal"
                           placeholder="Ej: 2,50"
-                          value={
-                            item.unitPriceOverride === null || item.unitPriceOverride === undefined
-                              ? ""
-                              : formatNumber(Number(item.unitPriceOverride), { minDecimals: 2, maxDecimals: 2 })
-                          }
-                          onChange={(e) =>
+                          value={getDecimalValue(
+                            `rate:${item.catalogItemId}`,
+                            item.unitPriceOverride ?? null,
+                            2,
+                            true
+                          )}
+                          onChange={(e) => setDecimalValue(`rate:${item.catalogItemId}`, e.target.value)}
+                          onBlur={() => {
+                            const raw = decimalDrafts[`rate:${item.catalogItemId}`];
+                            if (raw === undefined) return;
+                            const parsed = raw.trim() ? parseLocalizedNumber(raw) : null;
                             setCostItems((prev) =>
                               prev.map((c) =>
                                 c.catalogItemId === item.catalogItemId
-                                  ? { ...c, unitPriceOverride: toNumber(e.target.value) }
+                                  ? { ...c, unitPriceOverride: parsed }
                                   : c
                               )
-                            )
-                          }
+                            );
+                            clearDecimalValue(`rate:${item.catalogItemId}`);
+                          }}
                           className={inputClass}
                         />
                       </div>
@@ -1391,18 +1427,23 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                           </div>
                           <div className="space-y-1">
                             <Label className="text-[11px]">Porcentaje contrato (%)</Label>
-                            <Input
-                                    type="text"
-                                    inputMode="decimal"
-                                    value={formatNumber(parameters.policyContractPct, { minDecimals: 2, maxDecimals: 2 })}
-                              onChange={(e) =>
-                                setParameters((prev) => ({
-                                  ...prev,
-                                  policyContractPct: toNumber(e.target.value),
-                                }))
-                              }
-                              className={inputClass}
-                            />
+                                    <Input
+                                      type="text"
+                                      inputMode="decimal"
+                                      value={getDecimalValue("policyContractPct", parameters.policyContractPct, 2)}
+                                      onChange={(e) => setDecimalValue("policyContractPct", e.target.value)}
+                                      onBlur={() => {
+                                        const raw = decimalDrafts.policyContractPct;
+                                        if (raw === undefined) return;
+                                        const parsed = raw.trim() ? parseLocalizedNumber(raw) : 0;
+                                        setParameters((prev) => ({
+                                          ...prev,
+                                          policyContractPct: parsed,
+                                        }));
+                                        clearDecimalValue("policyContractPct");
+                                      }}
+                                      className={inputClass}
+                                    />
                           </div>
                         </>
                       )}
@@ -1423,15 +1464,20 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
             <div className="space-y-1">
               <Label className="text-[11px]">Margen (%)</Label>
               <Input
-                        type="text"
-                        inputMode="decimal"
-                        value={formatNumber(parameters.marginPct, { minDecimals: 2, maxDecimals: 2 })}
-                onChange={(e) =>
+                type="text"
+                inputMode="decimal"
+                value={getDecimalValue("marginPct", parameters.marginPct, 2)}
+                onChange={(e) => setDecimalValue("marginPct", e.target.value)}
+                onBlur={() => {
+                  const raw = decimalDrafts.marginPct;
+                  if (raw === undefined) return;
+                  const parsed = raw.trim() ? parseLocalizedNumber(raw) : 0;
                   setParameters((prev) => ({
                     ...prev,
-                    marginPct: toNumber(e.target.value),
-                  }))
-                }
+                    marginPct: parsed,
+                  }));
+                  clearDecimalValue("marginPct");
+                }}
                 className={inputClass}
               />
             </div>
@@ -2182,6 +2228,11 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                       <span className="text-xs text-muted-foreground">
                         Total mensual: {formatCurrency(financialTotal)}
                       </span>
+                      {summary?.monthlyTotal === 0 && (
+                        <span className="text-[10px] text-muted-foreground">
+                          Se calcula sobre el precio de venta.
+                        </span>
+                      )}
                       <div className="flex items-center gap-2">
                         <select
                           className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground sm:w-64"
@@ -2236,20 +2287,26 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                                     type="text"
                                     inputMode="decimal"
                                     placeholder="Ej: 2,50"
-                                    value={
-                                      item.unitPriceOverride === null || item.unitPriceOverride === undefined
-                                        ? ""
-                                        : formatNumber(Number(item.unitPriceOverride), { minDecimals: 2, maxDecimals: 2 })
-                                    }
-                                    onChange={(e) =>
+                                    value={getDecimalValue(
+                                      `rate:${item.catalogItemId}`,
+                                      item.unitPriceOverride ?? null,
+                                      2,
+                                      true
+                                    )}
+                                    onChange={(e) => setDecimalValue(`rate:${item.catalogItemId}`, e.target.value)}
+                                    onBlur={() => {
+                                      const raw = decimalDrafts[`rate:${item.catalogItemId}`];
+                                      if (raw === undefined) return;
+                                      const parsed = raw.trim() ? parseLocalizedNumber(raw) : null;
                                       setCostItems((prev) =>
                                         prev.map((c) =>
                                           c.catalogItemId === item.catalogItemId
-                                            ? { ...c, unitPriceOverride: toNumber(e.target.value) }
+                                            ? { ...c, unitPriceOverride: parsed }
                                             : c
                                         )
-                                      )
-                                    }
+                                      );
+                                      clearDecimalValue(`rate:${item.catalogItemId}`);
+                                    }}
                                     className={inputClass}
                                   />
                                 </div>
@@ -2305,13 +2362,18 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                         <Input
                           type="text"
                           inputMode="decimal"
-                          value={formatNumber(parameters.marginPct, { minDecimals: 2, maxDecimals: 2 })}
-                          onChange={(e) =>
+                          value={getDecimalValue("marginPct", parameters.marginPct, 2)}
+                          onChange={(e) => setDecimalValue("marginPct", e.target.value)}
+                          onBlur={() => {
+                            const raw = decimalDrafts.marginPct;
+                            if (raw === undefined) return;
+                            const parsed = raw.trim() ? parseLocalizedNumber(raw) : 0;
                             setParameters((prev) => ({
                               ...prev,
-                              marginPct: toNumber(e.target.value),
-                            }))
-                          }
+                              marginPct: parsed,
+                            }));
+                            clearDecimalValue("marginPct");
+                          }}
                           className={inputClass}
                         />
                       </div>

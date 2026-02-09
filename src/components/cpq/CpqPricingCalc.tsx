@@ -40,11 +40,13 @@ export function CpqPricingCalc({
   systemTotal,
 }: CpqPricingCalcProps) {
   const [localMargin, setLocalMargin] = useState(marginPct);
+  const [marginDraft, setMarginDraft] = useState("");
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setLocalMargin(marginPct);
+    setMarginDraft(formatNumber(marginPct, { minDecimals: 2, maxDecimals: 2 }));
     setDirty(false);
   }, [marginPct]);
 
@@ -179,11 +181,15 @@ export function CpqPricingCalc({
             <Input
               type="text"
               inputMode="decimal"
-              value={formatNumber(localMargin, { minDecimals: 2, maxDecimals: 2 })}
+              value={marginDraft}
               onChange={(e) => {
+                setMarginDraft(e.target.value);
                 const value = parseLocalizedNumber(e.target.value || "0");
                 setLocalMargin(value);
                 setDirty(true);
+              }}
+              onBlur={() => {
+                setMarginDraft(formatNumber(localMargin, { minDecimals: 2, maxDecimals: 2 }));
               }}
               onFocus={(e) => e.currentTarget.select()}
               className="h-7 w-20 text-xs bg-slate-900/80 text-white border-emerald-600/40 placeholder:text-slate-400"
