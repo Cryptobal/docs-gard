@@ -1,11 +1,8 @@
 /**
- * CPQ Quote Detail page
+ * CPQ Quote Detail - Redirect a CRM Cotizaciones
  */
 
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
-import { hasAppAccess } from "@/lib/app-access";
-import { CpqQuoteDetail } from "@/components/cpq/CpqQuoteDetail";
 
 export default async function CpqQuoteDetailPage({
   params,
@@ -13,14 +10,5 @@ export default async function CpqQuoteDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const session = await auth();
-  if (!session?.user) {
-    redirect(`/opai/login?callbackUrl=/cpq/${id}`);
-  }
-
-  if (!hasAppAccess(session.user.role, "cpq")) {
-    redirect("/hub");
-  }
-
-  return <CpqQuoteDetail quoteId={id} />;
+  redirect(`/crm/cotizaciones/${id}`);
 }

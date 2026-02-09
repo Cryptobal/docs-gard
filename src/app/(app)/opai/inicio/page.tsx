@@ -14,7 +14,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getDefaultTenantId } from '@/lib/tenant';
-import { PageHeader, TemplatesDropdown, NotificationBell, ReloadButton } from '@/components/opai';
+import { PageHeader, TemplatesDropdown, NotificationBell, ReloadButton, DocumentosSubnav } from '@/components/opai';
 import { DocumentosContent } from '@/components/opai/DocumentosContent';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
@@ -80,6 +80,9 @@ export default async function DashboardPage() {
         }
         className="mb-4"
       />
+
+      {/* Sub-navegación */}
+      <DocumentosSubnav />
 
       {/* Content con KPIs clickeables */}
       <DocumentosContent

@@ -4,22 +4,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-const CRM_NAV_ITEMS = [
-  { href: "/crm/leads", label: "Prospectos" },
-  { href: "/crm/accounts", label: "Clientes" },
-  { href: "/crm/contacts", label: "Contactos" },
-  { href: "/crm/deals", label: "Negocios" },
-  { href: "/crm/cotizaciones", label: "Cotizaciones" },
+const DOCS_NAV_ITEMS = [
+  { href: "/opai/inicio", label: "Presentaciones" },
+  { href: "/opai/templates", label: "Templates" },
 ];
 
-export function CrmSubnav() {
+export function DocumentosSubnav() {
   const pathname = usePathname();
 
   return (
     <div className="mb-6">
       <div className="flex gap-2 overflow-x-auto pb-2">
-        {CRM_NAV_ITEMS.map((item) => {
-          const isActive = pathname?.startsWith(item.href);
+        {DOCS_NAV_ITEMS.map((item) => {
+          const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
           return (
             <Link
               key={item.href}

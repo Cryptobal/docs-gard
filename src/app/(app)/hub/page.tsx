@@ -212,25 +212,7 @@ export default async function HubPage() {
                 </div>
                 <CardTitle className="text-sm">CRM</CardTitle>
                 <CardDescription className="text-xs">
-                  Gestión de clientes
-                </CardDescription>
-              </CardHeader>
-            </Card>
-          </Link>
-
-          {/* CPQ - Operativo */}
-          <Link href="/cpq">
-            <Card className="flex h-full cursor-pointer flex-col transition-all hover:border-primary hover:shadow-md">
-              <CardHeader className="pb-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-500/10 text-purple-500">
-                    <DollarSign className="h-4 w-4" />
-                  </div>
-                  <Badge variant="default" className="text-xs">Activo</Badge>
-                </div>
-                <CardTitle className="text-sm">CPQ</CardTitle>
-                <CardDescription className="text-xs">
-                  Configurador de precios
+                  Clientes y cotizaciones
                 </CardDescription>
               </CardHeader>
             </Card>

@@ -4,7 +4,7 @@
  * Lista todos los templates disponibles con preview y estadísticas.
  */
 
-import { PageHeader } from '@/components/opai';
+import { PageHeader, DocumentosSubnav } from '@/components/opai';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileText, Eye, Calendar } from 'lucide-react';
@@ -47,6 +47,8 @@ export default function TemplatesPage() {
         title="Templates de Presentación"
         description="Gestiona los templates disponibles para crear presentaciones"
       />
+
+      <DocumentosSubnav />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {templates.map((template) => (

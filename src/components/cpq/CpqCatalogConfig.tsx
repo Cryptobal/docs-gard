@@ -231,7 +231,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
             description="Catálogo maestro global para todas las cotizaciones"
           />
           <div className="flex items-center gap-2">
-            <Link href="/cpq">
+            <Link href="/crm/cotizaciones">
               <Button variant="outline" size="sm" className="gap-2">
                 <ArrowLeft className="h-4 w-4" />
                 Volver

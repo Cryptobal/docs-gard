@@ -221,7 +221,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
     <div className="space-y-3 pb-16">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Link href="/cpq">
+          <Link href="/crm/cotizaciones">
             <Button variant="ghost" size="sm">
               <ArrowLeft className="h-4 w-4" />
             </Button>

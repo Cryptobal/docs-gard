@@ -7,8 +7,6 @@ import {
   LogOut,
   Building2,
   Grid3x3,
-  LayoutTemplate,
-  DollarSign,
   Calculator,
   Settings,
 } from 'lucide-react';
@@ -45,22 +43,10 @@ export function AppLayoutClient({
       show: hasAppAccess(userRole, 'docs')
     },
     { 
-      href: '/opai/templates', 
-      label: 'Templates', 
-      icon: LayoutTemplate,
-      show: hasAppAccess(userRole, 'docs') // Templates son parte de Docs
-    },
-    { 
       href: '/crm', 
       label: 'CRM', 
       icon: Building2,
       show: hasAppAccess(userRole, 'crm')
-    },
-    { 
-      href: '/cpq', 
-      label: 'CPQ', 
-      icon: DollarSign,
-      show: hasAppAccess(userRole, 'cpq')
     },
     { 
       href: '/payroll', 
