@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { NotificationBell } from '@/components/opai/NotificationBell';
 import { 
   Plus, 
   UserPlus, 
@@ -127,6 +128,7 @@ export default async function HubPage() {
               <p className="text-sm font-mono font-semibold">{formatCLP(utmValue)}</p>
             </div>
           )}
+          <NotificationBell presentations={presentations} />
         </div>
       </div>
 
