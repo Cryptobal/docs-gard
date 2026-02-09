@@ -110,23 +110,27 @@ export default async function HubPage() {
   return (
     <div className="space-y-8">
       {/* Page Header + Indicadores */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <PageHeader
-          title="Inicio"
-          description="Centro de control OPAI Suite"
-          actions={
-            <div className="flex items-center gap-2">
-              {ufValue && (
-                <div className="hidden sm:block rounded-md border border-border bg-card px-2.5 py-1 text-center">
-                  <p className="text-xs uppercase text-muted-foreground">UF</p>
-                  <p className="text-xs font-mono font-semibold">{formatCLP(ufValue)}</p>
-                </div>
-              )}
-              <NotificationBell presentations={presentations} />
-            </div>
-          }
-        />
-      </div>
+      <PageHeader
+        title="Inicio"
+        description="Centro de control OPAI Suite"
+        actions={
+          <div className="flex items-center gap-2">
+            {ufValue && (
+              <div className="rounded-md border border-border bg-card px-2.5 py-1 text-center">
+                <p className="text-xs uppercase text-muted-foreground">UF {ufDate}</p>
+                <p className="text-xs font-mono font-semibold">{formatCLP(ufValue)}</p>
+              </div>
+            )}
+            {utmValue && (
+              <div className="hidden sm:block rounded-md border border-border bg-card px-2.5 py-1 text-center">
+                <p className="text-xs uppercase text-muted-foreground">UTM</p>
+                <p className="text-xs font-mono font-semibold">{formatCLP(utmValue)}</p>
+              </div>
+            )}
+            <NotificationBell presentations={presentations} />
+          </div>
+        }
+      />
 
       {/* Quick Actions */}
       <div className="flex flex-wrap gap-2">
