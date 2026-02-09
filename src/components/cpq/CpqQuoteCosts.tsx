@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { KpiCard } from "@/components/opai";
 import { formatCurrency } from "@/components/cpq/utils";
+import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import type {
   CpqCatalogItem,
   CpqQuoteCostItem,
@@ -53,7 +54,7 @@ const VEHICLE_TYPES = ["vehicle_rent", "vehicle_fuel", "vehicle_tag"];
 const INFRA_TYPES = ["infrastructure", "fuel"];
 const FINANCIAL_TYPES = ["financial", "policy"];
 
-const toNumber = (value: string) => (value === "" ? 0 : Number(value));
+const toNumber = (value: string) => parseLocalizedNumber(value);
 
 const normalizeCostItems = (items: CpqQuoteCostItem[]) =>
   items.map((item) => ({
@@ -1336,7 +1337,9 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs sm:text-sm">{catalogItem.name}</span>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>Tasa base: {Number(catalogItem.basePrice)}%</span>
+                        <span>
+                          Tasa base: {formatNumber(Number(catalogItem.basePrice || 0), { minDecimals: 2, maxDecimals: 2 })}%
+                        </span>
                         <button
                           type="button"
                           className="rounded-md border border-border px-2 py-1 text-[11px]"
@@ -1350,10 +1353,14 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                       <div className="space-y-1">
                         <Label className="text-[11px]">Tasa (%)</Label>
                         <Input
-                          type="number"
-                          step="0.01"
-                          placeholder="Override tasa"
-                          value={item.unitPriceOverride ?? ""}
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="Ej: 2,50"
+                          value={
+                            item.unitPriceOverride === null || item.unitPriceOverride === undefined
+                              ? ""
+                              : formatNumber(Number(item.unitPriceOverride), { minDecimals: 2, maxDecimals: 2 })
+                          }
                           onChange={(e) =>
                             setCostItems((prev) =>
                               prev.map((c) =>
@@ -1385,9 +1392,9 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                           <div className="space-y-1">
                             <Label className="text-[11px]">Porcentaje contrato (%)</Label>
                             <Input
-                              type="number"
-                              step="0.01"
-                              value={parameters.policyContractPct}
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={formatNumber(parameters.policyContractPct, { minDecimals: 2, maxDecimals: 2 })}
                               onChange={(e) =>
                                 setParameters((prev) => ({
                                   ...prev,
@@ -1416,9 +1423,9 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
             <div className="space-y-1">
               <Label className="text-[11px]">Margen (%)</Label>
               <Input
-                type="number"
-                step="0.01"
-                value={parameters.marginPct}
+                        type="text"
+                        inputMode="decimal"
+                        value={formatNumber(parameters.marginPct, { minDecimals: 2, maxDecimals: 2 })}
                 onChange={(e) =>
                   setParameters((prev) => ({
                     ...prev,
@@ -2210,7 +2217,9 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                               <div className="flex items-center justify-between gap-2">
                                 <span className="text-xs sm:text-sm">{catalogItem.name}</span>
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  <span>Tasa base: {Number(catalogItem.basePrice)}%</span>
+                                  <span>
+                                    Tasa base: {formatNumber(Number(catalogItem.basePrice || 0), { minDecimals: 2, maxDecimals: 2 })}%
+                                  </span>
                                   <button
                                     type="button"
                                     className="rounded-md border border-border px-2 py-1 text-[11px]"
@@ -2224,10 +2233,14 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                                 <div className="space-y-1">
                                   <Label className="text-[11px]">Tasa (%)</Label>
                                   <Input
-                                    type="number"
-                                    step="0.01"
-                                    placeholder="Override tasa"
-                                    value={item.unitPriceOverride ?? ""}
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="Ej: 2,50"
+                                    value={
+                                      item.unitPriceOverride === null || item.unitPriceOverride === undefined
+                                        ? ""
+                                        : formatNumber(Number(item.unitPriceOverride), { minDecimals: 2, maxDecimals: 2 })
+                                    }
                                     onChange={(e) =>
                                       setCostItems((prev) =>
                                         prev.map((c) =>
@@ -2259,9 +2272,9 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                                     <div className="space-y-1">
                                       <Label className="text-[11px]">Porcentaje contrato (%)</Label>
                                       <Input
-                                        type="number"
-                                        step="0.01"
-                                        value={parameters.policyContractPct}
+                                      type="text"
+                                      inputMode="decimal"
+                                      value={formatNumber(parameters.policyContractPct, { minDecimals: 2, maxDecimals: 2 })}
                                         onChange={(e) =>
                                           setParameters((prev) => ({
                                             ...prev,
@@ -2290,9 +2303,9 @@ export function CpqQuoteCosts({ quoteId, variant = "modal" }: CpqQuoteCostsProps
                       <div className="space-y-1">
                         <Label className="text-[11px]">Margen (%)</Label>
                         <Input
-                          type="number"
-                          step="0.01"
-                          value={parameters.marginPct}
+                          type="text"
+                          inputMode="decimal"
+                          value={formatNumber(parameters.marginPct, { minDecimals: 2, maxDecimals: 2 })}
                           onChange={(e) =>
                             setParameters((prev) => ({
                               ...prev,

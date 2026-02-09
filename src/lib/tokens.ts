@@ -4,7 +4,7 @@
  */
 
 import { PresentationPayload } from '@/types/presentation';
-import { formatCurrency, formatUF, formatDate, escapeRegExp } from './utils';
+import { formatCurrency, formatDate, escapeRegExp } from './utils';
 
 /**
  * Mapa de todos los tokens disponibles y sus rutas en el payload
@@ -144,19 +144,7 @@ export function extractUnreplacedTokens(text: string): string[] {
  * Formatea el total con el símbolo de moneda correcto
  */
 function formatTotalWithCurrency(value: number, currency: 'CLP' | 'UF' | 'USD'): string {
-  switch (currency) {
-    case 'UF':
-      return formatUF(value);
-    case 'USD':
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 0,
-      }).format(value);
-    case 'CLP':
-    default:
-      return formatCurrency(value);
-  }
+  return formatCurrency(value, currency);
 }
 
 /**

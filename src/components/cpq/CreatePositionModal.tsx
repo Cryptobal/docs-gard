@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, WEEKDAY_ORDER } from "@/components/cpq/utils";
+import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import type { CpqCargo, CpqRol, CpqPuestoTrabajo } from "@/types/cpq";
 import { Calculator, Plus } from "lucide-react";
 
@@ -389,9 +390,15 @@ export function CreatePositionModal({ quoteId, onCreated }: CreatePositionModalP
               <div className="space-y-1">
                 <Label className="text-xs sm:text-sm">Sueldo base</Label>
                 <Input
-                  type="number"
-                  value={form.baseSalary}
-                  onChange={(e) => setForm((p) => ({ ...p, baseSalary: Number(e.target.value) }))}
+                  type="text"
+                  inputMode="numeric"
+                  value={formatNumber(form.baseSalary, { minDecimals: 0, maxDecimals: 0 })}
+                  onChange={(e) =>
+                    setForm((p) => ({
+                      ...p,
+                      baseSalary: parseLocalizedNumber(e.target.value),
+                    }))
+                  }
                   className="h-11 sm:h-9 bg-background text-sm"
                 />
               </div>
@@ -430,10 +437,15 @@ export function CreatePositionModal({ quoteId, onCreated }: CreatePositionModalP
                 <div className="space-y-1">
                   <Label className="text-xs sm:text-sm">Plan Isapre (%)</Label>
                   <Input
-                    type="number"
-                    value={form.healthPlanPct}
-                    onChange={(e) => setForm((p) => ({ ...p, healthPlanPct: Number(e.target.value) }))}
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
+                    value={formatNumber(form.healthPlanPct, { minDecimals: 2, maxDecimals: 2 })}
+                    onChange={(e) =>
+                      setForm((p) => ({
+                        ...p,
+                        healthPlanPct: parseLocalizedNumber(e.target.value),
+                      }))
+                    }
                     className="h-11 sm:h-9 bg-background text-sm"
                   />
                 </div>

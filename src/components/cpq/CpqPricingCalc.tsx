@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatCurrency } from "@/components/cpq/utils";
+import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import type { CpqQuoteCostSummary } from "@/types/cpq";
 
 interface CpqPricingCalcProps {
@@ -155,11 +156,15 @@ export function CpqPricingCalc({
           Costos porcentuales
         </div>
         <div className="flex justify-between items-center pl-2 text-amber-300">
-          <span className="text-xs">Costo financiero ({financialRatePct.toFixed(2)}%)</span>
+          <span className="text-xs">
+            Costo financiero ({formatNumber(financialRatePct, { minDecimals: 2, maxDecimals: 2 })}%)
+          </span>
           <span className="font-mono text-xs">{formatCurrency(financialAmount)}</span>
         </div>
         <div className="flex justify-between items-center pl-2 text-purple-300">
-          <span className="text-xs">Póliza ({policyRatePct.toFixed(2)}%)</span>
+          <span className="text-xs">
+            Póliza ({formatNumber(policyRatePct, { minDecimals: 2, maxDecimals: 2 })}%)
+          </span>
           <span className="font-mono text-xs">{formatCurrency(policyAmount)}</span>
         </div>
         
@@ -172,16 +177,16 @@ export function CpqPricingCalc({
           <div className="flex items-center gap-2">
             <span className="font-semibold">Margen</span>
             <Input
-              type="number"
-              step="0.1"
-              value={localMargin}
+              type="text"
+              inputMode="decimal"
+              value={formatNumber(localMargin, { minDecimals: 2, maxDecimals: 2 })}
               onChange={(e) => {
-                const value = Number(e.target.value || 0);
+                const value = parseLocalizedNumber(e.target.value || "0");
                 setLocalMargin(value);
                 setDirty(true);
               }}
               onFocus={(e) => e.currentTarget.select()}
-              className="h-7 w-16 text-xs bg-slate-900/80 text-white border-emerald-600/40 placeholder:text-slate-400"
+              className="h-7 w-20 text-xs bg-slate-900/80 text-white border-emerald-600/40 placeholder:text-slate-400"
             />
             <span className="text-xs">%</span>
             <Button
