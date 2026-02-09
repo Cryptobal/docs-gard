@@ -242,11 +242,23 @@ export async function seedPayrollData() {
     },
   };
 
+  // Buscar si ya existe una versión con este nombre
   const existingParams = await prisma.payrollParameterVersion.findFirst({
     where: { name: "Parámetros Legales Chile - Febrero 2026" },
   });
 
-  if (!existingParams) {
+  if (existingParams) {
+    // Actualizar datos existentes (fix data incorrecta)
+    await prisma.payrollParameterVersion.update({
+      where: { id: existingParams.id },
+      data: {
+        data: parametersData as any,
+        description: "Tasas y topes oficiales vigentes para febrero 2026 (actualizado)",
+        isActive: true,
+      },
+    });
+    console.log("   ↻ Updated existing parameter version");
+  } else {
     await prisma.payrollParameterVersion.create({
       data: {
         name: "Parámetros Legales Chile - Febrero 2026",
@@ -258,6 +270,7 @@ export async function seedPayrollData() {
         createdBy: "system",
       },
     });
+    console.log("   + Created new parameter version");
   }
 
   console.log("✅ Payroll data seeded successfully!");
