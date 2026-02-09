@@ -36,6 +36,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useLocalStorage } from "@/lib/hooks";
 import { CrmAccount, CrmDeal, CrmPipelineStage } from "@/types";
@@ -79,6 +86,7 @@ type DealCardProps = {
   isLinking: boolean;
   isChangingStage: boolean;
   isOverlay?: boolean;
+  onOpenSheet?: () => void;
 };
 
 type DealColumnProps = {
@@ -121,6 +129,7 @@ function DealCard({
   isLinking,
   isChangingStage,
   isOverlay = false,
+  onOpenSheet,
 }: DealCardProps) {
   const {
     attributes,
@@ -147,24 +156,35 @@ function DealCard({
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="space-y-1">
+        <div
+          className="flex-1 space-y-1 cursor-pointer md:cursor-auto"
+          onClick={() => !isOverlay && onOpenSheet?.()}
+        >
           <Link
             href={`/crm/deals/${deal.id}`}
             className="text-sm font-semibold text-foreground hover:underline"
+            onClick={(e) => e.stopPropagation()}
           >
             {deal.title}
           </Link>
           <p className="text-xs text-muted-foreground">
             {deal.account?.name} · {deal.primaryContact?.name || "Sin contacto"}
           </p>
-          <p className="text-xs text-muted-foreground">
-            ${Number(deal.amount).toLocaleString("es-CL")}
-          </p>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              ${Number(deal.amount).toLocaleString("es-CL")}
+            </span>
+            {(deal.quotes || []).length > 0 && (
+              <Badge variant="outline" className="text-[10px] h-4">
+                {(deal.quotes || []).length} CPQ
+              </Badge>
+            )}
+          </div>
         </div>
         {!isOverlay && (
           <button
             ref={setActivatorNodeRef}
-            className="mt-0.5 rounded-md p-1 text-muted-foreground hover:text-foreground"
+            className="mt-0.5 rounded-md p-1 text-muted-foreground hover:text-foreground hidden md:block"
             {...attributes}
             {...listeners}
             aria-label="Arrastrar negocio"
@@ -174,8 +194,9 @@ function DealCard({
         )}
       </div>
 
+      {/* Desktop-only inline actions */}
       {!isOverlay && (
-        <>
+        <div className="hidden md:block">
           <div className="mt-3 space-y-2">
             <Label className="text-xs">Cambiar etapa</Label>
             <select
@@ -194,16 +215,16 @@ function DealCard({
 
           <div className="mt-3 space-y-2">
             <Label className="text-xs">Cotizaciones</Label>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-1">
               {(deal.quotes || []).length === 0 && (
                 <span className="text-xs text-muted-foreground">
-                  Sin cotizaciones vinculadas.
+                  Sin cotizaciones.
                 </span>
               )}
               {(deal.quotes || []).map((quote) => {
                 const quoteInfo = quotesById[quote.quoteId];
                 return (
-                  <Badge key={quote.id} variant="outline">
+                  <Badge key={quote.id} variant="outline" className="text-[10px]">
                     {quoteInfo?.code || "CPQ"}
                   </Badge>
                 );
@@ -233,7 +254,7 @@ function DealCard({
               </Button>
             </div>
           </div>
-        </>
+        </div>
       )}
     </div>
   );
@@ -264,6 +285,9 @@ export function CrmDealsClient({
   // Per-deal loading states
   const [linkingDealId, setLinkingDealId] = useState<string | null>(null);
   const [changingStageId, setChangingStageId] = useState<string | null>(null);
+  // Mobile sheet for deal actions
+  const [sheetDealId, setSheetDealId] = useState<string | null>(null);
+  const sheetDeal = sheetDealId ? deals.find((d) => d.id === sheetDealId) : null;
 
   const inputClassName =
     "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
@@ -630,6 +654,7 @@ export function CrmDealsClient({
                             onStageChange={(stageId) => updateStage(deal.id, stageId)}
                             isLinking={linkingDealId === deal.id}
                             isChangingStage={changingStageId === deal.id}
+                            onOpenSheet={() => setSheetDealId(deal.id)}
                           />
                         ))}
                       </div>
@@ -733,6 +758,108 @@ export function CrmDealsClient({
           </CardContent>
         </Card>
       )}
+
+      {/* ── Mobile Deal Actions Sheet ── */}
+      <Sheet open={!!sheetDealId} onOpenChange={(open) => !open && setSheetDealId(null)}>
+        <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh] overflow-y-auto">
+          {sheetDeal && (
+            <>
+              <SheetHeader className="text-left">
+                <SheetTitle>{sheetDeal.title}</SheetTitle>
+                <SheetDescription>
+                  {sheetDeal.account?.name} · ${Number(sheetDeal.amount).toLocaleString("es-CL")}
+                </SheetDescription>
+              </SheetHeader>
+              <div className="mt-4 space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Cambiar etapa
+                  </Label>
+                  <select
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                    value={sheetDeal.stage?.id || ""}
+                    onChange={(event) => {
+                      updateStage(sheetDeal.id, event.target.value);
+                      setSheetDealId(null);
+                    }}
+                  >
+                    {stages.map((stage) => (
+                      <option key={stage.id} value={stage.id}>
+                        {stage.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="border-t border-border" />
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Cotizaciones vinculadas
+                  </Label>
+                  <div className="flex flex-wrap gap-2">
+                    {(sheetDeal.quotes || []).length === 0 && (
+                      <span className="text-xs text-muted-foreground">Sin cotizaciones.</span>
+                    )}
+                    {(sheetDeal.quotes || []).map((quote) => {
+                      const quoteInfo = quotesById[quote.quoteId];
+                      return (
+                        <Badge key={quote.id} variant="outline">
+                          {quoteInfo?.code || "CPQ"}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-2 flex gap-2">
+                    <select
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
+                      value={selectedQuotes[sheetDeal.id] || ""}
+                      onChange={(event) =>
+                        setSelectedQuotes((prev) => ({
+                          ...prev,
+                          [sheetDeal.id]: event.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">Selecciona cotización</option>
+                      {quotes.map((quote) => (
+                        <option key={quote.id} value={quote.id}>
+                          {quote.code} · {quote.clientName || "Sin cliente"}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        linkQuote(sheetDeal.id);
+                        setSheetDealId(null);
+                      }}
+                      disabled={linkingDealId === sheetDeal.id}
+                    >
+                      {linkingDealId === sheetDeal.id ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        "Vincular"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="border-t border-border" />
+
+                <Link
+                  href={`/crm/deals/${sheetDeal.id}`}
+                  className="flex items-center justify-center rounded-md border border-border bg-accent/30 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-accent"
+                  onClick={() => setSheetDealId(null)}
+                >
+                  Ver detalle completo
+                </Link>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
