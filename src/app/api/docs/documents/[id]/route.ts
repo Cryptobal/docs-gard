@@ -1,0 +1,197 @@
+/**
+ * API Route: /api/docs/documents/[id]
+ * GET    - Obtener documento por ID
+ * PATCH  - Actualizar documento
+ * DELETE - Eliminar documento
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
+import { updateDocumentSchema } from "@/lib/validations/docs";
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+
+    const { id } = await params;
+
+    const document = await prisma.document.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+      include: {
+        template: { select: { id: true, name: true, module: true, category: true } },
+        associations: true,
+        history: {
+          orderBy: { createdAt: "desc" },
+          take: 20,
+        },
+      },
+    });
+
+    if (!document) {
+      return NextResponse.json(
+        { success: false, error: "Documento no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ success: true, data: document });
+  } catch (error) {
+    console.error("Error fetching document:", error);
+    return NextResponse.json(
+      { success: false, error: "Error al obtener documento" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+
+    const { id } = await params;
+    const parsed = await parseBody(request, updateDocumentSchema);
+    if (parsed.error) return parsed.error;
+
+    const existing = await prisma.document.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: "Documento no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    const { associations, ...updateData } = parsed.data;
+
+    const updated = await prisma.$transaction(async (tx) => {
+      // Prepare date fields
+      const dataToUpdate: any = { ...updateData };
+      if (updateData.effectiveDate !== undefined) {
+        dataToUpdate.effectiveDate = updateData.effectiveDate
+          ? new Date(updateData.effectiveDate)
+          : null;
+      }
+      if (updateData.expirationDate !== undefined) {
+        dataToUpdate.expirationDate = updateData.expirationDate
+          ? new Date(updateData.expirationDate)
+          : null;
+      }
+      if (updateData.renewalDate !== undefined) {
+        dataToUpdate.renewalDate = updateData.renewalDate
+          ? new Date(updateData.renewalDate)
+          : null;
+      }
+
+      // Track status change
+      if (updateData.status && updateData.status !== existing.status) {
+        // If approving, record who approved
+        if (updateData.status === "approved") {
+          dataToUpdate.approvedBy = ctx.userId;
+          dataToUpdate.approvedAt = new Date();
+        }
+
+        await tx.docHistory.create({
+          data: {
+            documentId: id,
+            action: "status_changed",
+            details: {
+              from: existing.status,
+              to: updateData.status,
+            },
+            createdBy: ctx.userId,
+          },
+        });
+      }
+
+      // Track content change
+      if (updateData.content) {
+        await tx.docHistory.create({
+          data: {
+            documentId: id,
+            action: "edited",
+            details: { contentUpdated: true },
+            createdBy: ctx.userId,
+          },
+        });
+      }
+
+      const result = await tx.document.update({
+        where: { id },
+        data: dataToUpdate,
+        include: {
+          template: { select: { id: true, name: true, module: true, category: true } },
+          associations: true,
+        },
+      });
+
+      // Update associations if provided
+      if (associations) {
+        await tx.docAssociation.deleteMany({ where: { documentId: id } });
+        if (associations.length > 0) {
+          await tx.docAssociation.createMany({
+            data: associations.map((a) => ({
+              documentId: id,
+              entityType: a.entityType,
+              entityId: a.entityId,
+              role: a.role || "primary",
+            })),
+          });
+        }
+      }
+
+      return result;
+    });
+
+    return NextResponse.json({ success: true, data: updated });
+  } catch (error) {
+    console.error("Error updating document:", error);
+    return NextResponse.json(
+      { success: false, error: "Error al actualizar documento" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+
+    const { id } = await params;
+
+    const document = await prisma.document.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+    });
+
+    if (!document) {
+      return NextResponse.json(
+        { success: false, error: "Documento no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    await prisma.document.delete({ where: { id } });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting document:", error);
+    return NextResponse.json(
+      { success: false, error: "Error al eliminar documento" },
+      { status: 500 }
+    );
+  }
+}

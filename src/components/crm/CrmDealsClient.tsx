@@ -47,7 +47,8 @@ import { cn } from "@/lib/utils";
 import { useLocalStorage } from "@/lib/hooks";
 import { CrmAccount, CrmDeal, CrmPipelineStage } from "@/types";
 import { CrmDates } from "@/components/crm/CrmDates";
-import { GripVertical, Loader2, Plus, ExternalLink } from "lucide-react";
+import { EmptyState } from "@/components/opai/EmptyState";
+import { GripVertical, Loader2, Plus, ExternalLink, Search, TrendingUp, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 
 type DealFormState = {
@@ -298,10 +299,8 @@ export function CrmDealsClient({
   const [open, setOpen] = useState(false);
   const [activeDealId, setActiveDealId] = useState<string | null>(null);
   const [view, setView] = useLocalStorage<"kanban" | "list">("crm-deals-view", "kanban");
-  const [filters, setFilters] = useState({
-    stageId: "",
-    accountId: "",
-  });
+  const [search, setSearch] = useState("");
+  const [stageFilter, setStageFilter] = useState<string>("all");
   // Per-deal loading states
   const [linkingDealId, setLinkingDealId] = useState<string | null>(null);
   const [changingStageId, setChangingStageId] = useState<string | null>(null);
@@ -359,10 +358,8 @@ export function CrmDealsClient({
     if (!current || current.stage?.id === stageId) return;
 
     const nextStage = stages.find((stage) => stage.id === stageId);
-    // Deep copy for safe rollback
     const snapshot = JSON.parse(JSON.stringify(current)) as CrmDeal;
 
-    // Optimistic update
     setDeals((prev) =>
       prev.map((deal) =>
         deal.id === dealId && nextStage
@@ -385,7 +382,6 @@ export function CrmDealsClient({
       setDeals((prev) => prev.map((deal) => (deal.id === dealId ? payload.data : deal)));
     } catch (error) {
       console.error(error);
-      // Rollback with deep copy
       setDeals((prev) => prev.map((deal) => (deal.id === dealId ? snapshot : deal)));
       toast.error("No se pudo actualizar la etapa.");
     } finally {
@@ -442,12 +438,26 @@ export function CrmDealsClient({
   }, [deals, stages]);
 
   const filteredDeals = useMemo(() => {
+    const q = search.trim().toLowerCase();
     return deals.filter((deal) => {
-      if (filters.stageId && deal.stage?.id !== filters.stageId) return false;
-      if (filters.accountId && deal.account?.id !== filters.accountId) return false;
+      if (stageFilter !== "all" && deal.stage?.id !== stageFilter) return false;
+      if (q) {
+        const searchable = `${deal.title} ${deal.account?.name || ""} ${deal.primaryContact?.firstName || ""} ${deal.primaryContact?.lastName || ""}`.toLowerCase();
+        if (!searchable.includes(q)) return false;
+      }
       return true;
     });
-  }, [deals, filters]);
+  }, [deals, stageFilter, search]);
+
+  const stageCounts = useMemo(() => {
+    const map: Record<string, number> = {};
+    deals.forEach((d) => {
+      if (d.stage?.id) {
+        map[d.stage.id] = (map[d.stage.id] || 0) + 1;
+      }
+    });
+    return map;
+  }, [deals]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -495,16 +505,24 @@ export function CrmDealsClient({
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Negocios activos y etapa actual.
-        </p>
+    <div className="space-y-4">
+      {/* ── Search + Filters + View Toggle + Create ── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por título, cuenta o contacto..."
+            className="pl-9 h-9 bg-background text-foreground border-input"
+          />
+        </div>
         <div className="flex items-center gap-2">
-          <div className="inline-flex rounded-full border p-0.5 text-xs">
+          {/* View toggle */}
+          <div className="inline-flex rounded-full border p-0.5 text-xs shrink-0">
             <button
               type="button"
-              className={`rounded-full px-2 py-1 ${
+              className={`rounded-full px-2.5 py-1 transition-colors ${
                 view === "kanban"
                   ? "bg-foreground/10 text-foreground"
                   : "text-muted-foreground"
@@ -515,7 +533,7 @@ export function CrmDealsClient({
             </button>
             <button
               type="button"
-              className={`rounded-full px-2 py-1 ${
+              className={`rounded-full px-2.5 py-1 transition-colors ${
                 view === "list"
                   ? "bg-foreground/10 text-foreground"
                   : "text-muted-foreground"
@@ -527,7 +545,7 @@ export function CrmDealsClient({
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button size="icon" variant="secondary" className="h-9 w-9">
+              <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0">
                 <Plus className="h-4 w-4" />
                 <span className="sr-only">Nuevo negocio</span>
               </Button>
@@ -620,167 +638,178 @@ export function CrmDealsClient({
         </div>
       </div>
 
+      {/* ── Stage filter pills (for list view) ── */}
+      {view === "list" && (
+        <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
+          <button
+            type="button"
+            onClick={() => setStageFilter("all")}
+            className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors shrink-0 ${
+              stageFilter === "all"
+                ? "bg-primary/15 text-primary border border-primary/30"
+                : "text-muted-foreground hover:text-foreground border border-transparent"
+            }`}
+          >
+            Todos ({deals.length})
+          </button>
+          {stages.map((stage) => (
+            <button
+              key={stage.id}
+              type="button"
+              onClick={() => setStageFilter(stage.id)}
+              className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors shrink-0 ${
+                stageFilter === stage.id
+                  ? "bg-primary/15 text-primary border border-primary/30"
+                  : "text-muted-foreground hover:text-foreground border border-transparent"
+              }`}
+            >
+              {stage.name} ({stageCounts[stage.id] || 0})
+            </button>
+          ))}
+        </div>
+      )}
+
       {view === "kanban" ? (
         <Card>
           <CardHeader>
-            <CardTitle>Kanban de negocios</CardTitle>
-            <CardDescription>Vista por etapas optimizada para móvil.</CardDescription>
+            <CardTitle>Pipeline</CardTitle>
+            <CardDescription>Arrastra los negocios entre etapas.</CardDescription>
           </CardHeader>
           <CardContent>
-            {deals.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No hay negocios creados todavía.
-              </p>
-            )}
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCorners}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-              onDragCancel={handleDragCancel}
-            >
-              <div className="flex flex-col gap-4 md:flex-row md:gap-4 md:overflow-x-auto">
-                {columns.map((column) => (
-                  <DealColumn
-                    key={column.stage.id}
-                    stage={column.stage}
-                    deals={column.deals}
-                  >
-                    <SortableContext
-                      items={column.deals.map((deal) => `deal-${deal.id}`)}
-                      strategy={verticalListSortingStrategy}
+            {deals.length === 0 ? (
+              <EmptyState
+                icon={<TrendingUp className="h-8 w-8" />}
+                title="Sin negocios"
+                description="No hay negocios creados todavía."
+                compact
+              />
+            ) : (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCorners}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                onDragCancel={handleDragCancel}
+              >
+                <div className="flex flex-col gap-4 md:flex-row md:gap-4 md:overflow-x-auto">
+                  {columns.map((column) => (
+                    <DealColumn
+                      key={column.stage.id}
+                      stage={column.stage}
+                      deals={column.deals}
                     >
-                      <div className="space-y-3">
-                        {column.deals.length === 0 && (
-                          <p className="text-xs text-muted-foreground">
-                            Sin negocios en esta etapa.
-                          </p>
-                        )}
-                        {column.deals.map((deal) => (
-                          <DealCard
-                            key={deal.id}
-                            deal={deal}
-                            stages={stages}
-                            quotes={quotes}
-                            quotesById={quotesById}
-                            selectedQuoteId={selectedQuotes[deal.id] || ""}
-                            onSelectQuote={(value) =>
-                              setSelectedQuotes((prev) => ({
-                                ...prev,
-                                [deal.id]: value,
-                              }))
-                            }
-                            onLinkQuote={() => linkQuote(deal.id)}
-                            onStageChange={(stageId) => updateStage(deal.id, stageId)}
-                            isLinking={linkingDealId === deal.id}
-                            isChangingStage={changingStageId === deal.id}
-                            onOpenSheet={() => setSheetDealId(deal.id)}
-                          />
-                        ))}
-                      </div>
-                    </SortableContext>
-                  </DealColumn>
-                ))}
-              </div>
-              <DragOverlay dropAnimation={dropAnimation}>
-                {activeDealId ? (
-                  <DealCard
-                    deal={deals.find((deal) => deal.id === activeDealId)!}
-                    stages={stages}
-                    quotes={quotes}
-                    quotesById={quotesById}
-                    selectedQuoteId=""
-                    onSelectQuote={() => {}}
-                    onLinkQuote={() => {}}
-                    onStageChange={() => {}}
-                    isLinking={false}
-                    isChangingStage={false}
-                    isOverlay
-                  />
-                ) : null}
-              </DragOverlay>
-            </DndContext>
+                      <SortableContext
+                        items={column.deals.map((deal) => `deal-${deal.id}`)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        <div className="space-y-3">
+                          {column.deals.length === 0 && (
+                            <p className="text-xs text-muted-foreground text-center py-4">
+                              Sin negocios en esta etapa.
+                            </p>
+                          )}
+                          {column.deals.map((deal) => (
+                            <DealCard
+                              key={deal.id}
+                              deal={deal}
+                              stages={stages}
+                              quotes={quotes}
+                              quotesById={quotesById}
+                              selectedQuoteId={selectedQuotes[deal.id] || ""}
+                              onSelectQuote={(value) =>
+                                setSelectedQuotes((prev) => ({
+                                  ...prev,
+                                  [deal.id]: value,
+                                }))
+                              }
+                              onLinkQuote={() => linkQuote(deal.id)}
+                              onStageChange={(stageId) => updateStage(deal.id, stageId)}
+                              isLinking={linkingDealId === deal.id}
+                              isChangingStage={changingStageId === deal.id}
+                              onOpenSheet={() => setSheetDealId(deal.id)}
+                            />
+                          ))}
+                        </div>
+                      </SortableContext>
+                    </DealColumn>
+                  ))}
+                </div>
+                <DragOverlay dropAnimation={dropAnimation}>
+                  {activeDealId ? (
+                    <DealCard
+                      deal={deals.find((deal) => deal.id === activeDealId)!}
+                      stages={stages}
+                      quotes={quotes}
+                      quotesById={quotesById}
+                      selectedQuoteId=""
+                      onSelectQuote={() => {}}
+                      onLinkQuote={() => {}}
+                      onStageChange={() => {}}
+                      isLinking={false}
+                      isChangingStage={false}
+                      isOverlay
+                    />
+                  ) : null}
+                </DragOverlay>
+              </DndContext>
+            )}
           </CardContent>
         </Card>
       ) : (
         <Card>
-          <CardHeader>
-            <CardTitle>Lista de negocios</CardTitle>
-            <CardDescription>Vista compacta por cliente y etapa.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <select
-                className={selectClassName}
-                value={filters.stageId}
-                onChange={(event) =>
-                  setFilters((prev) => ({ ...prev, stageId: event.target.value }))
+          <CardContent className="pt-5">
+            {filteredDeals.length === 0 ? (
+              <EmptyState
+                icon={<TrendingUp className="h-8 w-8" />}
+                title="Sin negocios"
+                description={
+                  search || stageFilter !== "all"
+                    ? "No hay negocios para los filtros seleccionados."
+                    : "No hay negocios creados todavía."
                 }
-              >
-                <option value="">Todas las etapas</option>
-                {stages.map((stage) => (
-                  <option key={stage.id} value={stage.id}>
-                    {stage.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                className={selectClassName}
-                value={filters.accountId}
-                onChange={(event) =>
-                  setFilters((prev) => ({ ...prev, accountId: event.target.value }))
-                }
-              >
-                <option value="">Todos los clientes</option>
-                {accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {filteredDeals.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No hay negocios creados todavía.
-              </p>
-            )}
-            {filteredDeals.map((deal) => (
-              <div
-                key={deal.id}
-                className="flex flex-col gap-2 rounded-lg border p-3"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <Link
-                      href={`/crm/deals/${deal.id}`}
-                      className="text-sm font-semibold text-foreground hover:underline"
-                    >
-                      {deal.title}
-                    </Link>
-                    <p className="text-xs text-muted-foreground">
-                      {deal.account?.name} · {deal.primaryContact ? `${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim() : "Sin contacto"}
-                    </p>
-                  </div>
-                  <Badge variant="outline">{deal.stage?.name}</Badge>
-                </div>
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>${Number(deal.amount).toLocaleString("es-CL")}</span>
+                compact
+              />
+            ) : (
+              <div className="space-y-2">
+                {filteredDeals.map((deal) => (
                   <Link
+                    key={deal.id}
                     href={`/crm/deals/${deal.id}`}
-                    className="text-xs text-foreground/70 hover:text-foreground"
+                    className="flex items-center justify-between rounded-lg border p-3 sm:p-4 transition-colors hover:bg-accent/30 group"
                   >
-                    Ver detalle
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm">{deal.title}</p>
+                        <Badge variant="outline">{deal.stage?.name}</Badge>
+                        {(deal.quotes || []).length > 0 && (
+                          <Badge variant="outline" className="text-[10px] h-4">
+                            {(deal.quotes || []).length} CPQ
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {deal.account?.name} · {deal.primaryContact ? `${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim() : "Sin contacto"}
+                        {" · "}${Number(deal.amount).toLocaleString("es-CL")}
+                      </p>
+                      {deal.createdAt && (
+                        <CrmDates
+                          createdAt={deal.createdAt}
+                          updatedAt={(deal as { updatedAt?: string }).updatedAt}
+                          className="mt-0.5"
+                        />
+                      )}
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 shrink-0 hidden sm:block" />
                   </Link>
-                </div>
+                ))}
               </div>
-            ))}
+            )}
           </CardContent>
         </Card>
       )}
 
       {/* ── Mobile Deal Actions Sheet ── */}
-      <Sheet open={!!sheetDealId} onOpenChange={(open) => !open && setSheetDealId(null)}>
+      <Sheet open={!!sheetDealId} onOpenChange={(o) => !o && setSheetDealId(null)}>
         <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh] overflow-y-auto">
           {sheetDeal && (
             <>

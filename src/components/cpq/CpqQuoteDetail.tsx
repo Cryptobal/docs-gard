@@ -34,6 +34,7 @@ import type {
   CpqQuoteInfrastructure,
 } from "@/types/cpq";
 import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
   DialogContent,
@@ -79,6 +80,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
   const [marginPct, setMarginPct] = useState(20);
   const [cloning, setCloning] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [statusChangePending, setStatusChangePending] = useState<"draft" | "sent" | null>(null);
   const [changingStatus, setChangingStatus] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -514,7 +516,6 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm("¿Eliminar esta cotización? Esta acción no se puede deshacer.")) return;
     setDeleting(true);
     try {
       const response = await fetch(`/api/cpq/quotes/${quoteId}`, {
@@ -758,7 +759,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
             size="sm"
             variant="destructive"
             className="gap-2"
-            onClick={handleDelete}
+            onClick={() => setDeleteConfirmOpen(true)}
             disabled={deleting || isLocked}
           >
             <Trash2 className="h-4 w-4" />
@@ -1675,6 +1676,14 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Eliminar cotización"
+        description="La cotización será eliminada permanentemente. Esta acción no se puede deshacer."
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

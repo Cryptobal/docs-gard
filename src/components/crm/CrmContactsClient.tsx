@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 "use client";
 
-import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useMemo, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,10 +16,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Loader2, Trash2 } from "lucide-react";
+import { Plus, Pencil, Loader2, Trash2, Search, Users, ChevronRight } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { EmptyState } from "@/components/opai/EmptyState";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { toast } from "sonner";
+import Link from "next/link";
 
 type ContactRow = {
   id: string;
@@ -75,11 +77,31 @@ export function CrmContactsClient({
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [accountFilter, setAccountFilter] = useState<string>("all");
 
   const inputClassName =
     "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
   const selectClassName =
     "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+
+  const filteredContacts = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return contacts.filter((c) => {
+      if (accountFilter !== "all" && c.account?.id !== accountFilter) return false;
+      if (q) {
+        const searchable = `${c.firstName} ${c.lastName} ${c.email || ""} ${c.phone || ""} ${c.account?.name || ""}`.toLowerCase();
+        if (!searchable.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [contacts, search, accountFilter]);
+
+  // Get accounts that actually have contacts for filter pills
+  const accountsWithContacts = useMemo(() => {
+    const accountIds = new Set(contacts.map((c) => c.account?.id).filter(Boolean));
+    return accounts.filter((a) => accountIds.has(a.id));
+  }, [contacts, accounts]);
 
   const updateForm = (key: keyof ContactFormState, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -194,105 +216,144 @@ export function CrmContactsClient({
     [c.firstName, c.lastName].filter(Boolean).join(" ") || "Sin nombre";
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Contactos principales por cliente.
-        </p>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button size="icon" variant="secondary" className="h-9 w-9">
-              <Plus className="h-4 w-4" />
-              <span className="sr-only">Nuevo contacto</span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Nuevo contacto</DialogTitle>
-              <DialogDescription>
-                Asócialo a un cliente existente.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2 md:col-span-2">
-                <Label>Cliente *</Label>
-                <select
-                  className={selectClassName}
-                  value={form.accountId}
-                  onChange={(event) => updateForm("accountId", event.target.value)}
+    <div className="space-y-4">
+      {/* ── Search + Filters + Create ── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por nombre, email o teléfono..."
+            className="pl-9 h-9 bg-background text-foreground border-input"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
+            <button
+              type="button"
+              onClick={() => setAccountFilter("all")}
+              className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors shrink-0 ${
+                accountFilter === "all"
+                  ? "bg-primary/15 text-primary border border-primary/30"
+                  : "text-muted-foreground hover:text-foreground border border-transparent"
+              }`}
+            >
+              Todos ({contacts.length})
+            </button>
+            {accountsWithContacts.slice(0, 5).map((acc) => {
+              const count = contacts.filter((c) => c.account?.id === acc.id).length;
+              return (
+                <button
+                  key={acc.id}
+                  type="button"
+                  onClick={() => setAccountFilter(acc.id)}
+                  className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors shrink-0 ${
+                    accountFilter === acc.id
+                      ? "bg-primary/15 text-primary border border-primary/30"
+                      : "text-muted-foreground hover:text-foreground border border-transparent"
+                  }`}
                 >
-                  <option value="">Selecciona un cliente</option>
-                  {accounts.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label>Nombre *</Label>
-                <Input
-                  value={form.firstName}
-                  onChange={(event) => updateForm("firstName", event.target.value)}
-                  placeholder="Nombre"
-                  className={inputClassName}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Apellido *</Label>
-                <Input
-                  value={form.lastName}
-                  onChange={(event) => updateForm("lastName", event.target.value)}
-                  placeholder="Apellido"
-                  className={inputClassName}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Email *</Label>
-                <Input
-                  value={form.email}
-                  onChange={(event) => updateForm("email", event.target.value)}
-                  placeholder="correo@empresa.com"
-                  className={inputClassName}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Teléfono</Label>
-                <Input
-                  value={form.phone}
-                  onChange={(event) => updateForm("phone", event.target.value)}
-                  placeholder="+56 9 1234 5678"
-                  className={inputClassName}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Cargo</Label>
-                <Input
-                  value={form.roleTitle}
-                  onChange={(event) => updateForm("roleTitle", event.target.value)}
-                  placeholder="Gerente, jefe, etc."
-                  className={inputClassName}
-                />
-              </div>
-              <div className="flex items-end">
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={form.isPrimary}
-                    onChange={(event) => updateForm("isPrimary", event.target.checked)}
-                  />
-                  Contacto principal
-                </label>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button onClick={createContact} disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Guardar contacto
+                  {acc.name} ({count})
+                </button>
+              );
+            })}
+          </div>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0">
+                <Plus className="h-4 w-4" />
+                <span className="sr-only">Nuevo contacto</span>
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Nuevo contacto</DialogTitle>
+                <DialogDescription>
+                  Asócialo a un cliente existente.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2 md:col-span-2">
+                  <Label>Cliente *</Label>
+                  <select
+                    className={selectClassName}
+                    value={form.accountId}
+                    onChange={(event) => updateForm("accountId", event.target.value)}
+                  >
+                    <option value="">Selecciona un cliente</option>
+                    {accounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Nombre *</Label>
+                  <Input
+                    value={form.firstName}
+                    onChange={(event) => updateForm("firstName", event.target.value)}
+                    placeholder="Nombre"
+                    className={inputClassName}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Apellido *</Label>
+                  <Input
+                    value={form.lastName}
+                    onChange={(event) => updateForm("lastName", event.target.value)}
+                    placeholder="Apellido"
+                    className={inputClassName}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email *</Label>
+                  <Input
+                    value={form.email}
+                    onChange={(event) => updateForm("email", event.target.value)}
+                    placeholder="correo@empresa.com"
+                    className={inputClassName}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Teléfono</Label>
+                  <Input
+                    value={form.phone}
+                    onChange={(event) => updateForm("phone", event.target.value)}
+                    placeholder="+56 9 1234 5678"
+                    className={inputClassName}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Cargo</Label>
+                  <Input
+                    value={form.roleTitle}
+                    onChange={(event) => updateForm("roleTitle", event.target.value)}
+                    placeholder="Gerente, jefe, etc."
+                    className={inputClassName}
+                  />
+                </div>
+                <div className="flex items-end">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={form.isPrimary}
+                      onChange={(event) => updateForm("isPrimary", event.target.checked)}
+                    />
+                    Contacto principal
+                  </label>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={createContact} disabled={loading}>
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Guardar contacto
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Edit modal */}
@@ -363,60 +424,78 @@ export function CrmContactsClient({
         </DialogContent>
       </Dialog>
 
+      {/* ── Contact list ── */}
       <Card>
-        <CardHeader>
-          <CardTitle>Contactos</CardTitle>
-          <CardDescription>Listado por cliente.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {contacts.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              Todavía no hay contactos registrados.
-            </p>
-          )}
-          {contacts.map((contact) => (
-            <div
-              key={contact.id}
-              className="flex flex-col gap-2 rounded-lg border p-4 md:flex-row md:items-center md:justify-between"
-            >
-              <div>
-                <p className="font-medium">{contactName(contact)}</p>
-                <p className="text-sm text-muted-foreground">
-                  {contact.email || "Sin email"} · {contact.phone || "Sin teléfono"}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {contact.account?.name || "Sin cliente asociado"}
-                  {contact.roleTitle ? ` · ${contact.roleTitle}` : ""}
-                </p>
-                {contact.createdAt && (
-                  <CrmDates
-                    createdAt={contact.createdAt}
-                    updatedAt={contact.updatedAt}
-                    className="mt-0.5"
-                  />
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {contact.isPrimary && <Badge variant="outline">Principal</Badge>}
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8"
-                  onClick={() => openEditModal(contact)}
+        <CardContent className="pt-5">
+          {filteredContacts.length === 0 ? (
+            <EmptyState
+              icon={<Users className="h-8 w-8" />}
+              title="Sin contactos"
+              description={
+                search || accountFilter !== "all"
+                  ? "No hay contactos para los filtros seleccionados."
+                  : "No hay contactos registrados todavía."
+              }
+              compact
+            />
+          ) : (
+            <div className="space-y-2">
+              {filteredContacts.map((contact) => (
+                <div
+                  key={contact.id}
+                  className="flex flex-col gap-2 rounded-lg border p-3 sm:p-4 transition-colors hover:bg-accent/30 sm:flex-row sm:items-center sm:justify-between group"
                 >
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 text-destructive hover:text-destructive"
-                  onClick={() => setDeleteConfirm({ open: true, id: contact.id })}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-sm">{contactName(contact)}</p>
+                      {contact.isPrimary && (
+                        <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
+                          Principal
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {contact.email || "Sin email"} · {contact.phone || "Sin teléfono"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {contact.account?.name || "Sin cliente asociado"}
+                      {contact.roleTitle ? ` · ${contact.roleTitle}` : ""}
+                    </p>
+                    {contact.createdAt && (
+                      <CrmDates
+                        createdAt={contact.createdAt}
+                        updatedAt={contact.updatedAt}
+                        className="mt-0.5"
+                      />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8"
+                      onClick={() => openEditModal(contact)}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      onClick={() => setDeleteConfirm({ open: true, id: contact.id })}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                    {contact.account && (
+                      <Link href={`/crm/accounts/${contact.account.id}`}>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 hidden sm:block" />
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </CardContent>
       </Card>
 

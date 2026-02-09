@@ -6,7 +6,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["public", "payroll", "fx", "cpq", "crm"]
+  schemas  = ["public", "payroll", "fx", "cpq", "crm", "docs"]
 }
 
 model Tenant {
@@ -1119,4 +1119,124 @@ model CrmHistoryLog {
   @@index([createdAt(sort: Desc)], map: "idx_crm_history_created_desc")
   @@map("history_logs")
   @@schema("crm")
+}
+
+// ============================================
+// DOCS MODULE (Document Management System)
+// ============================================
+
+model DocTemplate {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId    String   @map("tenant_id")
+  name        String
+  description String?
+  content     Json     @db.JsonB   // Tiptap JSON document
+  module      String               // "crm", "payroll", "legal"
+  category    String               // "contrato_servicio", "contrato_laboral", "nda"
+  tokensUsed  Json?    @db.JsonB   // ["account.name", "contact.firstName", ...]
+  isActive    Boolean  @default(true) @map("is_active")
+  isDefault   Boolean  @default(false) @map("is_default")
+  createdBy   String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  versions  DocTemplateVersion[]
+  documents Document[]
+
+  @@unique([tenantId, module, name], map: "uq_doc_template_tenant_module_name")
+  @@index([tenantId], map: "idx_doc_templates_tenant")
+  @@index([module], map: "idx_doc_templates_module")
+  @@index([isActive], map: "idx_doc_templates_active")
+  @@map("doc_templates")
+  @@schema("docs")
+}
+
+model DocTemplateVersion {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  templateId String   @map("template_id") @db.Uuid
+  version    Int
+  content    Json     @db.JsonB
+  changeNote String?  @map("change_note")
+  createdBy  String   @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  template DocTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, version], map: "uq_doc_template_version")
+  @@index([templateId], map: "idx_doc_template_versions_template")
+  @@map("doc_template_versions")
+  @@schema("docs")
+}
+
+model Document {
+  id              String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String    @map("tenant_id")
+  uniqueId        String    @unique @default(cuid())
+  templateId      String?   @map("template_id") @db.Uuid
+  title           String
+  content         Json      @db.JsonB      // Tiptap JSON con tokens resueltos
+  tokenValues     Json?     @map("token_values") @db.JsonB
+  module          String                    // "crm", "payroll", "legal"
+  category        String                    // "contrato_servicio", "contrato_laboral"
+  status          String    @default("draft") // draft, review, approved, active, expiring, expired, renewed
+  effectiveDate   DateTime? @map("effective_date") @db.Date
+  expirationDate  DateTime? @map("expiration_date") @db.Date
+  renewalDate     DateTime? @map("renewal_date") @db.Date
+  alertDaysBefore Int       @default(30) @map("alert_days_before")
+  signatureStatus String?   @map("signature_status")
+  signedAt        DateTime? @map("signed_at") @db.Timestamptz(6)
+  signedBy        String?   @map("signed_by")
+  signatureData   Json?     @map("signature_data") @db.JsonB
+  pdfUrl          String?   @map("pdf_url")
+  pdfGeneratedAt  DateTime? @map("pdf_generated_at") @db.Timestamptz(6)
+  createdBy       String    @map("created_by")
+  approvedBy      String?   @map("approved_by")
+  approvedAt      DateTime? @map("approved_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  template     DocTemplate?    @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  associations DocAssociation[]
+  history      DocHistory[]
+
+  @@index([tenantId], map: "idx_documents_tenant")
+  @@index([tenantId, module], map: "idx_documents_tenant_module")
+  @@index([tenantId, status], map: "idx_documents_tenant_status")
+  @@index([expirationDate], map: "idx_documents_expiration")
+  @@index([uniqueId], map: "idx_documents_unique_id")
+  @@map("documents")
+  @@schema("docs")
+}
+
+model DocAssociation {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  entityType String   @map("entity_type") // "crm_account", "crm_deal", "crm_installation", "crm_contact"
+  entityId   String   @map("entity_id") @db.Uuid
+  role       String   @default("primary")  // "primary", "related", "copy"
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, entityType, entityId], map: "uq_doc_association")
+  @@index([entityType, entityId], map: "idx_doc_associations_entity")
+  @@index([documentId], map: "idx_doc_associations_document")
+  @@map("doc_associations")
+  @@schema("docs")
+}
+
+model DocHistory {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  action     String   // "created", "edited", "status_changed", "signed", "pdf_generated"
+  details    Json?    @db.JsonB
+  createdBy  String   @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId], map: "idx_doc_history_document")
+  @@index([createdAt(sort: Desc)], map: "idx_doc_history_created_desc")
+  @@map("doc_history")
+  @@schema("docs")
 }

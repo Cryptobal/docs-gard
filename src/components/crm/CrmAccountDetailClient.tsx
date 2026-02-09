@@ -18,6 +18,7 @@ import {
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CrmInstallationsClient } from "./CrmInstallationsClient";
 import {
+  ArrowLeft,
   Building2,
   Users,
   TrendingUp,
@@ -29,6 +30,7 @@ import {
   Pencil,
   Trash2,
   Loader2,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -168,8 +170,30 @@ export function CrmAccountDetailClient({ account: initialAccount }: { account: A
 
   return (
     <div className="space-y-4">
-      {/* Tab pills */}
-      <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
+      {/* ── Detail toolbar: Back + Actions ── */}
+      <div className="flex items-center justify-between">
+        <Link
+          href="/crm/accounts"
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Volver a cuentas
+        </Link>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={() => setDeleteAccountConfirm(true)}
+          >
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+            Eliminar
+          </Button>
+        </div>
+      </div>
+
+      {/* ── Tab pills ── */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
         {tabs.map((tab) => (
           <button
             key={tab.key}
@@ -193,20 +217,11 @@ export function CrmAccountDetailClient({ account: initialAccount }: { account: A
       {activeTab === "info" && (
         <div className="grid gap-4 md:grid-cols-2">
           <Card>
-            <CardHeader className="flex-row items-center justify-between space-y-0">
+            <CardHeader>
               <CardTitle className="flex items-center gap-2 text-sm">
                 <Building2 className="h-4 w-4" />
                 Datos generales
               </CardTitle>
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={() => setDeleteAccountConfirm(true)}
-              >
-                <Trash2 className="h-3.5 w-3.5 mr-1" />
-                Eliminar cuenta
-              </Button>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <InfoRow label="Tipo">
@@ -285,23 +300,23 @@ export function CrmAccountDetailClient({ account: initialAccount }: { account: A
                 compact
               />
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {account.contacts.map((contact) => (
                   <div
                     key={contact.id}
-                    className="flex flex-col gap-1 rounded-lg border p-3 cursor-pointer hover:bg-accent/30 transition-colors sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-2 rounded-lg border p-3 sm:p-4 cursor-pointer hover:bg-accent/30 transition-colors sm:flex-row sm:items-center sm:justify-between group"
                     onClick={() => openContactEdit(contact)}
                   >
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-sm">{`${contact.firstName} ${contact.lastName}`.trim()}</p>
                         {contact.isPrimary && (
-                          <Badge variant="outline" className="text-[10px]">
+                          <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
                             Principal
                           </Badge>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="mt-0.5 text-xs text-muted-foreground">
                         {contact.roleTitle || "Sin cargo"}
                       </p>
                     </div>
@@ -414,33 +429,34 @@ export function CrmAccountDetailClient({ account: initialAccount }: { account: A
                 compact
               />
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {account.deals.map((deal) => (
                   <Link
                     key={deal.id}
                     href={`/crm/deals/${deal.id}`}
-                    className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-accent/30"
+                    className="flex items-center justify-between rounded-lg border p-3 sm:p-4 transition-colors hover:bg-accent/30 group"
                   >
-                    <div>
-                      <p className="text-sm font-medium">{deal.title}</p>
-                      <p className="text-xs text-muted-foreground">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">{deal.title}</p>
+                        <Badge variant="outline">{deal.stage?.name}</Badge>
+                        {deal.status === "won" && (
+                          <Badge variant="outline" className="border-emerald-500/30 text-emerald-400">
+                            Ganado
+                          </Badge>
+                        )}
+                        {deal.status === "lost" && (
+                          <Badge variant="outline" className="border-red-500/30 text-red-400">
+                            Perdido
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
                         ${Number(deal.amount).toLocaleString("es-CL")}
                         {deal.primaryContact ? ` · ${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim() : ""}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">{deal.stage?.name}</Badge>
-                      {deal.status === "won" && (
-                        <Badge className="bg-emerald-500/15 text-emerald-400 border-emerald-500/30">
-                          Ganado
-                        </Badge>
-                      )}
-                      {deal.status === "lost" && (
-                        <Badge className="bg-red-500/15 text-red-400 border-red-500/30">
-                          Perdido
-                        </Badge>
-                      )}
-                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 shrink-0 hidden sm:block" />
                   </Link>
                 ))}
               </div>

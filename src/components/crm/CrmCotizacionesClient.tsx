@@ -2,12 +2,12 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/opai/EmptyState";
-import { FileText, Search, ExternalLink, Plus } from "lucide-react";
+import { FileText, Search, ChevronRight, Plus } from "lucide-react";
 import { formatCLP, formatNumber } from "@/lib/utils";
 import { CrmDates } from "@/components/crm/CrmDates";
 
@@ -70,6 +70,14 @@ export function CrmCotizacionesClient({
     rejected: quotes.filter((q) => q.status === "rejected").length,
   }), [quotes]);
 
+  const statusFilters = [
+    { key: "all", label: "Todas", count: counts.total },
+    { key: "draft", label: "Borrador", count: counts.draft },
+    { key: "sent", label: "Enviadas", count: counts.sent },
+    { key: "approved", label: "Aprobadas", count: counts.approved },
+    { key: "rejected", label: "Rechazadas", count: counts.rejected },
+  ];
+
   return (
     <div className="space-y-4">
       {/* KPI summary */}
@@ -80,26 +88,20 @@ export function CrmCotizacionesClient({
         <SummaryCard label="Aprobadas" value={counts.approved} className="text-emerald-400" />
       </div>
 
-      {/* Filters */}
-      <Card className="p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar por código o cliente..."
-              className="pl-9 h-9 bg-background text-foreground border-input"
-            />
-          </div>
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-            {[
-              { key: "all", label: "Todas" },
-              { key: "draft", label: "Borrador" },
-              { key: "sent", label: "Enviadas" },
-              { key: "approved", label: "Aprobadas" },
-              { key: "rejected", label: "Rechazadas" },
-            ].map((opt) => (
+      {/* ── Search + Filters + Create ── */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por código o cliente..."
+            className="pl-9 h-9 bg-background text-foreground border-input"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
+            {statusFilters.map((opt) => (
               <button
                 key={opt.key}
                 type="button"
@@ -110,25 +112,22 @@ export function CrmCotizacionesClient({
                     : "text-muted-foreground hover:text-foreground border border-transparent"
                 }`}
               >
-                {opt.label}
+                {opt.label} ({opt.count})
               </button>
             ))}
           </div>
-        </div>
-      </Card>
-
-      {/* Quote list */}
-      <Card>
-        <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle>Cotizaciones</CardTitle>
           <Link href="/cpq">
-            <Button size="sm" variant="secondary" className="gap-1.5">
-              <Plus className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Nueva en CPQ</span>
+            <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0">
+              <Plus className="h-4 w-4" />
+              <span className="sr-only">Nueva cotización</span>
             </Button>
           </Link>
-        </CardHeader>
-        <CardContent>
+        </div>
+      </div>
+
+      {/* ── Quote list ── */}
+      <Card>
+        <CardContent className="pt-5">
           {filteredQuotes.length === 0 ? (
             <EmptyState
               icon={<FileText className="h-8 w-8" />}
@@ -155,7 +154,7 @@ export function CrmCotizacionesClient({
                   <Link
                     key={quote.id}
                     href={`/crm/cotizaciones/${quote.id}`}
-                    className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-accent/30 group"
+                    className="flex items-center justify-between rounded-lg border p-3 sm:p-4 transition-colors hover:bg-accent/30 group"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -170,15 +169,15 @@ export function CrmCotizacionesClient({
                       <CrmDates createdAt={quote.createdAt} updatedAt={quote.updatedAt} className="mt-0.5" />
                     </div>
                     <div className="flex items-center gap-4 shrink-0 ml-3 text-right">
-                      <div className="text-xs">
+                      <div className="text-xs hidden sm:block">
                         <p className="text-muted-foreground">P. venta</p>
                         <p className="text-sm font-medium">{formatCLP(Number(quote.salePriceMonthly))}</p>
                       </div>
-                      <div className="text-xs">
+                      <div className="text-xs hidden sm:block">
                         <p className="text-muted-foreground">Costo</p>
                         <p className="text-sm">{formatCLP(Number(quote.monthlyCost))}</p>
                       </div>
-                      <div className="text-xs">
+                      <div className="text-xs hidden sm:block">
                         <p className="text-muted-foreground">Margen</p>
                         <p className="text-sm font-medium text-emerald-400">
                           {quote.marginPct != null
@@ -186,7 +185,7 @@ export function CrmCotizacionesClient({
                             : "—"}
                         </p>
                       </div>
-                      <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors self-center" />
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 hidden sm:block" />
                     </div>
                   </Link>
                 );

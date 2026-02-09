@@ -17,8 +17,9 @@ import {
 } from "@/components/ui/dialog";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, ExternalLink, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, ExternalLink, Trash2, TrendingUp, FileText, Mail, Users, ChevronRight } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { EmptyState } from "@/components/opai/EmptyState";
 import { toast } from "sonner";
 
 type QuoteOption = {
@@ -63,6 +64,8 @@ export type DealDetail = {
   proposalLink?: string | null;
 };
 
+type Tab = "info" | "quotes" | "emails" | "contacts";
+
 export function CrmDealDetailClient({
   deal,
   quotes,
@@ -76,6 +79,7 @@ export function CrmDealDetailClient({
   gmailConnected: boolean;
   templates: EmailTemplate[];
 }) {
+  const [activeTab, setActiveTab] = useState<Tab>("info");
   const [open, setOpen] = useState(false);
   const [selectedQuoteId, setSelectedQuoteId] = useState("");
   const [linkedQuotes, setLinkedQuotes] = useState<DealQuote[]>(deal.quotes || []);
@@ -203,278 +207,357 @@ export function CrmDealDetailClient({
     }
   };
 
+  const tabs: { key: Tab; label: string; count?: number }[] = [
+    { key: "info", label: "Resumen" },
+    { key: "quotes", label: "Cotizaciones", count: linkedQuotes.length },
+    { key: "emails", label: "Correos" },
+    { key: "contacts", label: "Contactos", count: contacts.length },
+  ];
+
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle>Resumen</CardTitle>
+      {/* ── Detail toolbar: Back + Actions ── */}
+      <div className="flex items-center justify-between">
+        <Link
+          href="/crm/deals"
+          className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Volver a negocios
+        </Link>
+        <div className="flex items-center gap-2">
           <Button
             size="sm"
             variant="outline"
             className="text-destructive hover:text-destructive hover:bg-destructive/10"
             onClick={() => setDeleteConfirm(true)}
           >
-            <Trash2 className="h-3.5 w-3.5 mr-1" />
-            Eliminar negocio
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+            Eliminar
           </Button>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <div className="flex items-center justify-between">
-            <span>Cliente</span>
-            {deal.account ? (
-              <Link
-                href={`/crm/accounts/${deal.account.id}`}
-                className="flex items-center gap-1 font-medium text-primary hover:underline"
-              >
-                {deal.account.name}
-                <ExternalLink className="h-3 w-3" />
-              </Link>
-            ) : (
-              <span className="font-medium">Sin cliente</span>
-            )}
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Etapa</span>
-            <Badge variant="outline">{deal.stage?.name}</Badge>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Monto</span>
-            <span className="font-medium">
-              ${Number(deal.amount).toLocaleString("es-CL")}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span>Contacto</span>
-            <span className="font-medium">
-              {deal.primaryContact ? `${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim() : "Sin contacto"}
-            </span>
-          </div>
-          <div className="flex items-center justify-between pt-1 border-t">
-            <span>Link propuesta</span>
-            {deal.proposalLink ? (
-              <a
-                href={deal.proposalLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 font-medium text-primary hover:underline break-all max-w-[70%] text-right"
-              >
-                Ver propuesta
-                <ExternalLink className="h-3 w-3 shrink-0" />
-              </a>
-            ) : (
-              <span className="text-muted-foreground">Sin link</span>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle>Cotizaciones vinculadas</CardTitle>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" variant="secondary">
-                Vincular
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Vincular cotización</DialogTitle>
-                <DialogDescription>
-                  Selecciona una cotización desde CPQ.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-2">
-                <Label>Cotización</Label>
-                <select
-                  className={selectClassName}
-                  value={selectedQuoteId}
-                  onChange={(event) => setSelectedQuoteId(event.target.value)}
-                  disabled={linking}
+      {/* ── Tab pills ── */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setActiveTab(tab.key)}
+            className={`whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors shrink-0 ${
+              activeTab === tab.key
+                ? "bg-primary/15 text-primary border border-primary/30"
+                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground border border-transparent"
+            }`}
+          >
+            {tab.label}
+            {tab.count !== undefined && (
+              <span className="ml-1.5 text-[10px] opacity-70">({tab.count})</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Info Tab ── */}
+      {activeTab === "info" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <TrendingUp className="h-4 w-4" />
+              Resumen del negocio
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <InfoRow label="Cliente">
+              {deal.account ? (
+                <Link
+                  href={`/crm/accounts/${deal.account.id}`}
+                  className="flex items-center gap-1 font-medium text-primary hover:underline"
                 >
-                  <option value="">Selecciona cotización</option>
-                  {quotes.map((quote) => (
-                    <option key={quote.id} value={quote.id}>
-                      {quote.code} · {quote.clientName || "Sin cliente"}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <DialogFooter>
-                <Button onClick={linkQuote} disabled={linking}>
-                  {linking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Guardar vínculo
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          {linkedQuotes.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              No hay cotizaciones vinculadas.
-            </p>
-          )}
-          {linkedQuotes.map((quote) => {
-            const info = quotesById[quote.quoteId];
-            return (
-              <Link
-                key={quote.id}
-                href={`/crm/cotizaciones/${quote.quoteId}`}
-                className="flex items-center justify-between rounded-md border px-3 py-2 transition-colors hover:bg-accent/30"
-              >
-                <div>
-                  <p className="font-medium">{info?.code || "CPQ"}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {info?.clientName || "Sin cliente"}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge
-                    variant="outline"
-                    className={
-                      info?.status === "approved"
-                        ? "border-emerald-500/30 text-emerald-400"
-                        : info?.status === "sent"
-                        ? "border-blue-500/30 text-blue-400"
-                        : info?.status === "rejected"
-                        ? "border-red-500/30 text-red-400"
-                        : ""
-                    }
-                  >
-                    {info?.status === "draft"
-                      ? "Borrador"
-                      : info?.status === "sent"
-                      ? "Enviada"
-                      : info?.status === "approved"
-                      ? "Aprobada"
-                      : info?.status === "rejected"
-                      ? "Rechazada"
-                      : info?.status || "draft"}
-                  </Badge>
-                  <ExternalLink className="h-3 w-3 text-muted-foreground/40" />
-                </div>
-              </Link>
-            );
-          })}
-        </CardContent>
-      </Card>
+                  {deal.account.name}
+                  <ExternalLink className="h-3 w-3" />
+                </Link>
+              ) : (
+                <span className="font-medium">Sin cliente</span>
+              )}
+            </InfoRow>
+            <InfoRow label="Etapa">
+              <Badge variant="outline">{deal.stage?.name}</Badge>
+            </InfoRow>
+            <InfoRow label="Monto">
+              <span className="font-medium">
+                ${Number(deal.amount).toLocaleString("es-CL")}
+              </span>
+            </InfoRow>
+            <InfoRow label="Contacto">
+              <span className="font-medium">
+                {deal.primaryContact ? `${deal.primaryContact.firstName} ${deal.primaryContact.lastName}`.trim() : "Sin contacto"}
+              </span>
+            </InfoRow>
+            <InfoRow label="Link propuesta">
+              {deal.proposalLink ? (
+                <a
+                  href={deal.proposalLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 font-medium text-primary hover:underline"
+                >
+                  Ver propuesta
+                  <ExternalLink className="h-3 w-3 shrink-0" />
+                </a>
+              ) : (
+                <span className="text-muted-foreground">Sin link</span>
+              )}
+            </InfoRow>
+          </CardContent>
+        </Card>
+      )}
 
-      <Card>
-        <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle>Correos</CardTitle>
-          {gmailConnected ? (
-            <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
+      {/* ── Quotes Tab ── */}
+      {activeTab === "quotes" && (
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <CardTitle>Cotizaciones vinculadas</CardTitle>
+            <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" variant="secondary">
-                  Enviar
+                  Vincular
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                  <DialogTitle>Enviar correo</DialogTitle>
+                  <DialogTitle>Vincular cotización</DialogTitle>
                   <DialogDescription>
-                    Se enviará desde tu cuenta Gmail conectada.
+                    Selecciona una cotización desde CPQ.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <Label>Template</Label>
-                    <select
-                      className={selectClassName}
-                      value={selectedTemplateId}
-                      onChange={(event) => selectTemplate(event.target.value)}
-                      disabled={sending}
-                    >
-                      <option value="">Selecciona un template</option>
-                      {templates.map((template) => (
-                        <option key={template.id} value={template.id}>
-                          {template.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Para</Label>
-                    <input
-                      value={emailTo}
-                      onChange={(event) => setEmailTo(event.target.value)}
-                      className={`h-9 w-full rounded-md border px-3 text-sm ${inputClassName}`}
-                      placeholder="correo@cliente.com"
-                      disabled={sending}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Asunto</Label>
-                    <input
-                      value={emailSubject}
-                      onChange={(event) => setEmailSubject(event.target.value)}
-                      className={`h-9 w-full rounded-md border px-3 text-sm ${inputClassName}`}
-                      placeholder="Asunto"
-                      disabled={sending}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Mensaje</Label>
-                    <textarea
-                      value={emailBody}
-                      onChange={(event) => setEmailBody(event.target.value)}
-                      className={`min-h-[120px] w-full rounded-md border px-3 py-2 text-sm ${inputClassName}`}
-                      placeholder="Escribe tu mensaje..."
-                      disabled={sending}
-                    />
-                  </div>
+                <div className="space-y-2">
+                  <Label>Cotización</Label>
+                  <select
+                    className={selectClassName}
+                    value={selectedQuoteId}
+                    onChange={(event) => setSelectedQuoteId(event.target.value)}
+                    disabled={linking}
+                  >
+                    <option value="">Selecciona cotización</option>
+                    {quotes.map((quote) => (
+                      <option key={quote.id} value={quote.id}>
+                        {quote.code} · {quote.clientName || "Sin cliente"}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <DialogFooter>
-                  <Button onClick={sendEmail} disabled={sending}>
-                    {sending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Enviar correo
+                  <Button onClick={linkQuote} disabled={linking}>
+                    {linking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Guardar vínculo
                   </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-          ) : (
-            <Button asChild size="sm" variant="secondary">
-              <a href="/opai/configuracion/integraciones">Ir a Integraciones</a>
-            </Button>
-          )}
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          {gmailConnected
-            ? "Tu Gmail está conectado para enviar y registrar correos."
-            : "Conecta Gmail en Configuración → Integraciones."}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Contactos del cliente</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          {contacts.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              Este cliente no tiene contactos aún.
-            </p>
-          )}
-          {contacts.map((contact) => (
-            <div
-              key={contact.id}
-              className="flex flex-col gap-1 rounded-md border px-3 py-2"
-            >
-              <div className="flex items-center justify-between">
-                <p className="font-medium">{`${contact.firstName} ${contact.lastName}`.trim()}</p>
-                {contact.isPrimary && <Badge variant="outline">Principal</Badge>}
+          </CardHeader>
+          <CardContent>
+            {linkedQuotes.length === 0 ? (
+              <EmptyState
+                icon={<FileText className="h-8 w-8" />}
+                title="Sin cotizaciones"
+                description="No hay cotizaciones vinculadas a este negocio."
+                compact
+              />
+            ) : (
+              <div className="space-y-2">
+                {linkedQuotes.map((quote) => {
+                  const info = quotesById[quote.quoteId];
+                  return (
+                    <Link
+                      key={quote.id}
+                      href={`/crm/cotizaciones/${quote.quoteId}`}
+                      className="flex items-center justify-between rounded-lg border p-3 sm:p-4 transition-colors hover:bg-accent/30 group"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-sm">{info?.code || "CPQ"}</p>
+                          <Badge
+                            variant="outline"
+                            className={
+                              info?.status === "approved"
+                                ? "border-emerald-500/30 text-emerald-400"
+                                : info?.status === "sent"
+                                ? "border-blue-500/30 text-blue-400"
+                                : info?.status === "rejected"
+                                ? "border-red-500/30 text-red-400"
+                                : ""
+                            }
+                          >
+                            {info?.status === "draft"
+                              ? "Borrador"
+                              : info?.status === "sent"
+                              ? "Enviada"
+                              : info?.status === "approved"
+                              ? "Aprobada"
+                              : info?.status === "rejected"
+                              ? "Rechazada"
+                              : info?.status || "Borrador"}
+                          </Badge>
+                        </div>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {info?.clientName || "Sin cliente"}
+                        </p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 shrink-0 hidden sm:block" />
+                    </Link>
+                  );
+                })}
               </div>
-              <p className="text-xs text-muted-foreground">
-                {contact.roleTitle || "Sin cargo"} · {contact.email || "Sin email"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {contact.phone || "Sin teléfono"}
-              </p>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Emails Tab ── */}
+      {activeTab === "emails" && (
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Mail className="h-4 w-4" />
+              Correos
+            </CardTitle>
+            {gmailConnected ? (
+              <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="secondary">
+                    Enviar correo
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Enviar correo</DialogTitle>
+                    <DialogDescription>
+                      Se enviará desde tu cuenta Gmail conectada.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <Label>Template</Label>
+                      <select
+                        className={selectClassName}
+                        value={selectedTemplateId}
+                        onChange={(event) => selectTemplate(event.target.value)}
+                        disabled={sending}
+                      >
+                        <option value="">Selecciona un template</option>
+                        {templates.map((template) => (
+                          <option key={template.id} value={template.id}>
+                            {template.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Para</Label>
+                      <input
+                        value={emailTo}
+                        onChange={(event) => setEmailTo(event.target.value)}
+                        className={`h-9 w-full rounded-md border px-3 text-sm ${inputClassName}`}
+                        placeholder="correo@cliente.com"
+                        disabled={sending}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Asunto</Label>
+                      <input
+                        value={emailSubject}
+                        onChange={(event) => setEmailSubject(event.target.value)}
+                        className={`h-9 w-full rounded-md border px-3 text-sm ${inputClassName}`}
+                        placeholder="Asunto"
+                        disabled={sending}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Mensaje</Label>
+                      <textarea
+                        value={emailBody}
+                        onChange={(event) => setEmailBody(event.target.value)}
+                        className={`min-h-[120px] w-full rounded-md border px-3 py-2 text-sm ${inputClassName}`}
+                        placeholder="Escribe tu mensaje..."
+                        disabled={sending}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button onClick={sendEmail} disabled={sending}>
+                      {sending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Enviar correo
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            ) : (
+              <Button asChild size="sm" variant="secondary">
+                <a href="/opai/configuracion/integraciones">Ir a Integraciones</a>
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent>
+            <EmptyState
+              icon={<Mail className="h-8 w-8" />}
+              title={gmailConnected ? "Sin correos enviados" : "Gmail no conectado"}
+              description={
+                gmailConnected
+                  ? "Envía tu primer correo desde este negocio."
+                  : "Conecta Gmail en Configuración → Integraciones para enviar correos."
+              }
+              compact
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Contacts Tab ── */}
+      {activeTab === "contacts" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Users className="h-4 w-4" />
+              Contactos del cliente
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {contacts.length === 0 ? (
+              <EmptyState
+                icon={<Users className="h-8 w-8" />}
+                title="Sin contactos"
+                description="Este cliente no tiene contactos registrados."
+                compact
+              />
+            ) : (
+              <div className="space-y-2">
+                {contacts.map((contact) => (
+                  <div
+                    key={contact.id}
+                    className="flex flex-col gap-2 rounded-lg border p-3 sm:p-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm">{`${contact.firstName} ${contact.lastName}`.trim()}</p>
+                        {contact.isPrimary && (
+                          <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">
+                            Principal
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {contact.roleTitle || "Sin cargo"} · {contact.email || "Sin email"} · {contact.phone || "Sin teléfono"}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <ConfirmDialog
         open={deleteConfirm}
@@ -483,6 +566,15 @@ export function CrmDealDetailClient({
         description="Se eliminarán las cotizaciones vinculadas y el historial. Esta acción no se puede deshacer."
         onConfirm={deleteDeal}
       />
+    </div>
+  );
+}
+
+function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium">{children}</span>
     </div>
   );
 }

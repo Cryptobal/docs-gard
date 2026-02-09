@@ -5,6 +5,7 @@ import { SubNav } from "@/components/opai/SubNav";
 const DOCS_NAV_ITEMS = [
   { href: "/opai/inicio", label: "Presentaciones" },
   { href: "/opai/templates", label: "Templates" },
+  { href: "/opai/documentos", label: "Gestión Documental" },
 ];
 
 export function DocumentosSubnav() {

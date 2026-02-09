@@ -27,6 +27,9 @@ const TYPE_ICONS: Record<string, string> = {
   lead_approved: '✅',
   quote_sent: '📧',
   quote_viewed: '👁️',
+  contract_required: '📝',
+  contract_expiring: '⚠️',
+  contract_expired: '🔴',
 };
 
 function timeAgo(dateStr: string): string {

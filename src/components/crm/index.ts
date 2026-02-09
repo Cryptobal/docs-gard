@@ -3,6 +3,7 @@ export * from "./CrmDealsClient";
 export * from "./CrmAccountsClient";
 export * from "./CrmAccountDetailClient";
 export * from "./CrmContactsClient";
+export * from "./CrmContactDetailClient";
 export * from "./CrmCotizacionesClient";
 export * from "./CrmSubnav";
 export * from "./CrmDealDetailClient";

@@ -81,6 +81,25 @@ export async function POST(
         },
       });
 
+      // Si el negocio fue ganado, crear notificación de contrato pendiente
+      if (nextStatus === "won") {
+        await tx.notification.create({
+          data: {
+            tenantId: ctx.tenantId,
+            type: "contract_required",
+            title: `Contrato pendiente: ${updated.account.name}`,
+            message: `El negocio "${updated.title}" fue ganado. Se requiere generar un contrato.`,
+            data: {
+              dealId: deal.id,
+              accountId: updated.accountId,
+              accountName: updated.account.name,
+              dealTitle: updated.title,
+            },
+            link: `/opai/documentos/nuevo?accountId=${updated.accountId}&dealId=${deal.id}`,
+          },
+        });
+      }
+
       return updated;
     });
 
