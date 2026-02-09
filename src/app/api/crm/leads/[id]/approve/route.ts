@@ -10,16 +10,17 @@ import { getDefaultTenantId } from "@/lib/tenant";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
     const tenantId = session?.user?.tenantId ?? (await getDefaultTenantId());
     const userId = session?.user?.id;
+    const { id } = await params;
     const body = await request.json();
 
     const lead = await prisma.crmLead.findFirst({
-      where: { id: params.id, tenantId },
+      where: { id, tenantId },
     });
 
     if (!lead) {
