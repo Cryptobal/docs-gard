@@ -14,7 +14,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getDefaultTenantId } from '@/lib/tenant';
-import { PageHeader, TemplatesDropdown, NotificationBell, ReloadButton, DocumentosSubnav } from '@/components/opai';
+import { PageHeader, ReloadButton, DocumentosSubnav } from '@/components/opai';
 import { DocumentosContent } from '@/components/opai/DocumentosContent';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
@@ -67,17 +67,20 @@ export default async function DashboardPage() {
 
   return (
     <>
-      {/* Page Header con acciones */}
+      {/* Page Header: título, enlace a Templates y Recargar */}
       <PageHeader
         title="Documentos Comerciales"
-        description="Gestiona y monitorea tus presentaciones comerciales enviadas"
-        actions={
+        description={
           <>
-            <ReloadButton />
-            <TemplatesDropdown />
+            Gestiona y monitorea tus presentaciones comerciales enviadas
+            {' · '}
+            <Link href="/opai/templates" className="text-primary hover:underline font-medium">
+              Ver templates
+            </Link>
           </>
         }
-        className="mb-4"
+        actions={<ReloadButton />}
+        className="mb-2"
       />
 
       {/* Sub-navegación */}

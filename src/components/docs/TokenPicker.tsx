@@ -75,7 +75,7 @@ export function TokenPicker({ onSelect, filterModules }: TokenPickerProps) {
   }, [search, selectedModule, modules]);
 
   return (
-    <div className="w-80 max-h-96 overflow-hidden flex flex-col">
+    <div className="w-80 max-h-96 overflow-hidden flex flex-col bg-card">
       {/* Search */}
       <div className="p-2 border-b border-border">
         <div className="relative">
@@ -85,7 +85,7 @@ export function TokenPicker({ onSelect, filterModules }: TokenPickerProps) {
             placeholder="Buscar token..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-full pl-8 pr-3 py-1.5 text-sm border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             autoFocus
           />
         </div>
@@ -106,9 +106,9 @@ export function TokenPicker({ onSelect, filterModules }: TokenPickerProps) {
                     label: token.label,
                   })
                 }
-                className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors flex items-center gap-2"
+                className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors flex items-center gap-2 text-foreground"
               >
-                <Plus className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                <Plus className="h-3.5 w-3.5 text-primary shrink-0" />
                 <div className="min-w-0">
                   <span className="font-medium">{token.label}</span>
                   <span className="text-xs text-muted-foreground ml-1.5">
@@ -136,9 +136,9 @@ export function TokenPicker({ onSelect, filterModules }: TokenPickerProps) {
                   key={mod.key}
                   type="button"
                   onClick={() => setSelectedModule(mod.key)}
-                  className="w-full text-left px-3 py-2.5 rounded-md hover:bg-accent transition-colors flex items-center gap-3"
+                  className="w-full text-left px-3 py-2.5 rounded-md hover:bg-accent transition-colors flex items-center gap-3 text-foreground"
                 >
-                  <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                  <div className="h-8 w-8 rounded-md bg-primary/15 flex items-center justify-center shrink-0">
                     <Icon className="h-4 w-4 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
@@ -185,9 +185,9 @@ export function TokenPicker({ onSelect, filterModules }: TokenPickerProps) {
                       label: token.label,
                     })
                   }
-                  className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors flex items-center gap-2"
+                  className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors flex items-center gap-2 text-foreground"
                 >
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-blue-700 text-xs font-mono border border-blue-200">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-primary/15 text-primary text-xs font-mono border border-primary/30">
                     {`{{${token.label}}}`}
                   </span>
                 </button>

@@ -33,8 +33,10 @@ export function ContractEditor({
   className = "",
   filterModules,
 }: ContractEditorProps) {
-  const editor = useEditor({
-    extensions: [
+  const editor = useEditor(
+    {
+      immediatelyRender: false,
+      extensions: [
       StarterKit.configure({
         heading: {
           levels: [1, 2, 3, 4],
@@ -73,13 +75,15 @@ export function ContractEditor({
     editorProps: {
       attributes: {
         class:
-          "prose prose-sm sm:prose-base max-w-none focus:outline-none min-h-[500px] px-8 py-6",
+          "prose prose-invert prose-sm sm:prose-base max-w-none focus:outline-none min-h-[500px] px-8 py-6",
       },
     },
     onUpdate: ({ editor }) => {
       onChange?.(editor.getJSON());
     },
-  });
+  },
+  [editable, placeholder]
+  );
 
   // Update content externally
   useEffect(() => {
@@ -112,7 +116,7 @@ export function ContractEditor({
   if (!editor) return null;
 
   return (
-    <div className={`border border-border rounded-lg bg-white overflow-hidden ${className}`}>
+    <div className={`border border-border rounded-lg bg-card overflow-hidden ${className}`}>
       {editable && (
         <EditorToolbar
           editor={editor}
@@ -159,7 +163,7 @@ export function ContractEditor({
           outline-offset: 1px;
         }
         .ProseMirror p.is-editor-empty:first-child::before {
-          color: #adb5bd;
+          color: hsl(var(--muted-foreground));
           content: attr(data-placeholder);
           float: left;
           height: 0;
@@ -172,13 +176,13 @@ export function ContractEditor({
         }
         .ProseMirror td,
         .ProseMirror th {
-          border: 1px solid #d1d5db;
+          border: 1px solid hsl(var(--border));
           padding: 8px 12px;
           position: relative;
           vertical-align: top;
         }
         .ProseMirror th {
-          background: #f3f4f6;
+          background: hsl(var(--muted));
           font-weight: 600;
         }
       `}</style>

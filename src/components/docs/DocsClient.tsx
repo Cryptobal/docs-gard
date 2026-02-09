@@ -142,7 +142,7 @@ export function DocsClient() {
             className={`rounded-xl border p-4 text-left transition-all hover:shadow-sm ${
               kpi.active
                 ? "border-primary bg-primary/5 ring-1 ring-primary"
-                : "border-border bg-white hover:border-primary/30"
+                : "border-border bg-card hover:border-primary/30"
             }`}
           >
             <p className="text-xs font-medium text-muted-foreground">
@@ -164,7 +164,7 @@ export function DocsClient() {
             placeholder="Buscar documentos..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
 
@@ -226,7 +226,7 @@ export function DocsClient() {
           {[...Array(3)].map((_, i) => (
             <div
               key={i}
-              className="h-20 rounded-xl border border-border bg-white animate-pulse"
+              className="h-20 rounded-xl border border-border bg-card animate-pulse"
             />
           ))}
         </div>
@@ -253,7 +253,7 @@ export function DocsClient() {
           {filtered.map((doc) => (
             <div
               key={doc.id}
-              className="group flex items-center gap-4 p-4 rounded-xl border border-border bg-white hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer"
+              className="group flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer"
               onClick={() => router.push(`/opai/documentos/${doc.id}`)}
             >
               <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">

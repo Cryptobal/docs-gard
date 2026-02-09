@@ -238,7 +238,7 @@ export function DocGenerateClient() {
       {/* Configuration panel */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Left: Metadata */}
-        <div className="space-y-4 p-4 rounded-xl border border-border bg-white">
+        <div className="space-y-4 p-4 rounded-xl border border-border bg-card">
           <h3 className="text-sm font-semibold">Configuración</h3>
 
           {/* Template selector */}
@@ -249,7 +249,7 @@ export function DocGenerateClient() {
             <select
               value={selectedTemplateId}
               onChange={(e) => setSelectedTemplateId(e.target.value)}
-              className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-ring"
+              className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             >
               <option value="">Sin template (documento libre)</option>
               {templates.map((t) => (
@@ -269,7 +269,7 @@ export function DocGenerateClient() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Contrato de Servicios - Cliente XYZ"
-              className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+              className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
             />
           </div>
 
@@ -284,7 +284,7 @@ export function DocGenerateClient() {
                   setModule(e.target.value);
                   setCategory("");
                 }}
-                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-ring"
+                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               >
                 <option value="crm">CRM</option>
                 <option value="payroll">Payroll</option>
@@ -298,7 +298,7 @@ export function DocGenerateClient() {
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-ring"
+                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               >
                 <option value="">Seleccionar...</option>
                 {categories.map((c) => (
@@ -320,7 +320,7 @@ export function DocGenerateClient() {
                 type="date"
                 value={effectiveDate}
                 onChange={(e) => setEffectiveDate(e.target.value)}
-                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
             <div>
@@ -332,14 +332,14 @@ export function DocGenerateClient() {
                 type="date"
                 value={expirationDate}
                 onChange={(e) => setExpirationDate(e.target.value)}
-                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
           </div>
         </div>
 
         {/* Center + Right: Entity selectors */}
-        <div className="lg:col-span-2 space-y-4 p-4 rounded-xl border border-border bg-white">
+        <div className="lg:col-span-2 space-y-4 p-4 rounded-xl border border-border bg-card">
           <h3 className="text-sm font-semibold">Asociar Entidades CRM</h3>
           <p className="text-xs text-muted-foreground -mt-2">
             Selecciona las entidades para resolver los tokens del documento
@@ -359,7 +359,7 @@ export function DocGenerateClient() {
                   setContactId("");
                   setInstallationId("");
                 }}
-                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-ring"
+                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               >
                 <option value="">Seleccionar cuenta...</option>
                 {accounts.map((a: any) => (
@@ -381,7 +381,7 @@ export function DocGenerateClient() {
                 value={contactId}
                 onChange={(e) => setContactId(e.target.value)}
                 disabled={!accountId}
-                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
               >
                 <option value="">
                   {accountId ? "Seleccionar contacto..." : "Selecciona una cuenta primero"}
@@ -406,7 +406,7 @@ export function DocGenerateClient() {
                 value={installationId}
                 onChange={(e) => setInstallationId(e.target.value)}
                 disabled={!accountId}
-                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-white focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
+                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-card text-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
               >
                 <option value="">
                   {accountId ? "Seleccionar instalación..." : "Selecciona una cuenta primero"}
@@ -431,7 +431,7 @@ export function DocGenerateClient() {
                 value={dealId}
                 onChange={(e) => setDealId(e.target.value)}
                 placeholder="ID del negocio (opcional)"
-                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-ring"
+                className="mt-1 w-full px-3 py-2 text-sm border border-border rounded-md bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
             </div>
           </div>
@@ -451,9 +451,9 @@ export function DocGenerateClient() {
       />
 
       {resolved && (
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 border border-green-200">
-          <Eye className="h-4 w-4 text-green-600" />
-          <p className="text-sm text-green-700 flex-1">
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-green-950/40 border border-green-800">
+          <Eye className="h-4 w-4 text-green-400" />
+          <p className="text-sm text-green-300 flex-1">
             Los tokens han sido resueltos con datos reales. El documento está
             listo para guardar.
           </p>

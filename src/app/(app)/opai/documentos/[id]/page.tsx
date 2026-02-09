@@ -1,5 +1,4 @@
 import { DocumentosSubnav } from "@/components/opai/DocumentosSubnav";
-import { DocumentosTopbar } from "@/components/opai/DocumentosTopbar";
 import { DocDetailClient } from "@/components/docs/DocDetailClient";
 
 export default async function DocumentDetailPage({
@@ -11,7 +10,6 @@ export default async function DocumentDetailPage({
 
   return (
     <>
-      <DocumentosTopbar />
       <DocumentosSubnav />
       <div className="p-4 sm:p-6 max-w-7xl mx-auto">
         <DocDetailClient documentId={id} />

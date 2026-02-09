@@ -46,6 +46,7 @@ export default function TemplatesPage() {
       <PageHeader
         title="Templates de Presentación"
         description="Gestiona los templates disponibles para crear presentaciones"
+        className="mb-2"
       />
 
       <DocumentosSubnav />

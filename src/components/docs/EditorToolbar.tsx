@@ -256,13 +256,13 @@ export function EditorToolbar({
           <Button
             variant="outline"
             size="sm"
-            className="h-7 gap-1.5 text-xs font-medium border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800"
+            className="h-7 gap-1.5 text-xs font-medium border-primary/50 bg-primary/15 text-primary hover:bg-primary/25"
           >
             <Braces className="h-3.5 w-3.5" />
             Insertar Token
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="p-0 w-auto" sideOffset={4}>
+        <DropdownMenuContent align="start" className="p-0 w-auto bg-card border-border shadow-xl" sideOffset={4}>
           <TokenPicker
             filterModules={filterModules}
             onSelect={(token) => {

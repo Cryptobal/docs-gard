@@ -97,7 +97,7 @@ export function DocTemplatesClient() {
             placeholder="Buscar templates..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-border rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-ring"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-border rounded-lg bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
 
@@ -119,7 +119,7 @@ export function DocTemplatesClient() {
           {[...Array(3)].map((_, i) => (
             <div
               key={i}
-              className="h-36 rounded-xl border border-border bg-white animate-pulse"
+              className="h-36 rounded-xl border border-border bg-card animate-pulse"
             />
           ))}
         </div>
@@ -151,7 +151,7 @@ export function DocTemplatesClient() {
               {temps.map((template) => (
                 <div
                   key={template.id}
-                  className="group relative rounded-xl border border-border bg-white p-5 hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer"
+                  className="group relative rounded-xl border border-border bg-card p-5 hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer"
                   onClick={() =>
                     router.push(`/opai/documentos/templates/${template.id}`)
                   }
