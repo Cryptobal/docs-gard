@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/opai";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Save, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Save, Plus, Trash2, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
 
@@ -37,8 +37,6 @@ const TYPE_NAMES: Record<string, string> = {
   vehicle_fuel: "Bencina",
   vehicle_tag: "TAG",
   system: "Sistema",
-  financial: "Costo financiero",
-  policy: "Póliza de garantía",
 };
 
 const GROUPS = [
@@ -54,7 +52,6 @@ const GROUPS = [
     types: ["infrastructure", "fuel"],
   },
   { id: "system", label: "Sistemas", types: ["system"] },
-  { id: "financial", label: "Costos financieros", types: ["financial", "policy"] },
 ];
 
 type NewItemState = {
@@ -77,6 +74,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [collapsedItems, setCollapsedItems] = useState<Record<string, boolean>>({});
   const [globalParams, setGlobalParams] = useState({
     monthlyHoursStandard: 180,
     avgStayMonths: 4,
@@ -118,6 +116,19 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
   useEffect(() => {
     fetchItems();
   }, []);
+
+  useEffect(() => {
+    if (!items.length) return;
+    setCollapsedItems((prev) => {
+      const next = { ...prev };
+      items.forEach((item) => {
+        if (!(item.id in next)) {
+          next[item.id] = true;
+        }
+      });
+      return next;
+    });
+  }, [items]);
 
   const grouped = useMemo(() => {
     const map: Record<string, CatalogItem[]> = {};
@@ -368,85 +379,115 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
                   Sin items aún. Agrega el primero abajo.
                 </div>
               )}
-              {sectionItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-md border border-border/60 p-2 space-y-3"
-                >
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={item.name}
-                      onChange={(e) => updateItemLocal(item.id, { name: e.target.value })}
-                      placeholder="Nombre"
-                      className={`${inputClass} flex-1`}
-                    />
-                    <Input
-                      inputMode={["financial", "policy"].includes(item.type) ? "decimal" : "numeric"}
-                      value={formatNumberLocal(
-                        item.basePrice ?? 0,
-                        ["financial", "policy"].includes(item.type) ? 2 : 0
-                      )}
-                      onChange={(e) =>
-                        updateItemLocal(item.id, { basePrice: parseNumber(e.target.value) })
+              {sectionItems.map((item) => {
+                const isCollapsed = collapsedItems[item.id] ?? true;
+                return (
+                  <div
+                    key={item.id}
+                    className="rounded-md border border-border/60 p-2 space-y-3"
+                  >
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between gap-3 text-left"
+                      onClick={() =>
+                        setCollapsedItems((prev) => ({
+                          ...prev,
+                          [item.id]: !isCollapsed,
+                        }))
                       }
-                      onFocus={(e) => e.currentTarget.select()}
-                      placeholder={["financial", "policy"].includes(item.type) ? "Tasa (%)" : "Precio"}
-                      className={`${inputClass} w-28`}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs">
-                      <select
-                        className="flex h-9 rounded-md border border-border bg-card px-2 text-xs text-foreground"
-                        value={item.unit === "año" ? "año" : item.unit === "semestre" ? "semestre" : "mes"}
-                        onChange={(e) => updateItemLocal(item.id, { unit: e.target.value })}
-                      >
-                        <option value="mes">Mes</option>
-                        <option value="semestre">Semestre</option>
-                        <option value="año">Año</option>
-                      </select>
-                      <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={item.isDefault}
-                        onChange={(e) =>
-                          updateItemLocal(item.id, { isDefault: e.target.checked })
-                        }
+                      aria-expanded={!isCollapsed}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold truncate">
+                          {item.name || "Sin nombre"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatNumberLocal(item.basePrice ?? 0)} / {item.unit || "mes"}
+                        </p>
+                      </div>
+                      <ChevronDown
+                        className={`h-4 w-4 text-muted-foreground transition-transform ${
+                          isCollapsed ? "" : "rotate-180"
+                        }`}
                       />
-                      Default
-                      </label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        className="h-9 w-9 p-0"
-                        onClick={() => saveItem(item)}
-                        disabled={savingId === item.id}
-                        aria-label="Guardar item"
-                        title="Guardar"
-                      >
-                        <Save className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => deactivateItem(item)}
-                        disabled={savingId === item.id || !item.active}
-                        className="h-9 w-9 p-0"
-                        aria-label="Eliminar item"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+                    </button>
+
+                    {!isCollapsed && (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={item.name}
+                            onChange={(e) => updateItemLocal(item.id, { name: e.target.value })}
+                            placeholder="Nombre"
+                            className={`${inputClass} flex-1`}
+                          />
+                          <Input
+                            inputMode="numeric"
+                            value={formatNumberLocal(item.basePrice ?? 0)}
+                            onChange={(e) =>
+                              updateItemLocal(item.id, { basePrice: parseNumber(e.target.value) })
+                            }
+                            onFocus={(e) => e.currentTarget.select()}
+                            placeholder="Precio"
+                            className={`${inputClass} w-28`}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-xs">
+                            <select
+                              className="flex h-9 rounded-md border border-border bg-card px-2 text-xs text-foreground"
+                              value={item.unit === "año" ? "año" : item.unit === "semestre" ? "semestre" : "mes"}
+                              onChange={(e) => updateItemLocal(item.id, { unit: e.target.value })}
+                            >
+                              <option value="mes">Mes</option>
+                              <option value="semestre">Semestre</option>
+                              <option value="año">Año</option>
+                            </select>
+                            <label className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={item.isDefault}
+                                onChange={(e) =>
+                                  updateItemLocal(item.id, { isDefault: e.target.checked })
+                                }
+                              />
+                              Default
+                            </label>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              className="h-9 w-9 p-0"
+                              onClick={() => saveItem(item)}
+                              disabled={savingId === item.id}
+                              aria-label="Guardar item"
+                              title="Guardar"
+                            >
+                              <Save className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => deactivateItem(item)}
+                              disabled={savingId === item.id || !item.active}
+                              className="h-9 w-9 p-0"
+                              aria-label="Eliminar item"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        {group.types.length > 1 && (
+                          <span className="text-xs text-muted-foreground">
+                            {TYPE_NAMES[item.type] || item.type}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  {group.types.length > 1 && (
-                    <span className="text-xs text-muted-foreground">
-                      {TYPE_NAMES[item.type] || item.type}
-                    </span>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="rounded-md border border-border/60 p-2 space-y-3">
@@ -477,7 +518,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
                     className={`${inputClass} flex-1`}
                   />
                   <Input
-                    inputMode={group.id === "financial" ? "decimal" : "numeric"}
+                    inputMode="numeric"
                     value={newItems[group.id]?.basePrice || ""}
                     onChange={(e) =>
                       setNewItems((prev) => ({
@@ -486,7 +527,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
                       }))
                     }
                     onFocus={(e) => e.currentTarget.select()}
-                    placeholder={group.id === "financial" ? "Tasa (%)" : "Precio"}
+                    placeholder="Precio"
                     className={`${inputClass} w-28`}
                   />
                 </div>
