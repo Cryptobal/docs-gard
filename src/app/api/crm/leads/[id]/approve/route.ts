@@ -10,6 +10,27 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 
+const CPQ_WEEKDAYS = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"] as const;
+const WEEKDAY_ALIAS: Record<string, string> = {
+  lunes: "lunes", Lunes: "lunes", LUNES: "lunes",
+  martes: "martes", Martes: "martes", MARTES: "martes",
+  miercoles: "miercoles", Miercoles: "miercoles", "Miércoles": "miercoles", MIERCOLES: "miercoles",
+  jueves: "jueves", Jueves: "jueves", JUEVES: "jueves",
+  viernes: "viernes", Viernes: "viernes", VIERNES: "viernes",
+  sabado: "sabado", Sabado: "sabado", "Sábado": "sabado", SABADO: "sabado",
+  domingo: "domingo", Domingo: "domingo", DOMINGO: "domingo",
+};
+
+function normalizeWeekdays(dias: unknown): string[] {
+  if (!Array.isArray(dias) || dias.length === 0) return [...CPQ_WEEKDAYS];
+  const normalized = dias
+    .filter((d): d is string => typeof d === "string" && d != null)
+    .map((d) => WEEKDAY_ALIAS[d.trim()])
+    .filter((x): x is string => Boolean(x));
+  const unique = [...new Set(normalized)];
+  return unique.length > 0 ? unique : [...CPQ_WEEKDAYS];
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -341,9 +362,7 @@ export async function POST(
                 });
               }
 
-              const weekdays = Array.isArray(d.dias) && d.dias.length > 0
-                ? d.dias
-                : ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
+              const weekdays = normalizeWeekdays(d.dias);
 
               await tx.cpqPosition.create({
                 data: {

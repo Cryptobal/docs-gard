@@ -50,6 +50,25 @@ const WEEKDAYS_SHORT: Record<string, string> = {
   lunes: "Lu", martes: "Ma", miercoles: "Mi", jueves: "Ju", viernes: "Vi", sabado: "Sa", domingo: "Do",
 };
 
+/** Normaliza días que vienen del lead (ej. "Lunes", "Miércoles") al formato interno (minúsculas, sin tilde). */
+function normalizeLeadDias(dias: string[] | undefined): string[] {
+  if (!dias || dias.length === 0) return [...WEEKDAYS];
+  const map: Record<string, string> = {
+    lunes: "lunes", Lunes: "lunes", LUNES: "lunes",
+    martes: "martes", Martes: "martes", MARTES: "martes",
+    miercoles: "miercoles", Miercoles: "miercoles", "Miércoles": "miercoles", MIERCOLES: "miercoles",
+    jueves: "jueves", Jueves: "jueves", JUEVES: "jueves",
+    viernes: "viernes", Viernes: "viernes", VIERNES: "viernes",
+    sabado: "sabado", Sabado: "sabado", "Sábado": "sabado", SABADO: "sabado",
+    domingo: "domingo", Domingo: "domingo", DOMINGO: "domingo",
+  };
+  const normalized = dias
+    .map((d) => (d != null && typeof d === "string" ? map[d.trim()] : undefined))
+    .filter((x): x is string => Boolean(x));
+  const unique = [...new Set(normalized)];
+  return unique.length > 0 ? unique : [...WEEKDAYS];
+}
+
 let _installationCounter = 0;
 function newInstallationKey() { return `inst_${++_installationCounter}_${Date.now()}`; }
 
@@ -284,7 +303,7 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
       cantidad: d.cantidad || 1,
       horaInicio: d.horaInicio || "08:00",
       horaFin: d.horaFin || "20:00",
-      dias: d.dias && d.dias.length > 0 ? d.dias : [...WEEKDAYS],
+      dias: normalizeLeadDias(d.dias),
     }));
     setInstallations([firstInst]);
     setApproveOpen(true);
