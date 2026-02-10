@@ -199,6 +199,7 @@ interface EmailHistoryListProps {
   compact?: boolean;
   syncBeforeFetch?: boolean;
   onReply?: (message: EmailMessage) => void;
+  onCountChange?: (count: number) => void;
 }
 
 export function EmailHistoryList({
@@ -208,6 +209,7 @@ export function EmailHistoryList({
   compact = false,
   syncBeforeFetch = false,
   onReply,
+  onCountChange,
 }: EmailHistoryListProps) {
   const [emails, setEmails] = useState<EmailMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -227,14 +229,16 @@ export function EmailHistoryList({
       });
       const data = await res.json();
       if (data.success) {
-        setEmails(data.data || []);
+        const loadedEmails = data.data || [];
+        setEmails(loadedEmails);
+        onCountChange?.(loadedEmails.length);
       }
     } catch (error) {
       console.error("Error fetching emails:", error);
     } finally {
       setLoading(false);
     }
-  }, [dealId, contactId, accountId]);
+  }, [dealId, contactId, accountId, onCountChange]);
 
   const syncAndRefresh = useCallback(async () => {
     setSyncing(true);
