@@ -653,7 +653,7 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
                           {lead.phone ? ` · ${lead.phone}` : ""}
                         </p>
                         <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 items-center">
-                          <CrmDates createdAt={lead.createdAt} updatedAt={(lead as { updatedAt?: string }).updatedAt} />
+                          <CrmDates createdAt={lead.createdAt} updatedAt={(lead as { updatedAt?: string }).updatedAt} showTime />
                           {lead.source && lead.source !== "web_cotizador" && lead.source !== "web_cotizador_inteligente" && (
                             <span className="text-[11px] text-muted-foreground/80">
                               Fuente: {lead.source}

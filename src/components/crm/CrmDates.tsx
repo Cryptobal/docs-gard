@@ -1,23 +1,27 @@
 "use client";
 
-import { formatDateShort } from "@/lib/utils";
+import { formatDateShort, formatDateTimeShort } from "@/lib/utils";
 
 /**
  * Fechas de creación y última modificación, minimalistas para listas CRM.
+ * showTime: si es true, muestra fecha y hora de creación (y de modificación si aplica).
  */
 export function CrmDates({
   createdAt,
   updatedAt,
+  showTime = false,
   className = "",
 }: {
   createdAt: string;
   updatedAt?: string | null;
+  showTime?: boolean;
   className?: string;
 }) {
   if (!createdAt) return null;
-  const created = formatDateShort(createdAt);
+  const formatFn = showTime ? formatDateTimeShort : formatDateShort;
+  const created = formatFn(createdAt);
   if (created === "Invalid Date") return null;
-  const updated = updatedAt ? formatDateShort(updatedAt) : null;
+  const updated = updatedAt ? formatFn(updatedAt) : null;
   return (
     <p className={`text-[11px] text-muted-foreground/80 ${className}`}>
       Creado {created}

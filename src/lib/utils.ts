@@ -135,6 +135,21 @@ export function formatDateShort(date: Date | string): string {
 }
 
 /**
+ * Formatea fecha y hora en formato corto (es-CL)
+ * Ejemplo: "9 feb 2026, 14:30"
+ */
+export function formatDateTimeShort(date: Date | string): string {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  return dateObj.toLocaleString('es-CL', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+/**
  * Escapa caracteres especiales para RegExp
  */
 export function escapeRegExp(string: string): string {

@@ -4,6 +4,7 @@
  * Redirige a /opai/inicio tras login exitoso
  */
 
+import Image from 'next/image';
 import { LoginForm } from './LoginForm';
 
 export const metadata = {
@@ -25,7 +26,15 @@ export default async function LoginPage({
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-sm space-y-8">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground">OPAI</h1>
+          <Image
+            src="/icons/icon-96x96.png"
+            alt="OPAI"
+            width={64}
+            height={64}
+            className="mx-auto h-16 w-16 object-contain"
+            priority
+          />
+          <h1 className="text-2xl font-bold text-foreground mt-3">OPAI</h1>
           <p className="text-muted-foreground mt-1 text-sm">Iniciar sesión</p>
         </div>
         <LoginForm callbackUrl={callbackUrl} error={error} success={success} />
