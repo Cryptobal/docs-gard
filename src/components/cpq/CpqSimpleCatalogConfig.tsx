@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Save, Trash2, Pencil, X, Check } from "lucide-react";
+import { Plus, Trash2, Pencil, X, Check, Palette } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +25,7 @@ type CatalogEntry = {
   id: string;
   name: string;
   description?: string | null;
+  colorHex?: string | null;
   active: boolean;
   createdAt: string;
 };
@@ -46,14 +47,23 @@ export function CpqSimpleCatalogConfig({
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
+  const [newColorHex, setNewColorHex] = useState("#64748b");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editDesc, setEditDesc] = useState("");
+  const [editColorHex, setEditColorHex] = useState("#64748b");
   const [deleteConfirm, setDeleteConfirm] = useState<CatalogEntry | null>(null);
   const [saving, setSaving] = useState(false);
 
   const inputClass =
     "h-9 text-sm bg-card text-foreground border-border placeholder:text-muted-foreground";
+  const colorInputClass =
+    "h-9 w-10 cursor-pointer rounded-md border border-border bg-card p-1";
+
+  const normalizeColorHex = (value: string): string | null => {
+    const normalized = value.trim().toLowerCase();
+    return /^#[0-9a-f]{6}$/.test(normalized) ? normalized : null;
+  };
 
   const fetchItems = async () => {
     setLoading(true);
@@ -85,6 +95,7 @@ export function CpqSimpleCatalogConfig({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: newName.trim(),
+          colorHex: normalizeColorHex(newColorHex),
           ...(hasDescription ? { description: newDesc.trim() || null } : {}),
         }),
       });
@@ -93,6 +104,7 @@ export function CpqSimpleCatalogConfig({
         setItems((prev) => [...prev, data.data]);
         setNewName("");
         setNewDesc("");
+        setNewColorHex("#64748b");
         toast.success("Agregado correctamente");
       } else {
         toast.error(data.error || "Error al agregar");
@@ -113,6 +125,7 @@ export function CpqSimpleCatalogConfig({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: editName.trim(),
+          colorHex: normalizeColorHex(editColorHex),
           ...(hasDescription ? { description: editDesc.trim() || null } : {}),
         }),
       });
@@ -156,12 +169,14 @@ export function CpqSimpleCatalogConfig({
     setEditingId(item.id);
     setEditName(item.name);
     setEditDesc(item.description || "");
+    setEditColorHex(item.colorHex || "#64748b");
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditName("");
     setEditDesc("");
+    setEditColorHex("#64748b");
   };
 
   return (
@@ -173,7 +188,7 @@ export function CpqSimpleCatalogConfig({
         </div>
 
         {/* Add new item */}
-        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border/30">
+        <div className="flex flex-wrap items-center gap-2 mb-4 pb-3 border-b border-border/30">
           <Input
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
@@ -190,6 +205,19 @@ export function CpqSimpleCatalogConfig({
               onKeyDown={(e) => e.key === "Enter" && addItem()}
             />
           )}
+          <label
+            className="flex items-center gap-1 rounded-md border border-border/60 px-2 h-9 text-xs text-muted-foreground"
+            title="Color del badge"
+          >
+            <Palette className="h-3.5 w-3.5" />
+            <input
+              type="color"
+              value={newColorHex}
+              onChange={(e) => setNewColorHex(e.target.value)}
+              className={colorInputClass}
+              aria-label="Color del elemento"
+            />
+          </label>
           <Button
             size="sm"
             onClick={addItem}
@@ -219,6 +247,13 @@ export function CpqSimpleCatalogConfig({
               >
                 {editingId === item.id ? (
                   <>
+                    <input
+                      type="color"
+                      value={editColorHex}
+                      onChange={(e) => setEditColorHex(e.target.value)}
+                      className={colorInputClass}
+                      aria-label="Color del elemento"
+                    />
                     <Input
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
@@ -261,6 +296,11 @@ export function CpqSimpleCatalogConfig({
                   </>
                 ) : (
                   <>
+                    <span
+                      className="h-3.5 w-3.5 rounded-full border border-border/60 shrink-0"
+                      style={{ backgroundColor: item.colorHex || "#64748b" }}
+                      title={item.colorHex || "Sin color"}
+                    />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{item.name}</p>
                       {hasDescription && item.description && (

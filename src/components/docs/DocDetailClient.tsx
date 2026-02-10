@@ -8,6 +8,7 @@ import {
   Loader2,
   FileText,
   Clock,
+  FileSignature,
   Building2,
   User,
   MapPin,
@@ -17,6 +18,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ContractEditor } from "./ContractEditor";
+import { SignatureRequestModal } from "./SignatureRequestModal";
+import { SignatureStatusPanel } from "./SignatureStatusPanel";
 import { DOC_STATUS_CONFIG, DOC_CATEGORIES } from "@/lib/docs/token-registry";
 import { toast } from "sonner";
 import type { DocDocument, DocHistory } from "@/types/docs";
@@ -54,6 +57,9 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
   const [status, setStatus] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<DocHistory[]>([]);
+  const [signatureModalOpen, setSignatureModalOpen] = useState(false);
+  const [signatureLoading, setSignatureLoading] = useState(false);
+  const [activeSignatureRequest, setActiveSignatureRequest] = useState<any | null>(null);
 
   const fetchDocument = useCallback(async () => {
     try {
@@ -73,9 +79,25 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
     }
   }, [documentId]);
 
+  const fetchSignatureRequest = useCallback(async () => {
+    try {
+      setSignatureLoading(true);
+      const res = await fetch(`/api/docs/documents/${documentId}/signature-request`);
+      const data = await res.json();
+      if (data.success) {
+        setActiveSignatureRequest(data.data?.active ?? null);
+      }
+    } catch (error) {
+      console.error("Error fetching signature request:", error);
+    } finally {
+      setSignatureLoading(false);
+    }
+  }, [documentId]);
+
   useEffect(() => {
     fetchDocument();
-  }, [fetchDocument]);
+    fetchSignatureRequest();
+  }, [fetchDocument, fetchSignatureRequest]);
 
   const handleSave = async () => {
     if (!doc) return;
@@ -175,6 +197,15 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
             Guardar
           </Button>
         )}
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5"
+          onClick={() => setSignatureModalOpen(true)}
+        >
+          <FileSignature className="h-3.5 w-3.5" />
+          Enviar a firma
+        </Button>
       </div>
 
       {/* Document info panel */}
@@ -244,6 +275,17 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
         </div>
       )}
 
+      {/* Signature panel */}
+      {signatureLoading ? (
+        <div className="text-xs text-muted-foreground">Cargando estado de firma...</div>
+      ) : (
+        <SignatureStatusPanel
+          documentId={documentId}
+          activeRequest={activeSignatureRequest}
+          onRefresh={fetchSignatureRequest}
+        />
+      )}
+
       {/* History panel */}
       {showHistory && history.length > 0 && (
         <div className="p-4 rounded-xl border border-border bg-muted/20">
@@ -277,6 +319,16 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
 
       {/* Editor */}
       <ContractEditor content={content} onChange={setContent} editable={isEditable} />
+
+      <SignatureRequestModal
+        open={signatureModalOpen}
+        onOpenChange={setSignatureModalOpen}
+        documentId={documentId}
+        onCreated={() => {
+          void fetchSignatureRequest();
+          fetchDocument();
+        }}
+      />
     </div>
   );
 }

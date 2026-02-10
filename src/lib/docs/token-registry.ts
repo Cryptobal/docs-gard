@@ -109,6 +109,21 @@ export const TOKEN_MODULES: TokenModule[] = [
       { key: "system.month", label: "Mes Actual", path: "month" },
     ],
   },
+  {
+    key: "signature",
+    label: "Firma",
+    icon: "FileSignature",
+    description: "Un token por cada firmante: inserta «Firma del firmante 1» donde vaya la firma del primero, «Firma del firmante 2» del segundo, etc.",
+    tokens: [
+      { key: "signature.sentDate", label: "Fecha de envío", path: "sentDate", type: "date" },
+      { key: "signature.signedDate", label: "Fecha de firma", path: "signedDate", type: "date" },
+      ...Array.from({ length: 10 }, (_, i) => ({
+        key: `signature.signer_${i + 1}`,
+        label: `Firma del firmante ${i + 1}`,
+        path: `signer_${i + 1}`,
+      })),
+    ],
+  },
 ];
 
 /** Flat map of all tokens by key */

@@ -5,12 +5,13 @@
 "use client";
 
 import { useState } from "react";
+import type { CSSProperties } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EditPositionModal } from "@/components/cpq/EditPositionModal";
 import { CostBreakdownModal } from "@/components/cpq/CostBreakdownModal";
-import { formatCurrency, sortWeekdays } from "@/components/cpq/utils";
+import { formatCurrency } from "@/components/cpq/utils";
 import { cn } from "@/lib/utils";
 import type { CpqPosition } from "@/types/cpq";
 import { Copy, Pencil, RefreshCw, Trash2 } from "lucide-react";
@@ -30,6 +31,15 @@ interface CpqPositionCardProps {
   policyContractMonths?: number;
   policyContractPct?: number;
   contractMonths?: number;
+}
+
+function getTintedBadgeStyle(colorHex?: string | null): CSSProperties | undefined {
+  if (!colorHex || !/^#[0-9a-f]{6}$/i.test(colorHex)) return undefined;
+  return {
+    backgroundColor: `${colorHex}1a`,
+    borderColor: `${colorHex}5e`,
+    color: colorHex,
+  };
 }
 
 export function CpqPositionCard({
@@ -113,28 +123,11 @@ export function CpqPositionCard({
     }
   };
 
-  const dayAlias: Record<string, string> = {
-    lun: "Lun", lunes: "Lun",
-    mar: "Mar", martes: "Mar",
-    mie: "Mié", "mié": "Mié", miercoles: "Mié", miércoles: "Mié",
-    jue: "Jue", jueves: "Jue",
-    vie: "Vie", viernes: "Vie",
-    sab: "Sáb", "sáb": "Sáb", sabado: "Sáb", sábado: "Sáb",
-    dom: "Dom", domingo: "Dom",
-  };
-  const dayOrder = new Map([["Lun", 0], ["Mar", 1], ["Mié", 2], ["Jue", 3], ["Vie", 4], ["Sáb", 5], ["Dom", 6]]);
-  const dayChips = sortWeekdays(
-    Array.from(
-      new Set(
-        (position.weekdays || [])
-          .map((d) => dayAlias[String(d).trim().toLowerCase()] || null)
-          .filter((d): d is string => Boolean(d))
-      )
-    )
-  ).sort((a, b) => (dayOrder.get(a) ?? 99) - (dayOrder.get(b) ?? 99));
-  const isAllDays = dayChips.length === 7;
   const title = position.customName || position.puestoTrabajo?.name || "Puesto";
+  const puestoName = position.puestoTrabajo?.name || "Puesto";
   const roleName = position.rol?.name || "—";
+  const premiumBadgeClass =
+    "h-6 max-w-[160px] rounded-full border px-2.5 text-[11px] font-medium leading-none tracking-[0.01em] truncate";
 
   return (
     <Card className="overflow-hidden border border-muted/40">
@@ -145,29 +138,31 @@ export function CpqPositionCard({
         >
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-            <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-300">
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <Badge
+              variant="outline"
+              className={cn(premiumBadgeClass, "text-foreground/90")}
+              style={getTintedBadgeStyle(position.puestoTrabajo?.colorHex)}
+            >
+              {puestoName}
+            </Badge>
+            <Badge
+              variant="outline"
+              className={cn(premiumBadgeClass, "text-foreground/90")}
+              style={getTintedBadgeStyle(position.rol?.colorHex)}
+            >
+              {roleName}
+            </Badge>
+            <Badge
+              variant="outline"
+              className={cn(
+                premiumBadgeClass,
+                "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
+              )}
+            >
               {position.numGuards} {position.numGuards === 1 ? "guardia" : "guardias"}
             </Badge>
-            <Badge variant="secondary" className="text-[10px]">{roleName}</Badge>
-          </div>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {isAllDays ? (
-              <Badge className="text-[10px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30" variant="outline">
-                Todos los días
-              </Badge>
-            ) : dayChips.length > 0 ? (
-              dayChips.map((day) => (
-                <Badge
-                  key={day}
-                  className="text-[10px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                  variant="outline"
-                >
-                  {day}
-                </Badge>
-              ))
-            ) : (
-              <Badge className="text-[10px]" variant="outline">Sin días</Badge>
-            )}
           </div>
         </div>
         {!readOnly && (

@@ -69,6 +69,7 @@ export interface DocDocument {
   updatedAt: string;
   template?: DocTemplate | null;
   associations?: DocAssociation[];
+  signatureRequests?: DocSignatureRequest[];
 }
 
 export interface DocAssociation {
@@ -89,4 +90,61 @@ export interface DocHistory {
   details?: any;
   createdBy: string;
   createdAt: string;
+}
+
+export type DocSignatureRequestStatus =
+  | "draft"
+  | "pending"
+  | "in_progress"
+  | "completed"
+  | "cancelled"
+  | "expired";
+
+export type DocSignatureRecipientRole = "signer" | "cc";
+
+export type DocSignatureRecipientStatus =
+  | "pending"
+  | "sent"
+  | "viewed"
+  | "signed"
+  | "declined"
+  | "expired";
+
+export type DocSignatureMethod = "typed" | "drawn" | "uploaded";
+
+export interface DocSignatureRecipient {
+  id: string;
+  requestId: string;
+  token: string;
+  name: string;
+  email: string;
+  rut?: string | null;
+  role: DocSignatureRecipientRole;
+  signingOrder: number;
+  status: DocSignatureRecipientStatus;
+  signedAt?: string | null;
+  signatureMethod?: DocSignatureMethod | null;
+  signatureImageUrl?: string | null;
+  signatureTypedName?: string | null;
+  signatureFontFamily?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  viewedAt?: string | null;
+  sentAt?: string | null;
+  declineReason?: string | null;
+  createdAt: string;
+}
+
+export interface DocSignatureRequest {
+  id: string;
+  tenantId: string;
+  documentId: string;
+  status: DocSignatureRequestStatus;
+  message?: string | null;
+  expiresAt?: string | null;
+  completedAt?: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  recipients?: DocSignatureRecipient[];
 }

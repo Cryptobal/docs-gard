@@ -8,6 +8,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 
+function normalizeColorHex(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return null;
+  return /^#[0-9a-f]{6}$/.test(normalized) ? normalized : null;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -44,6 +51,7 @@ export async function POST(request: NextRequest) {
     const puesto = await prisma.cpqPuestoTrabajo.create({
       data: {
         name: body.name.trim(),
+        colorHex: normalizeColorHex(body.colorHex),
         active: body.active ?? true,
       },
     });

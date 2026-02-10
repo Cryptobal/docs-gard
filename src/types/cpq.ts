@@ -8,6 +8,7 @@ export interface CpqCargo {
   id: string;
   name: string;
   description?: string | null;
+  colorHex?: string | null;
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -17,6 +18,7 @@ export interface CpqRol {
   id: string;
   name: string;
   description?: string | null;
+  colorHex?: string | null;
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -25,6 +27,7 @@ export interface CpqRol {
 export interface CpqPuestoTrabajo {
   id: string;
   name: string;
+  colorHex?: string | null;
   active: boolean;
   createdAt: string;
   updatedAt: string;

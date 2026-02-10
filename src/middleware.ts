@@ -28,10 +28,15 @@ function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith('/api/email-preview')) return true;
   if (pathname.startsWith('/api/pdf')) return true;
   if (pathname.startsWith('/api/public')) return true;
+  // Firma electrónica pública: GET/POST por token sin sesión
+  if (pathname.startsWith('/api/docs/sign')) return true;
 
   // Páginas públicas (raíz / y /opai se manejan abajo para redirigir siempre a login/inicio)
   if (pathname === '/opai/login' || pathname.startsWith('/activate')) return true;
   if (pathname === '/opai/forgot-password' || pathname === '/opai/reset-password') return true;
+
+  // Firma electrónica: link del email, sin login (token en URL)
+  if (pathname.startsWith('/sign/')) return true;
 
   // Assets y estáticos
   if (pathname.startsWith('/_next') || pathname.startsWith('/favicon') || pathname.startsWith('/images') || pathname.startsWith('/logos')) return true;

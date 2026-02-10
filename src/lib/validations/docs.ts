@@ -87,3 +87,60 @@ export const resolveTokensSchema = z.object({
   dealId: z.string().uuid().optional(),
   quoteId: z.string().uuid().optional(),
 });
+
+// ── Digital signature schemas ─────────────────────────────────
+
+export const signatureRequestStatusSchema = z.enum([
+  "draft",
+  "pending",
+  "in_progress",
+  "completed",
+  "cancelled",
+  "expired",
+]);
+
+export const signatureRecipientStatusSchema = z.enum([
+  "pending",
+  "sent",
+  "viewed",
+  "signed",
+  "declined",
+  "expired",
+]);
+
+export const signatureRecipientRoleSchema = z.enum(["signer", "cc"]);
+export const signatureMethodSchema = z.enum(["typed", "drawn", "uploaded"]);
+
+const signatureRecipientInputSchema = z.object({
+  name: z.string().min(2, "Nombre requerido").max(160),
+  email: z.string().email("Email inválido").max(255),
+  rut: z.string().max(20).optional().nullable(),
+  role: signatureRecipientRoleSchema.default("signer"),
+  signingOrder: z.number().int().min(1).default(1),
+});
+
+export const createSignatureRequestSchema = z.object({
+  message: z.string().max(1500).optional().nullable(),
+  expiresAt: z.string().datetime().optional().nullable(),
+  recipients: z.array(signatureRecipientInputSchema).min(1, "Debe incluir al menos un firmante"),
+});
+
+export const cancelSignatureRequestSchema = z.object({
+  reason: z.string().max(500).optional().nullable(),
+});
+
+export const signDocumentSchema = z.object({
+  token: z.string().min(10),
+  signerName: z.string().min(2).max(160),
+  signerRut: z.string().max(20).optional().nullable(),
+  method: signatureMethodSchema,
+  typedName: z.string().max(160).optional().nullable(),
+  fontFamily: z.string().max(80).optional().nullable(),
+  signatureImageUrl: z.string().url().optional().nullable(),
+  acceptedElectronicSignature: z.literal(true),
+});
+
+export const declineSignatureSchema = z.object({
+  token: z.string().min(10),
+  reason: z.string().min(3).max(500),
+});

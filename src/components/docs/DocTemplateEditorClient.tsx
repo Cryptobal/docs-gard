@@ -280,12 +280,12 @@ export function DocTemplateEditorClient({
         onChange={setContent}
         filterModules={
           module === "crm"
-            ? ["account", "contact", "installation", "deal", "quote", "system"]
+            ? ["account", "contact", "installation", "deal", "quote", "system", "signature"]
             : module === "payroll"
-            ? ["system"]
+            ? ["system", "signature"]
             : module === "mail" || module === "whatsapp"
-            ? ["account", "contact", "deal", "system"]
-            : ["account", "contact", "system"]
+            ? ["account", "contact", "deal", "system", "signature"]
+            : ["account", "contact", "system", "signature"]
         }
         placeholder="Escribe el contenido del template aquí... Usa el botón 'Insertar Token' para agregar placeholders dinámicos"
       />

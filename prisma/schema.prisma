@@ -451,6 +451,7 @@ model CpqPosition {
 model CpqPuestoTrabajo {
   id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name        String   @unique
+  colorHex    String?  @map("color_hex")
   active      Boolean  @default(true)
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -466,6 +467,7 @@ model CpqCargo {
   id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name        String   @unique
   description String?
+  colorHex    String?  @map("color_hex")
   active      Boolean  @default(true)
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -481,6 +483,7 @@ model CpqRol {
   id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name        String   @unique
   description String?
+  colorHex    String?  @map("color_hex")
   active      Boolean  @default(true)
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1344,6 +1347,7 @@ model Document {
   template     DocTemplate?    @relation(fields: [templateId], references: [id], onDelete: SetNull)
   associations DocAssociation[]
   history      DocHistory[]
+  signatureRequests DocSignatureRequest[]
 
   @@index([tenantId], map: "idx_documents_tenant")
   @@index([tenantId, module], map: "idx_documents_tenant_module")
@@ -1351,6 +1355,63 @@ model Document {
   @@index([expirationDate], map: "idx_documents_expiration")
   @@index([uniqueId], map: "idx_documents_unique_id")
   @@map("documents")
+  @@schema("docs")
+}
+
+model DocSignatureRequest {
+  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId    String    @map("tenant_id")
+  documentId  String    @map("document_id") @db.Uuid
+  status      String    @default("draft") // draft, pending, in_progress, completed, cancelled, expired
+  message     String?
+  expiresAt   DateTime? @map("expires_at") @db.Timestamptz(6)
+  completedAt DateTime? @map("completed_at") @db.Timestamptz(6)
+  createdBy   String    @map("created_by")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  document   Document              @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  recipients DocSignatureRecipient[]
+
+  @@index([tenantId], map: "idx_doc_signature_requests_tenant")
+  @@index([documentId], map: "idx_doc_signature_requests_document")
+  @@index([status], map: "idx_doc_signature_requests_status")
+  @@index([expiresAt], map: "idx_doc_signature_requests_expires_at")
+  @@index([createdAt(sort: Desc)], map: "idx_doc_signature_requests_created_desc")
+  @@map("doc_signature_requests")
+  @@schema("docs")
+}
+
+model DocSignatureRecipient {
+  id                  String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  requestId           String    @map("request_id") @db.Uuid
+  token               String    @unique
+  name                String
+  email               String
+  rut                 String?
+  role                String    @default("signer") // signer, cc
+  signingOrder        Int       @default(1) @map("signing_order")
+  status              String    @default("pending") // pending, sent, viewed, signed, declined, expired
+  signedAt            DateTime? @map("signed_at") @db.Timestamptz(6)
+  signatureMethod     String?   @map("signature_method") // typed, drawn, uploaded
+  signatureImageUrl   String?   @map("signature_image_url")
+  signatureTypedName  String?   @map("signature_typed_name")
+  signatureFontFamily String?   @map("signature_font_family")
+  ipAddress           String?   @map("ip_address")
+  userAgent           String?   @map("user_agent")
+  viewedAt            DateTime? @map("viewed_at") @db.Timestamptz(6)
+  sentAt              DateTime? @map("sent_at") @db.Timestamptz(6)
+  declineReason       String?   @map("decline_reason")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  request DocSignatureRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId], map: "idx_doc_signature_recipients_request")
+  @@index([email], map: "idx_doc_signature_recipients_email")
+  @@index([status], map: "idx_doc_signature_recipients_status")
+  @@index([signingOrder], map: "idx_doc_signature_recipients_order")
+  @@index([token], map: "idx_doc_signature_recipients_token")
+  @@map("doc_signature_recipients")
   @@schema("docs")
 }
 

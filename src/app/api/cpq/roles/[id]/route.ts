@@ -10,6 +10,13 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 
 type Params = { params: Promise<{ id: string }> };
 
+function normalizeColorHex(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return null;
+  return /^#[0-9a-f]{6}$/.test(normalized) ? normalized : null;
+}
+
 export async function PUT(request: NextRequest, { params }: Params) {
   try {
     const ctx = await requireAuth();
@@ -25,13 +32,18 @@ export async function PUT(request: NextRequest, { params }: Params) {
       );
     }
 
+    const data: { name: string; description: string | null; active: boolean; colorHex?: string | null } = {
+      name: body.name.trim(),
+      description: body.description?.trim() || null,
+      active: body.active ?? true,
+    };
+    if (body.colorHex !== undefined) {
+      data.colorHex = normalizeColorHex(body.colorHex);
+    }
+
     const rol = await prisma.cpqRol.update({
       where: { id },
-      data: {
-        name: body.name.trim(),
-        description: body.description?.trim() || null,
-        active: body.active ?? true,
-      },
+      data,
     });
 
     return NextResponse.json({ success: true, data: rol });
@@ -49,10 +61,10 @@ export async function PUT(request: NextRequest, { params }: Params) {
       );
     }
     console.error("Error updating rol:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to update rol" },
-      { status: 500 }
-    );
+    const msg = typeof (error as Error)?.message === "string" && (error as Error).message.includes("color_hex")
+      ? "Error al guardar el color. Ejecuta en el proyecto: npx prisma migrate deploy"
+      : "Error al actualizar el rol";
+    return NextResponse.json({ success: false, error: msg }, { status: 500 });
   }
 }
 
