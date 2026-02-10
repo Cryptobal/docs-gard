@@ -9,9 +9,16 @@ import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { decryptText } from "@/lib/crypto";
 import { getGmailClient } from "@/lib/gmail";
+import { extractEmailAddresses, normalizeEmailAddress } from "@/lib/email-address";
 
 function getHeader(headers: { name?: string | null; value?: string | null }[], name: string) {
   return headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value || "";
+}
+
+function parseDateHeader(value: string): Date {
+  if (!value) return new Date();
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? new Date() : parsed;
 }
 
 export async function GET(request: NextRequest) {
@@ -25,7 +32,10 @@ export async function GET(request: NextRequest) {
     }
 
     const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
-    const maxResults = Number(request.nextUrl.searchParams.get("max") || 10);
+    const maxResults = Math.min(
+      Math.max(Number(request.nextUrl.searchParams.get("max") || "20"), 1),
+      100
+    );
 
     const emailAccount = await prisma.crmEmailAccount.findFirst({
       where: {
@@ -51,13 +61,28 @@ export async function GET(request: NextRequest) {
 
     const gmail = getGmailClient(accessToken, refreshToken);
 
-    const list = await gmail.users.messages.list({
-      userId: "me",
-      maxResults,
-      labelIds: ["INBOX", "SENT"],
-    });
+    const [inboxList, sentList] = await Promise.all([
+      gmail.users.messages.list({
+        userId: "me",
+        maxResults,
+        labelIds: ["INBOX"],
+      }),
+      gmail.users.messages.list({
+        userId: "me",
+        maxResults,
+        labelIds: ["SENT"],
+      }),
+    ]);
 
-    const messages = list.data.messages || [];
+    const uniqueMessages = new Map<string, { id?: string | null }>();
+    for (const message of [
+      ...(inboxList.data.messages || []),
+      ...(sentList.data.messages || []),
+    ]) {
+      if (message.id) uniqueMessages.set(message.id, message);
+    }
+    const messages = Array.from(uniqueMessages.values());
+    let syncedCount = 0;
 
     for (const message of messages) {
       if (!message.id) continue;
@@ -75,12 +100,18 @@ export async function GET(request: NextRequest) {
       const payload = full.data.payload;
       const headers = payload?.headers || [];
       const subject = getHeader(headers, "Subject") || "Sin asunto";
-      const fromEmail = getHeader(headers, "From");
-      const toEmail = getHeader(headers, "To");
-      const ccEmail = getHeader(headers, "Cc");
+      const fromHeader = getHeader(headers, "From");
+      const toHeader = getHeader(headers, "To");
+      const ccHeader = getHeader(headers, "Cc");
       const dateHeader = getHeader(headers, "Date");
       const labelIds = full.data.labelIds || [];
       const direction = labelIds.includes("SENT") ? "out" : "in";
+      const fromEmail =
+        extractEmailAddresses(fromHeader)[0] ||
+        normalizeEmailAddress(emailAccount.email);
+      const toEmails = extractEmailAddresses(toHeader);
+      const ccEmails = extractEmailAddresses(ccHeader);
+      const sentOrReceivedAt = parseDateHeader(dateHeader);
 
       const thread = await prisma.crmEmailThread.findFirst({
         where: {
@@ -105,24 +136,32 @@ export async function GET(request: NextRequest) {
           threadId: threadRecord.id,
           providerMessageId: message.id,
           direction,
-          fromEmail: fromEmail || emailAccount.email,
-          toEmails: toEmail ? [toEmail] : [],
-          ccEmails: ccEmail ? [ccEmail] : [],
+          fromEmail,
+          toEmails,
+          ccEmails,
           subject,
           htmlBody: null,
           textBody: null,
-          sentAt: dateHeader ? new Date(dateHeader) : new Date(),
+          sentAt: sentOrReceivedAt,
+          receivedAt: direction === "in" ? sentOrReceivedAt : null,
           createdBy: session.user.id,
+          status: direction === "out" ? "sent" : "delivered",
+          source: "gmail",
         },
       });
+      syncedCount += 1;
 
       await prisma.crmEmailThread.update({
         where: { id: threadRecord.id },
-        data: { lastMessageAt: new Date() },
+        data: { lastMessageAt: sentOrReceivedAt },
       });
     }
 
-    return NextResponse.json({ success: true, count: messages.length });
+    return NextResponse.json({
+      success: true,
+      count: syncedCount,
+      fetched: messages.length,
+    });
   } catch (error) {
     console.error("Error syncing Gmail:", error);
     return NextResponse.json(

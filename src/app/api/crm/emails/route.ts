@@ -4,14 +4,16 @@
  *
  * Query params:
  *   dealId    - filtrar por negocio
- *   contactId - filtrar por contacto (busca en toEmails)
+ *   contactId - filtrar por contacto (hilo vinculado o coincidencia email)
  *   accountId - filtrar por cuenta
  *   limit     - máximo de resultados (default 50)
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { normalizeEmailAddress } from "@/lib/email-address";
 
 export async function GET(request: NextRequest) {
   try {
@@ -38,48 +40,56 @@ export async function GET(request: NextRequest) {
     if (dealId) threadWhere.dealId = dealId;
     if (accountId) threadWhere.accountId = accountId;
 
-    // If filtering by contact, we need to find threads linked to that contact
-    // OR messages sent to the contact's email
+    // If filtering by contact, include linked threads and email matches
     if (contactId) {
       const contact = await prisma.crmContact.findFirst({
         where: { id: contactId, tenantId: ctx.tenantId },
         select: { email: true },
       });
 
-      if (!contact?.email) {
+      if (!contact) {
         return NextResponse.json({ success: true, data: [] });
       }
 
-      // Get threads linked to this contact OR messages sent to this email
-      const threads = await prisma.crmEmailThread.findMany({
+      const linkedThreads = await prisma.crmEmailThread.findMany({
         where: {
           tenantId: ctx.tenantId,
-          OR: [
-            { contactId },
-            {
-              messages: {
-                some: {
-                  toEmails: { has: contact.email },
-                },
-              },
-            },
-          ],
+          contactId,
         },
         select: { id: true },
       });
 
-      const threadIds = threads.map((t) => t.id);
+      const threadIds = linkedThreads.map((t) => t.id);
+      const rawEmail = contact.email?.trim() || "";
+      const normalizedEmail = rawEmail ? normalizeEmailAddress(rawEmail) : "";
+      const emailCandidates = Array.from(
+        new Set([rawEmail, normalizedEmail].filter(Boolean))
+      );
 
-      if (threadIds.length === 0) {
+      const messageFilters: Prisma.CrmEmailMessageWhereInput[] = [];
+      if (threadIds.length > 0) {
+        messageFilters.push({ threadId: { in: threadIds } });
+      }
+
+      for (const email of emailCandidates) {
+        messageFilters.push({
+          fromEmail: { contains: email, mode: "insensitive" },
+        });
+        messageFilters.push({ toEmails: { has: email } });
+        messageFilters.push({ ccEmails: { has: email } });
+        messageFilters.push({ bccEmails: { has: email } });
+      }
+
+      if (messageFilters.length === 0) {
         return NextResponse.json({ success: true, data: [] });
       }
 
       const messages = await prisma.crmEmailMessage.findMany({
         where: {
           tenantId: ctx.tenantId,
-          threadId: { in: threadIds },
+          OR: messageFilters,
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ sentAt: "desc" }, { createdAt: "desc" }],
         take: limit,
         include: {
           thread: {
@@ -113,7 +123,7 @@ export async function GET(request: NextRequest) {
         tenantId: ctx.tenantId,
         threadId: { in: threadIds },
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ sentAt: "desc" }, { createdAt: "desc" }],
       take: limit,
       include: {
         thread: {

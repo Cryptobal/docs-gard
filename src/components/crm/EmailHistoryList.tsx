@@ -158,6 +158,7 @@ interface EmailHistoryListProps {
   accountId?: string;
   title?: string;
   compact?: boolean;
+  syncBeforeFetch?: boolean;
 }
 
 export function EmailHistoryList({
@@ -166,12 +167,28 @@ export function EmailHistoryList({
   accountId,
   title = "Correos",
   compact = false,
+  syncBeforeFetch = true,
 }: EmailHistoryListProps) {
   const [emails, setEmails] = useState<EmailMessage[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchEmails = useCallback(async () => {
+  const syncGmailMessages = useCallback(async () => {
     try {
+      await fetch("/api/crm/gmail/sync?max=30", {
+        cache: "no-store",
+      });
+    } catch (error) {
+      console.error("Error syncing Gmail:", error);
+    }
+  }, []);
+
+  const fetchEmails = useCallback(async (options?: { sync?: boolean }) => {
+    try {
+      const shouldSync = options?.sync ?? syncBeforeFetch;
+      if (shouldSync) {
+        await syncGmailMessages();
+      }
+
       const params = new URLSearchParams();
       if (dealId) params.set("dealId", dealId);
       if (contactId) params.set("contactId", contactId);
@@ -189,11 +206,11 @@ export function EmailHistoryList({
     } finally {
       setLoading(false);
     }
-  }, [dealId, contactId, accountId]);
+  }, [dealId, contactId, accountId, syncBeforeFetch, syncGmailMessages]);
 
   useEffect(() => {
-    fetchEmails();
-  }, [fetchEmails]);
+    void fetchEmails({ sync: syncBeforeFetch });
+  }, [fetchEmails, syncBeforeFetch]);
 
   if (loading) {
     return (
@@ -226,7 +243,7 @@ export function EmailHistoryList({
           className="h-7 text-xs"
           onClick={() => {
             setLoading(true);
-            fetchEmails();
+            void fetchEmails({ sync: true });
           }}
         >
           <RefreshCw className="h-3 w-3 mr-1" />
