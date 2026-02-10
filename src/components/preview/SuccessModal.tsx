@@ -3,21 +3,51 @@
 /**
  * Success Modal
  * 
- * Modal de confirmación después de enviar email exitosamente
+ * Modal de confirmación después de enviar email exitosamente.
+ * Usa plantilla de WhatsApp editable desde Configuración CRM.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+
+/** Reemplaza tokens {key} en un template (client-side version) */
+function resolveTokens(template: string, values: Record<string, string>): string {
+  let result = template;
+  for (const [key, value] of Object.entries(values)) {
+    const token = key.startsWith("{") ? key : `{${key}}`;
+    result = result.replaceAll(token, value || "");
+  }
+  result = result.replace(/\{[a-zA-Z_]+\}/g, "");
+  result = result.replace(/\n{3,}/g, "\n\n").trim();
+  return result;
+}
 
 interface SuccessModalProps {
   publicUrl: string;
   recipientEmail: string;
   companyName: string;
   recipientPhone?: string;
+  contactName?: string;
   onClose: () => void;
 }
 
-export function SuccessModal({ publicUrl, recipientEmail, companyName, recipientPhone, onClose }: SuccessModalProps) {
+export function SuccessModal({ publicUrl, recipientEmail, companyName, recipientPhone, contactName, onClose }: SuccessModalProps) {
   const [copied, setCopied] = useState(false);
+  const [waTemplate, setWaTemplate] = useState<string | null>(null);
+
+  // Cargar plantilla de WhatsApp "proposal_sent"
+  useEffect(() => {
+    fetch("/api/crm/whatsapp-templates")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          const tpl = data.data?.find((t: { slug: string }) => t.slug === "proposal_sent");
+          if (tpl) setWaTemplate(tpl.body);
+        }
+      })
+      .catch(() => {
+        // Silently fall back to default
+      });
+  }, []);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(publicUrl);
@@ -26,10 +56,13 @@ export function SuccessModal({ publicUrl, recipientEmail, companyName, recipient
   };
 
   const handleWhatsApp = () => {
-    const message = encodeURIComponent(
-      `Hola! Te envié nuestra propuesta para ${companyName}. Puedes verla aquí: ${publicUrl}`
-    );
-    // Si hay número de teléfono, usarlo. Si no, WhatsApp genérico
+    const template = waTemplate || `Hola {contactName}, te envío la propuesta de Gard Security para {companyName}:\n\n{proposalUrl}`;
+    const resolved = resolveTokens(template, {
+      contactName: contactName || "",
+      companyName,
+      proposalUrl: publicUrl,
+    });
+    const message = encodeURIComponent(resolved);
     const whatsappUrl = recipientPhone 
       ? `https://wa.me/${recipientPhone.replace(/\D/g, '')}?text=${message}`
       : `https://wa.me/?text=${message}`;

@@ -23,7 +23,7 @@ const MAIN_NAV_ITEMS = [
   { href: '/opai/inicio', label: 'Docs', icon: FileText, app: 'docs' as const },
   { href: '/crm', label: 'CRM', icon: Building2, app: 'crm' as const },
   { href: '/payroll', label: 'Payroll', icon: Calculator, app: 'payroll' as const },
-  { href: '/opai/configuracion/integraciones', label: 'Config', icon: Settings, app: 'admin' as const },
+  { href: '/opai/configuracion', label: 'Config', icon: Settings, app: 'admin' as const },
 ];
 
 const CRM_NAV_ITEMS = [

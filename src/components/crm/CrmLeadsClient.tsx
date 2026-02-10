@@ -34,6 +34,22 @@ type LeadFormState = {
   source: string;
 };
 
+// Dominios genéricos que NO deben usarse como página web de la empresa
+const GENERIC_EMAIL_DOMAINS = new Set([
+  "gmail.com", "googlemail.com", "hotmail.com", "outlook.com", "outlook.es",
+  "yahoo.com", "yahoo.es", "live.com", "live.cl", "msn.com",
+  "icloud.com", "me.com", "mac.com", "protonmail.com", "proton.me",
+  "mail.com", "aol.com", "zoho.com", "yandex.com", "tutanota.com",
+]);
+
+/** Extrae dominio del email y retorna URL si no es genérico */
+function extractWebsiteFromEmail(email: string): string {
+  if (!email) return "";
+  const domain = email.split("@")[1]?.toLowerCase();
+  if (!domain || GENERIC_EMAIL_DOMAINS.has(domain)) return "";
+  return `https://${domain}`;
+}
+
 type ApproveFormState = {
   accountName: string;
   contactFirstName: string;
@@ -45,12 +61,12 @@ type ApproveFormState = {
   industry: string;
   segment: string;
   roleTitle: string;
+  website: string;
   // Instalación
   installationName: string;
   installationAddress: string;
   installationCity: string;
   installationCommune: string;
-  installationWebsite: string;
 };
 
 const DEFAULT_FORM: LeadFormState = {
@@ -89,11 +105,11 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
     industry: "",
     segment: "",
     roleTitle: "",
+    website: "",
     installationName: "",
     installationAddress: "",
     installationCity: "",
     installationCommune: "",
-    installationWebsite: "",
   });
 
   const [industries, setIndustries] = useState<{ id: string; name: string }[]>([]);
@@ -181,11 +197,11 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
       industry: lead.industry || "",
       segment: "",
       roleTitle: "",
+      website: (lead as any).website || extractWebsiteFromEmail(lead.email || ""),
       installationName: lead.companyName || "",
       installationAddress: (lead as any).address || "",
       installationCity: (lead as any).city || "",
       installationCommune: (lead as any).commune || "",
-      installationWebsite: (lead as any).website || "",
     });
     setApproveOpen(true);
   };
@@ -446,6 +462,18 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
                   </select>
                 </div>
                 <div className="space-y-1.5 md:col-span-2">
+                  <Label className="text-xs">Página web</Label>
+                  <Input
+                    value={approveForm.website}
+                    onChange={(e) => updateApproveForm("website", e.target.value)}
+                    placeholder="https://www.empresa.cl"
+                    className={inputClassName}
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Se detecta automáticamente desde el dominio del email. Se asocia a la cuenta.
+                  </p>
+                </div>
+                <div className="space-y-1.5 md:col-span-2">
                   <Label className="text-xs">Segmento</Label>
                   <Input
                     value={approveForm.segment}
@@ -569,15 +597,6 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
                     value={approveForm.installationCity}
                     onChange={(e) => updateApproveForm("installationCity", e.target.value)}
                     placeholder="Santiago"
-                    className={inputClassName}
-                  />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label className="text-xs">Sitio web</Label>
-                  <Input
-                    value={approveForm.installationWebsite}
-                    onChange={(e) => updateApproveForm("installationWebsite", e.target.value)}
-                    placeholder="https://www.empresa.cl"
                     className={inputClassName}
                   />
                 </div>

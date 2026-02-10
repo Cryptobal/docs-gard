@@ -126,7 +126,7 @@ export function DocCategoriesClient() {
           }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Error al crear");
+        if (!res.ok) throw new Error(data.debug ?? data.error ?? "Error al crear");
         setCategories((prev) => [...prev, data.data]);
         toast.success("Categoría creada");
       }

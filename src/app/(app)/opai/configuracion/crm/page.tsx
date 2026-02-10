@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/opai";
 import { ConfigBackLink } from "@/components/opai";
 import { CrmConfigClient } from "@/components/crm/CrmConfigClient";
 import { FollowUpConfigSection } from "@/components/crm/FollowUpConfigSection";
+import { WhatsAppTemplatesSection } from "@/components/crm/WhatsAppTemplatesSection";
 import { hasConfigSubmoduleAccess } from "@/lib/module-access";
 
 export default async function CrmConfigPage() {
@@ -40,6 +41,7 @@ export default async function CrmConfigPage() {
       />
       <CrmConfigClient initialStages={stages} initialFields={fields} />
       <FollowUpConfigSection />
+      <WhatsAppTemplatesSection />
     </>
   );
 }

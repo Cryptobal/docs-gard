@@ -12,6 +12,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { resend, EMAIL_CONFIG } from "@/lib/resend";
+import { getWaTemplate, resolveWaTokens } from "@/lib/whatsapp-templates";
 
 // CORS headers for cross-origin requests from the website
 const corsHeaders = {
@@ -87,10 +88,10 @@ export async function POST(request: NextRequest) {
     const emailOnly = (raw as { emailOnly?: boolean }).emailOnly === true;
 
     const totalGuards = data.dotacion?.reduce((sum, d) => sum + d.cantidad, 0) || 0;
+    const tenantId = await getDefaultTenantId();
 
     let leadId: string | null = null;
     if (!emailOnly) {
-      const tenantId = await getDefaultTenantId();
       const notesLines: string[] = [];
       if (data.detalle) notesLines.push(`Detalle: ${data.detalle}`);
       if (data.dotacion && data.dotacion.length > 0) {
@@ -179,25 +180,37 @@ export async function POST(request: NextRequest) {
       data.dotacion && data.dotacion.length > 0
         ? data.dotacion.map((d) => `${d.puesto}: ${d.cantidad} guardia(s)`).join("; ")
         : "";
-    const whatsappMsgComercial = [
-      `Hola ${data.nombre}, ¿cómo estás?`,
-      ``,
-      `Recibimos tu solicitud de cotización para ${data.empresa}${direccionCompleta ? `, ubicada en ${direccionCompleta}` : ""}.`,
-      ``,
-      `Estamos preparando una propuesta personalizada para ti. Si tienes alguna duda en el proceso, responde este mensaje y te ayudamos de inmediato.`,
-      ``,
-      `Servicio: ${servicioLabel}${dotacionTexto ? ` | Dotación: ${dotacionTexto}` : ""}`,
-      ``,
-      `http://gard.cl`,
-    ]
-      .filter(Boolean)
-      .join("\n");
+
+    // Token values for lead WhatsApp templates
+    const leadTokenValues: Record<string, string> = {
+      nombre: data.nombre,
+      apellido: data.apellido,
+      empresa: data.empresa,
+      direccion: direccionCompleta,
+      comuna: data.comuna || "",
+      ciudad: data.ciudad || "",
+      servicio: servicioLabel,
+      dotacion: dotacionTexto,
+      email: data.email,
+      celular: data.celular,
+      pagina_web: data.pagina_web || "",
+      industria: data.industria || "",
+      detalle: data.detalle || "",
+    };
+
+    // Resolver templates desde la BD (o usar defaults)
+    const [tplComercial, tplCliente] = await Promise.all([
+      getWaTemplate(tenantId, "lead_commercial"),
+      getWaTemplate(tenantId, "lead_client"),
+    ]);
+
+    const whatsappMsgComercial = resolveWaTokens(tplComercial, leadTokenValues);
 
     const celularLimpio = data.celular.replace(/\D/g, "").replace(/^0/, "");
     const waNumCliente = celularLimpio.startsWith("56") ? celularLimpio : `56${celularLimpio}`;
     const waUrlComercial = `https://wa.me/${waNumCliente}?text=${encodeURIComponent(whatsappMsgComercial)}`;
 
-    const waMsgCliente = `Hola, soy ${data.nombre} ${data.apellido} de la empresa ${data.empresa}.`;
+    const waMsgCliente = resolveWaTokens(tplCliente, leadTokenValues);
     const waUrlCliente = `https://wa.me/${WHATSAPP_COMERCIAL}?text=${encodeURIComponent(waMsgCliente)}`;
 
     // Send email notification to comercial@gard.cl

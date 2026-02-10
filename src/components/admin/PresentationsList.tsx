@@ -137,6 +137,20 @@ export function PresentationsList({ presentations: initialPresentations, initial
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  // Plantilla de WhatsApp para propuesta enviada (se carga desde config)
+  const [waProposalTemplate, setWaProposalTemplate] = useState<string | null>(null);
+  useEffect(() => {
+    fetch("/api/crm/whatsapp-templates")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) {
+          const tpl = data.data?.find((t: { slug: string }) => t.slug === "proposal_sent");
+          if (tpl) setWaProposalTemplate(tpl.body);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // Compartir por WhatsApp (SIN preview=true para que el cliente sí trackee)
   const shareWhatsApp = (uniqueId: string, clientData: any) => {
     const url = `${window.location.origin}/p/${uniqueId}`;
@@ -145,10 +159,17 @@ export function PresentationsList({ presentations: initialPresentations, initial
     const companyName = clientData?.account?.Account_Name || 'Cliente';
     const contactName = `${clientData?.contact?.First_Name || ''} ${clientData?.contact?.Last_Name || ''}`.trim();
     
-    const message = encodeURIComponent(
-      `Hola ${contactName}, te envío la propuesta de Gard Security para ${companyName}:\n\n${url}`
-    );
+    // Resolver template editable
+    let template = waProposalTemplate || `Hola {contactName}, te envío la propuesta de Gard Security para {companyName}:\n\n{proposalUrl}`;
+    template = template
+      .replaceAll("{contactName}", contactName)
+      .replaceAll("{companyName}", companyName)
+      .replaceAll("{proposalUrl}", url)
+      .replace(/\{[a-zA-Z_]+\}/g, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
     
+    const message = encodeURIComponent(template);
     window.open(`https://wa.me/${cleanPhone}?text=${message}`, '_blank');
   };
 

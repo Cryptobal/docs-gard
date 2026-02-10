@@ -53,7 +53,7 @@ export function AppLayoutClient({
       show: hasAppAccess(userRole, 'payroll'),
     },
     {
-      href: '/opai/configuracion/integraciones',
+      href: '/opai/configuracion',
       label: 'Configuración',
       icon: Settings,
       show: hasAnyConfigSubmoduleAccess(userRole),

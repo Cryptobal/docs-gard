@@ -52,7 +52,7 @@ const pages: PaletteItem[] = [
   },
   {
     title: 'Configuración',
-    href: '/opai/configuracion/integraciones',
+    href: '/opai/configuracion',
     icon: Settings,
     keywords: 'settings ajustes',
     canShow: (role) => hasAnyConfigSubmoduleAccess(role),

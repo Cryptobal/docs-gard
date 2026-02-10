@@ -37,11 +37,11 @@ export async function GET() {
       };
     }
 
-    // Cargar templates de documentos (categoría email) para el selector
+    // Plantillas de correo (módulo mail) para 1er y 2do seguimiento
     const docTemplates = await prisma.docTemplate.findMany({
       where: {
         tenantId: ctx.tenantId,
-        module: "crm",
+        module: "mail",
         isActive: true,
       },
       select: { id: true, name: true, category: true },

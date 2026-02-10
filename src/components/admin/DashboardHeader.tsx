@@ -111,7 +111,7 @@ export function DashboardHeader({ presentations, userRole }: DashboardHeaderProp
                     Presentaciones
                   </Link>
                   <Link
-                    href="/opai/configuracion/usuarios"
+                    href="/opai/configuracion"
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       pathname.startsWith('/opai/configuracion') ? 'bg-white/10 text-foreground' : 'text-foreground/60 hover:text-foreground hover:bg-white/5'
                     }`}

@@ -20,6 +20,7 @@ import { resend, EMAIL_CONFIG } from "@/lib/resend";
 import { resolveDocument } from "@/lib/docs/token-resolver";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { getWaTemplate, resolveWaTokens } from "@/lib/whatsapp-templates";
 
 /** Convierte Tiptap JSON resuelto a HTML para email */
 function tiptapJsonToHtml(doc: any): string {
@@ -328,15 +329,23 @@ export async function GET(request: NextRequest) {
           },
         });
 
-        // Construir mensaje de WhatsApp
+        // Construir mensaje de WhatsApp desde plantilla
         const whatsappEnabled =
           followUp.sequence === 1
             ? config?.whatsappFirstEnabled ?? true
             : config?.whatsappSecondEnabled ?? true;
 
         const contactPhone = contact.phone?.replace(/\s/g, "").replace(/^\+/, "");
+        const waSlug = followUp.sequence === 1 ? "followup_first" : "followup_second";
+        const waTemplate = await getWaTemplate(followUp.tenantId, waSlug);
         const whatsappMessage = encodeURIComponent(
-          `Hola ${contactName}, ¿cómo estás? Te hago seguimiento a la propuesta de ${deal.title} enviada el ${proposalSentDate}.${deal.proposalLink ? ` Aquí tienes el link: ${deal.proposalLink}` : ""} Cualquier duda quedo atento. Saludos!`
+          resolveWaTokens(waTemplate, {
+            contactName,
+            dealTitle: deal.title,
+            accountName: deal.account.name,
+            proposalLink: deal.proposalLink || "",
+            proposalSentDate,
+          })
         );
         const whatsappUrl =
           whatsappEnabled && contactPhone

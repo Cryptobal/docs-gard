@@ -6,7 +6,6 @@ import Link from "next/link";
 import {
   Users,
   Plug,
-  Mail,
   PenLine,
   FolderTree,
   TrendingUp,
@@ -51,13 +50,6 @@ const CONFIG_SECTIONS: ConfigSection[] = [
   {
     title: "Correos y Documentos",
     items: [
-      {
-        key: "email_templates",
-        href: "/opai/configuracion/email-templates",
-        title: "Templates de email",
-        description: "Plantillas con placeholders para seguimiento",
-        icon: Mail,
-      },
       {
         key: "signatures",
         href: "/opai/configuracion/firmas",

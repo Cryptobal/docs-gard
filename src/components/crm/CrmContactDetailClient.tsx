@@ -103,14 +103,6 @@ type ContactDetail = {
   } | null;
 };
 
-type EmailTemplate = {
-  id: string;
-  name: string;
-  subject: string;
-  body: string;
-  scope: string;
-};
-
 type PipelineStageOption = {
   id: string;
   name: string;
@@ -125,7 +117,6 @@ export function CrmContactDetailClient({
   deals,
   pipelineStages,
   gmailConnected = false,
-  templates = [],
   docTemplatesMail = [],
   initialEmailCount = 0,
 }: {
@@ -133,7 +124,6 @@ export function CrmContactDetailClient({
   deals: DealRow[];
   pipelineStages: PipelineStageOption[];
   gmailConnected?: boolean;
-  templates?: EmailTemplate[];
   docTemplatesMail?: DocTemplateMail[];
   initialEmailCount?: number;
 }) {
@@ -246,12 +236,7 @@ export function CrmContactDetailClient({
       setEmailSubject(tpl.name);
       setEmailTiptapContent(resolvedContent);
       setEmailBody(tiptapToEmailHtml(resolvedContent));
-      return;
     }
-
-    const tpl = templates.find((t) => t.id === value);
-    if (!tpl) return;
-    setEmailSubject(applyPlaceholders(tpl.subject));
   };
 
   const handleTiptapChange = useCallback((content: any) => {
@@ -551,18 +536,9 @@ export function CrmContactDetailClient({
               <select className={selectCn} value={selectedTemplateId} onChange={(e) => selectTemplate(e.target.value)} disabled={sending}>
                 <option value="">Sin plantilla</option>
                 {docTemplatesMail.length > 0 && (
-                  <optgroup label="Gestión Documental (mail)">
-                    {docTemplatesMail.map((t) => (
-                      <option key={t.id} value={`doc:${t.id}`}>{t.name}</option>
-                    ))}
-                  </optgroup>
-                )}
-                {templates.length > 0 && (
-                  <optgroup label="Templates de email">
-                    {templates.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                  </optgroup>
+                  docTemplatesMail.map((t) => (
+                    <option key={t.id} value={`doc:${t.id}`}>{t.name}</option>
+                  ))
                 )}
               </select>
             </div>

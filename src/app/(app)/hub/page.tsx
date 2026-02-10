@@ -131,7 +131,7 @@ export default async function HubPage() {
       show: hasAppAccess(role, 'payroll'),
     },
     {
-      href: '/opai/configuracion/usuarios',
+      href: '/opai/configuracion',
       icon: Settings,
       title: 'Config',
       desc: 'Ajustes',

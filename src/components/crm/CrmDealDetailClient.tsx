@@ -56,7 +56,6 @@ function buildReplySubject(subject?: string | null): string {
 }
 
 type QuoteOption = { id: string; code: string; clientName?: string | null; status: string; };
-type EmailTemplate = { id: string; name: string; subject: string; body: string; scope: string; stageId?: string | null; };
 type DealQuote = { id: string; quoteId: string; };
 type ContactRow = { id: string; firstName: string; lastName: string; email?: string | null; phone?: string | null; roleTitle?: string | null; isPrimary?: boolean; };
 type DealContactRow = { id: string; dealId: string; contactId: string; role: string; contact: ContactRow; };
@@ -77,12 +76,12 @@ export type DealDetail = {
 type DocTemplateMail = { id: string; name: string; content: any };
 
 export function CrmDealDetailClient({
-  deal, quotes, pipelineStages, dealContacts: initialDealContacts, accountContacts, gmailConnected, templates, docTemplatesMail = [],
+  deal, quotes, pipelineStages, dealContacts: initialDealContacts, accountContacts, gmailConnected, docTemplatesMail = [],
 }: {
   deal: DealDetail; quotes: QuoteOption[];
   pipelineStages: PipelineStageOption[];
   dealContacts: DealContactRow[]; accountContacts: ContactRow[];
-  gmailConnected: boolean; templates: EmailTemplate[]; docTemplatesMail?: DocTemplateMail[];
+  gmailConnected: boolean; docTemplatesMail?: DocTemplateMail[];
 }) {
   // ── Quote linking state ──
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
@@ -152,13 +151,7 @@ export function CrmDealDetailClient({
       setEmailSubject(tpl.name);
       setEmailTiptapContent(resolvedContent);
       setEmailBody(tiptapToEmailHtml(resolvedContent));
-      return;
     }
-
-    const tpl = templates.find((t) => t.id === value);
-    if (!tpl) return;
-    setEmailSubject(applyPlaceholders(tpl.subject));
-    setEmailBody(applyPlaceholders(tpl.body));
   };
 
   const quotesById = useMemo(() => quotes.reduce<Record<string, QuoteOption>>((acc, q) => { acc[q.id] = q; return acc; }, {}), [quotes]);
@@ -532,20 +525,11 @@ export function CrmDealDetailClient({
               <Label className="text-xs">Template</Label>
               <select className={selectCn} value={selectedTemplateId} onChange={(e) => selectTemplate(e.target.value)} disabled={sending}>
                 <option value="">Sin plantilla</option>
-                {docTemplatesMail.length > 0 && (
-                  <optgroup label="Gestión Documental (mail)">
-                    {docTemplatesMail.map((t) => (
-                      <option key={t.id} value={`doc:${t.id}`}>{t.name}</option>
-                    ))}
-                  </optgroup>
-                )}
-                {templates.length > 0 && (
-                  <optgroup label="Templates de email">
-                    {templates.map((t) => (
-                      <option key={t.id} value={t.id}>{t.name}</option>
-                    ))}
-                  </optgroup>
-                )}
+                {docTemplatesMail.length > 0 &&
+                  docTemplatesMail.map((t) => (
+                    <option key={t.id} value={`doc:${t.id}`}>{t.name}</option>
+                  ))
+                }
               </select>
             </div>
             <div className="space-y-1.5">

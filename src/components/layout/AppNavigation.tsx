@@ -38,7 +38,7 @@ export function AppNavigation({ userRole, presentations = [] }: AppNavigationPro
 
   const navItems = [
     { href: '/opai/inicio', label: 'Documentos', icon: FileText, show: true },
-    { href: '/opai/configuracion/usuarios', label: 'Configuración', icon: Settings, show: canManageUsers },
+    { href: '/opai/configuracion', label: 'Configuración', icon: Settings, show: canManageUsers },
   ];
 
   return (
