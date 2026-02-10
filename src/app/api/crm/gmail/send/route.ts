@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { decryptText } from "@/lib/crypto";
 import { getGmailClient } from "@/lib/gmail";
+import { normalizeEmailAddress, normalizeEmailList } from "@/lib/email-address";
 
 function buildRawEmail({
   from,
@@ -60,6 +61,12 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const ccList = Array.isArray(cc) ? cc : [cc];
+    const bccList = Array.isArray(bcc) ? bcc : [bcc];
+    const normalizedToEmails = normalizeEmailList([to]);
+    const normalizedCcEmails = normalizeEmailList(ccList);
+    const normalizedBccEmails = normalizeEmailList(bccList);
 
     const emailAccount = await prisma.crmEmailAccount.findFirst({
       where: {
@@ -120,8 +127,8 @@ export async function POST(request: NextRequest) {
     const raw = buildRawEmail({
       from: emailAccount.email,
       to,
-      cc,
-      bcc,
+      cc: ccList,
+      bcc: bccList,
       subject,
       html: finalHtml || undefined,
       text: finalHtml ? undefined : text,
@@ -163,10 +170,12 @@ export async function POST(request: NextRequest) {
         threadId: threadRecord.id,
         providerMessageId: messageId || null,
         direction: "out",
-        fromEmail: emailAccount.email,
-        toEmails: [to],
-        ccEmails: cc,
-        bccEmails: bcc,
+        fromEmail: normalizeEmailAddress(emailAccount.email),
+        toEmails: normalizedToEmails.length
+          ? normalizedToEmails
+          : [normalizeEmailAddress(to)],
+        ccEmails: normalizedCcEmails,
+        bccEmails: normalizedBccEmails,
         subject,
         htmlBody: finalHtml || null,
         textBody: text || null,

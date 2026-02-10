@@ -19,7 +19,7 @@ import {
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { RecordActions } from "./RecordActions";
-import { EmailHistoryList } from "./EmailHistoryList";
+import { EmailHistoryList, type EmailMessage } from "./EmailHistoryList";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import {
   ArrowLeft,
@@ -70,6 +70,12 @@ function tiptapToEmailHtml(doc: any): string {
   return `<div style="font-family:Arial,sans-serif;font-size:14px;color:#333;line-height:1.6;">${renderNode(doc)}</div>`;
 }
 
+function buildReplySubject(subject?: string | null): string {
+  const normalized = (subject || "").trim();
+  if (!normalized) return "Re: Sin asunto";
+  return /^re:/i.test(normalized) ? normalized : `Re: ${normalized}`;
+}
+
 type DealRow = {
   id: string;
   title: string;
@@ -117,12 +123,14 @@ export function CrmContactDetailClient({
   pipelineStages,
   gmailConnected = false,
   templates = [],
+  initialEmailCount = 0,
 }: {
   contact: ContactDetail;
   deals: DealRow[];
   pipelineStages: PipelineStageOption[];
   gmailConnected?: boolean;
   templates?: EmailTemplate[];
+  initialEmailCount?: number;
 }) {
   const router = useRouter();
   const [contact, setContact] = useState(initialContact);
@@ -155,6 +163,7 @@ export function CrmContactDetailClient({
   const [showCcBcc, setShowCcBcc] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [signatureHtml, setSignatureHtml] = useState<string | null>(null);
+  const [emailCount, setEmailCount] = useState(initialEmailCount);
 
   useEffect(() => {
     fetch("/api/crm/signatures?mine=true")
@@ -244,10 +253,34 @@ export function CrmContactDetailClient({
       if (!res.ok) throw new Error(data?.error || "Error enviando email");
       setEmailOpen(false);
       setEmailBody(""); setEmailTiptapContent(null); setEmailSubject(""); setEmailCc(""); setEmailBcc(""); setShowCcBcc(false); setSelectedTemplateId("");
+      setEmailCount((prev) => prev + 1);
       toast.success("Correo enviado exitosamente");
     } catch (error) { console.error(error); toast.error("No se pudo enviar el correo."); }
     finally { setSending(false); }
   };
+
+  const handleReplyFromHistory = useCallback(
+    (message: EmailMessage) => {
+      if (!gmailConnected) {
+        toast.error("Conecta Gmail para responder correos.");
+        return;
+      }
+      if (!contact.email) {
+        toast.error("El contacto no tiene email.");
+        return;
+      }
+
+      setEmailSubject(buildReplySubject(message.subject));
+      setEmailBody("");
+      setEmailTiptapContent(null);
+      setEmailCc("");
+      setEmailBcc("");
+      setShowCcBcc(false);
+      setSelectedTemplateId("");
+      setEmailOpen(true);
+    },
+    [gmailConnected, contact.email]
+  );
 
   const updateDealStage = async (dealId: string, stageId: string) => {
     if (!stageId) return;
@@ -411,20 +444,21 @@ export function CrmContactDetailClient({
               return (
                 <div
                   key={deal.id}
-                  className="flex flex-col gap-2 rounded-lg border p-3 sm:p-4 sm:flex-row sm:items-center sm:justify-between transition-colors hover:bg-accent/30 group"
+                  className="flex flex-col gap-3 rounded-lg border p-3 sm:p-4 transition-colors hover:bg-accent/30 group sm:flex-row sm:items-center sm:justify-between"
                 >
                   <Link href={`/crm/deals/${deal.id}`} className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <p className="text-sm font-medium group-hover:text-primary transition-colors break-words">{deal.title}</p>
-                      <Badge variant="outline">{deal.stage?.name || "Sin etapa"}</Badge>
+                    <p className="text-sm font-medium group-hover:text-primary transition-colors break-words">
+                      {deal.title}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
                       {deal.status === "won" && <Badge variant="outline" className="border-emerald-500/30 text-emerald-400">Ganado</Badge>}
                       {deal.status === "lost" && <Badge variant="outline" className="border-red-500/30 text-red-400">Perdido</Badge>}
                     </div>
                     <p className="mt-0.5 text-xs text-muted-foreground">${Number(deal.amount).toLocaleString("es-CL")}</p>
                   </Link>
-                  <div className="flex w-full items-center gap-2 sm:w-auto sm:shrink-0">
+                  <div className="flex w-full items-center justify-end gap-2 sm:w-auto sm:shrink-0">
                     <select
-                      className="h-8 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60 sm:min-w-[130px] sm:flex-none"
+                      className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60 sm:min-w-[130px] sm:w-auto"
                       value={deal.stage?.id || ""}
                       onChange={(event) => updateDealStage(deal.id, event.target.value)}
                       disabled={changingStageDealId === deal.id || pipelineStages.length === 0}
@@ -455,6 +489,7 @@ export function CrmContactDetailClient({
       <CollapsibleSection
         icon={<Mail className="h-4 w-4" />}
         title="Correos"
+        count={emailCount}
         defaultOpen={false}
         action={
           <div className="flex items-center gap-2">
@@ -473,7 +508,12 @@ export function CrmContactDetailClient({
           </div>
         }
       >
-        <EmailHistoryList contactId={contact.id} compact />
+        <EmailHistoryList
+          contactId={contact.id}
+          compact
+          onReply={gmailConnected ? handleReplyFromHistory : undefined}
+          onCountChange={setEmailCount}
+        />
       </CollapsibleSection>
 
       {/* ── Email Compose Modal ── */}

@@ -7,6 +7,7 @@ import { auth } from "@/lib/auth";
 import { hasCrmSubmoduleAccess } from "@/lib/module-access";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
+import { normalizeEmailAddress } from "@/lib/email-address";
 import { PageHeader, Breadcrumb } from "@/components/opai";
 import { CrmContactDetailClient } from "@/components/crm/CrmContactDetailClient";
 import { CrmSubnav } from "@/components/crm/CrmSubnav";
@@ -71,6 +72,42 @@ export default async function CrmContactDetailPage({
     }),
   ]);
 
+  const linkedThreads = await prisma.crmEmailThread.findMany({
+    where: { tenantId, contactId: contact.id },
+    select: { id: true },
+  });
+  const threadIds = linkedThreads.map((thread: { id: string }) => thread.id);
+  const rawContactEmail = contact.email?.trim() || "";
+  const normalizedContactEmail = rawContactEmail
+    ? normalizeEmailAddress(rawContactEmail)
+    : "";
+  const emailCandidates = Array.from(
+    new Set([rawContactEmail, normalizedContactEmail].filter(Boolean))
+  );
+
+  const messageFilters: Array<Record<string, unknown>> = [];
+  if (threadIds.length > 0) {
+    messageFilters.push({ threadId: { in: threadIds } });
+  }
+  for (const email of emailCandidates) {
+    messageFilters.push({
+      fromEmail: { contains: email, mode: "insensitive" },
+    });
+    messageFilters.push({ toEmails: { has: email } });
+    messageFilters.push({ ccEmails: { has: email } });
+    messageFilters.push({ bccEmails: { has: email } });
+  }
+
+  const initialEmailCount =
+    messageFilters.length > 0
+      ? await prisma.crmEmailMessage.count({
+          where: {
+            tenantId,
+            OR: messageFilters as any,
+          },
+        })
+      : 0;
+
   const data = JSON.parse(JSON.stringify(contact));
   const initialDeals = JSON.parse(JSON.stringify(deals));
   const initialPipelineStages = JSON.parse(JSON.stringify(pipelineStages));
@@ -99,6 +136,7 @@ export default async function CrmContactDetailPage({
         pipelineStages={initialPipelineStages}
         gmailConnected={!!gmailAccount}
         templates={initialTemplates}
+        initialEmailCount={initialEmailCount}
       />
     </>
   );
