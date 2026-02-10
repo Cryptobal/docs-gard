@@ -19,7 +19,7 @@ import {
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { RecordActions } from "./RecordActions";
-import { EmailHistoryList } from "./EmailHistoryList";
+import { EmailHistoryList, type EmailMessage } from "./EmailHistoryList";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import {
   ArrowLeft,
@@ -68,6 +68,12 @@ function tiptapToEmailHtml(doc: any): string {
     }
   };
   return `<div style="font-family:Arial,sans-serif;font-size:14px;color:#333;line-height:1.6;">${renderNode(doc)}</div>`;
+}
+
+function buildReplySubject(subject?: string | null): string {
+  const normalized = (subject || "").trim();
+  if (!normalized) return "Re: Sin asunto";
+  return /^re:/i.test(normalized) ? normalized : `Re: ${normalized}`;
 }
 
 type DealRow = {
@@ -248,6 +254,29 @@ export function CrmContactDetailClient({
     } catch (error) { console.error(error); toast.error("No se pudo enviar el correo."); }
     finally { setSending(false); }
   };
+
+  const handleReplyFromHistory = useCallback(
+    (message: EmailMessage) => {
+      if (!gmailConnected) {
+        toast.error("Conecta Gmail para responder correos.");
+        return;
+      }
+      if (!contact.email) {
+        toast.error("El contacto no tiene email.");
+        return;
+      }
+
+      setEmailSubject(buildReplySubject(message.subject));
+      setEmailBody("");
+      setEmailTiptapContent(null);
+      setEmailCc("");
+      setEmailBcc("");
+      setShowCcBcc(false);
+      setSelectedTemplateId("");
+      setEmailOpen(true);
+    },
+    [gmailConnected, contact.email]
+  );
 
   const updateDealStage = async (dealId: string, stageId: string) => {
     if (!stageId) return;
@@ -470,7 +499,11 @@ export function CrmContactDetailClient({
           </div>
         }
       >
-        <EmailHistoryList contactId={contact.id} compact />
+        <EmailHistoryList
+          contactId={contact.id}
+          compact
+          onReply={gmailConnected ? handleReplyFromHistory : undefined}
+        />
       </CollapsibleSection>
 
       {/* ── Email Compose Modal ── */}

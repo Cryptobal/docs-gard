@@ -17,7 +17,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, ExternalLink, Trash2, TrendingUp, FileText, Mail, Users, ChevronRight, Pencil, Send, MessageSquare, Plus, Star, X } from "lucide-react";
-import { EmailHistoryList } from "@/components/crm/EmailHistoryList";
+import { EmailHistoryList, type EmailMessage } from "@/components/crm/EmailHistoryList";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { RecordActions } from "./RecordActions";
@@ -46,6 +46,12 @@ function tiptapToEmailHtml(doc: any): string {
     }
   };
   return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#333;line-height:1.6;">${renderNode(doc)}</div>`;
+}
+
+function buildReplySubject(subject?: string | null): string {
+  const normalized = (subject || "").trim();
+  if (!normalized) return "Re: Sin asunto";
+  return /^re:/i.test(normalized) ? normalized : `Re: ${normalized}`;
 }
 
 type QuoteOption = { id: string; code: string; clientName?: string | null; status: string; };
@@ -166,6 +172,36 @@ export function CrmDealDetailClient({
     } catch (error) { console.error(error); toast.error("No se pudo enviar."); }
     finally { setSending(false); }
   };
+
+  const handleReplyFromHistory = useCallback(
+    (message: EmailMessage) => {
+      if (!gmailConnected) {
+        toast.error("Conecta Gmail para responder correos.");
+        return;
+      }
+
+      const replyTo =
+        message.direction === "in"
+          ? message.fromEmail
+          : message.toEmails?.[0] || "";
+
+      if (!replyTo) {
+        toast.error("No se encontró destinatario para responder.");
+        return;
+      }
+
+      setEmailTo(replyTo);
+      setEmailSubject(buildReplySubject(message.subject));
+      setEmailBody("");
+      setEmailTiptapContent(null);
+      setEmailCc("");
+      setEmailBcc("");
+      setShowCcBcc(false);
+      setSelectedTemplateId("");
+      setEmailOpen(true);
+    },
+    [gmailConnected]
+  );
 
   // ── Deal contacts handlers ──
   const linkedContactIds = new Set(dealContacts.map((dc) => dc.contactId));
@@ -457,7 +493,11 @@ export function CrmDealDetailClient({
           )
         }
       >
-        <EmailHistoryList dealId={deal.id} compact />
+        <EmailHistoryList
+          dealId={deal.id}
+          compact
+          onReply={gmailConnected ? handleReplyFromHistory : undefined}
+        />
       </CollapsibleSection>
 
       {/* ── Email Compose Modal ── */}

@@ -23,7 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-type EmailMessage = {
+export type EmailMessage = {
   id: string;
   providerMessageId?: string | null;
   direction: string;
@@ -198,6 +198,7 @@ interface EmailHistoryListProps {
   accountId?: string;
   compact?: boolean;
   syncBeforeFetch?: boolean;
+  onReply?: (message: EmailMessage) => void;
 }
 
 export function EmailHistoryList({
@@ -206,6 +207,7 @@ export function EmailHistoryList({
   accountId,
   compact = false,
   syncBeforeFetch = false,
+  onReply,
 }: EmailHistoryListProps) {
   const [emails, setEmails] = useState<EmailMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -284,6 +286,12 @@ export function EmailHistoryList({
     },
     [hydrateEmailContent]
   );
+
+  const handleReply = useCallback(() => {
+    if (!selectedEmail || !onReply) return;
+    onReply(selectedEmail);
+    setSelectedEmail(null);
+  }, [selectedEmail, onReply]);
 
   useEffect(() => { void fetchEmails(); }, [fetchEmails]);
   useEffect(() => {
@@ -485,6 +493,13 @@ export function EmailHistoryList({
               ) : (
                 <div className="rounded-md border p-3 text-sm whitespace-pre-wrap break-all leading-relaxed max-w-full overflow-x-hidden">
                   {getEmailBodyText(selectedEmail)}
+                </div>
+              )}
+              {onReply && (
+                <div className="flex justify-end">
+                  <Button size="sm" onClick={handleReply}>
+                    Responder
+                  </Button>
                 </div>
               )}
             </div>
