@@ -778,6 +778,7 @@ model CrmInstallation {
   lat       Float?
   lng       Float?
   notes     String?
+  metadata  Json?    @db.JsonB // dotacion sugerida, datos extra
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 

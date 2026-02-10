@@ -80,7 +80,6 @@ export function CrmContactsClient({
   const [editOpen, setEditOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [view, setView] = useState<ViewMode>("list");
-  const [accountFilter, setAccountFilter] = useState<string>("all");
 
   const inputClassName =
     "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
@@ -89,21 +88,12 @@ export function CrmContactsClient({
 
   const filteredContacts = useMemo(() => {
     const q = search.trim().toLowerCase();
+    if (!q) return contacts;
     return contacts.filter((c) => {
-      if (accountFilter !== "all" && c.account?.id !== accountFilter) return false;
-      if (q) {
-        const searchable = `${c.firstName} ${c.lastName} ${c.email || ""} ${c.phone || ""} ${c.account?.name || ""}`.toLowerCase();
-        if (!searchable.includes(q)) return false;
-      }
-      return true;
+      const searchable = `${c.firstName} ${c.lastName} ${c.email || ""} ${c.phone || ""} ${c.account?.name || ""}`.toLowerCase();
+      return searchable.includes(q);
     });
-  }, [contacts, search, accountFilter]);
-
-  // Get accounts that actually have contacts for filter pills
-  const accountsWithContacts = useMemo(() => {
-    const accountIds = new Set(contacts.map((c) => c.account?.id).filter(Boolean));
-    return accounts.filter((a) => accountIds.has(a.id));
-  }, [contacts, accounts]);
+  }, [contacts, search]);
 
   const updateForm = (key: keyof ContactFormState, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -232,36 +222,6 @@ export function CrmContactsClient({
         </div>
         <div className="flex items-center gap-2">
           <ViewToggle view={view} onChange={setView} />
-          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
-            <button
-              type="button"
-              onClick={() => setAccountFilter("all")}
-              className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors shrink-0 ${
-                accountFilter === "all"
-                  ? "bg-primary/15 text-primary border border-primary/30"
-                  : "text-muted-foreground hover:text-foreground border border-transparent"
-              }`}
-            >
-              Todos ({contacts.length})
-            </button>
-            {accountsWithContacts.slice(0, 5).map((acc) => {
-              const count = contacts.filter((c) => c.account?.id === acc.id).length;
-              return (
-                <button
-                  key={acc.id}
-                  type="button"
-                  onClick={() => setAccountFilter(acc.id)}
-                  className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors shrink-0 ${
-                    accountFilter === acc.id
-                      ? "bg-primary/15 text-primary border border-primary/30"
-                      : "text-muted-foreground hover:text-foreground border border-transparent"
-                  }`}
-                >
-                  {acc.name} ({count})
-                </button>
-              );
-            })}
-          </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0">

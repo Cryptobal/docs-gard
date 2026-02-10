@@ -164,19 +164,38 @@ export async function POST(
         },
       });
 
-      // Crear instalación nueva si se proporcionó nombre
-      const instName = body?.installationName?.trim();
-      if (instName) {
-        const instWebsite = body?.installationWebsite?.trim();
+      // Crear instalaciones desde el array (con dotación)
+      const installationsPayload = Array.isArray(body?.installations) ? body.installations : [];
+      for (const inst of installationsPayload) {
+        const instName = inst?.name?.trim();
+        if (!instName) continue;
         await tx.crmInstallation.create({
           data: {
             tenantId: ctx.tenantId,
             accountId: account.id,
             name: instName,
+            address: inst?.address?.trim() || null,
+            city: inst?.city?.trim() || null,
+            commune: inst?.commune?.trim() || null,
+            lat: inst?.lat ? Number(inst.lat) : null,
+            lng: inst?.lng ? Number(inst.lng) : null,
+            metadata: Array.isArray(inst?.dotacion) && inst.dotacion.length > 0
+              ? { dotacion: inst.dotacion }
+              : undefined,
+          },
+        });
+      }
+
+      // Fallback: si no hay installations array pero sí installationName (legacy)
+      if (installationsPayload.length === 0 && body?.installationName?.trim()) {
+        await tx.crmInstallation.create({
+          data: {
+            tenantId: ctx.tenantId,
+            accountId: account.id,
+            name: body.installationName.trim(),
             address: body?.installationAddress?.trim() || null,
             city: body?.installationCity?.trim() || null,
             commune: body?.installationCommune?.trim() || null,
-            notes: instWebsite ? `Sitio web: ${instWebsite}` : null,
           },
         });
       }

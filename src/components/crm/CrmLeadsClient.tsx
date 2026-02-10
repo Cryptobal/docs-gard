@@ -16,12 +16,50 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { CrmLead } from "@/types";
-import { Plus, Loader2, AlertTriangle, Trash2, Search, ChevronRight, UserPlus, Phone, Mail, MessageSquare, Clock, Users, Calendar, Briefcase } from "lucide-react";
+import { Plus, Loader2, AlertTriangle, Trash2, Search, ChevronRight, UserPlus, Phone, Mail, MessageSquare, Clock, Users, Calendar, Briefcase, MapPin, X } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StatusBadge } from "@/components/opai/StatusBadge";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CrmDates } from "@/components/crm/CrmDates";
+import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { toast } from "sonner";
+
+/* ─── Dotación & Installation draft types ─── */
+
+type DotacionItem = {
+  puesto: string;
+  cantidad: number;
+  horaInicio: string;
+  horaFin: string;
+  dias: string[];
+};
+
+type InstallationDraft = {
+  _key: string; // client-side key
+  name: string;
+  address: string;
+  city: string;
+  commune: string;
+  lat?: number;
+  lng?: number;
+  dotacion: DotacionItem[];
+};
+
+const WEEKDAYS = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"];
+const WEEKDAYS_SHORT: Record<string, string> = {
+  lunes: "Lu", martes: "Ma", miercoles: "Mi", jueves: "Ju", viernes: "Vi", sabado: "Sa", domingo: "Do",
+};
+
+let _installationCounter = 0;
+function newInstallationKey() { return `inst_${++_installationCounter}_${Date.now()}`; }
+
+function createEmptyInstallation(name = "", address = "", city = "", commune = ""): InstallationDraft {
+  return { _key: newInstallationKey(), name, address, city, commune, dotacion: [] };
+}
+
+function createEmptyDotacion(): DotacionItem {
+  return { puesto: "", cantidad: 1, horaInicio: "08:00", horaFin: "20:00", dias: [...WEEKDAYS] };
+}
 
 /* ─── Form types ─── */
 
@@ -79,11 +117,6 @@ type ApproveFormState = {
   segment: string;
   roleTitle: string;
   website: string;
-  // Instalación
-  installationName: string;
-  installationAddress: string;
-  installationCity: string;
-  installationCommune: string;
 };
 
 const DEFAULT_FORM: LeadFormState = {
@@ -123,11 +156,8 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
     segment: "",
     roleTitle: "",
     website: "",
-    installationName: "",
-    installationAddress: "",
-    installationCity: "",
-    installationCommune: "",
   });
+  const [installations, setInstallations] = useState<InstallationDraft[]>([]);
 
   const [industries, setIndustries] = useState<{ id: string; name: string }[]>([]);
 
@@ -203,6 +233,9 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
     setDuplicates([]);
     setDuplicateChecked(false);
     const fullName = [lead.firstName, lead.lastName].filter(Boolean).join(" ");
+    const meta = lead.metadata as Record<string, unknown> | undefined;
+    const leadDotacion = (meta?.dotacion as DotacionItem[] | undefined) || [];
+
     setApproveForm({
       accountName: lead.companyName || "",
       contactFirstName: lead.firstName || "",
@@ -215,12 +248,66 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
       segment: "",
       roleTitle: "",
       website: (lead as any).website || extractWebsiteFromEmail(lead.email || ""),
-      installationName: lead.companyName || "",
-      installationAddress: (lead as any).address || "",
-      installationCity: (lead as any).city || "",
-      installationCommune: (lead as any).commune || "",
     });
+
+    // Pre-crear una instalación con la dirección y dotación del lead
+    const firstInst = createEmptyInstallation(
+      lead.companyName || "",
+      (lead as any).address || "",
+      (lead as any).city || "",
+      (lead as any).commune || "",
+    );
+    firstInst.dotacion = leadDotacion.map((d) => ({
+      puesto: d.puesto || "",
+      cantidad: d.cantidad || 1,
+      horaInicio: d.horaInicio || "08:00",
+      horaFin: d.horaFin || "20:00",
+      dias: d.dias && d.dias.length > 0 ? d.dias : [...WEEKDAYS],
+    }));
+    setInstallations([firstInst]);
     setApproveOpen(true);
+  };
+
+  // Helpers para editar instalaciones
+  const updateInstallation = (key: string, field: keyof InstallationDraft, value: unknown) => {
+    setInstallations((prev) => prev.map((inst) => inst._key === key ? { ...inst, [field]: value } : inst));
+  };
+  const removeInstallation = (key: string) => {
+    setInstallations((prev) => prev.filter((inst) => inst._key !== key));
+  };
+  const addInstallation = () => {
+    setInstallations((prev) => [...prev, createEmptyInstallation()]);
+  };
+  const handleAddressChange = (key: string, result: AddressResult) => {
+    setInstallations((prev) => prev.map((inst) => inst._key === key ? { ...inst, address: result.address, city: result.city, commune: result.commune, lat: result.lat, lng: result.lng } : inst));
+  };
+
+  // Dotación helpers
+  const addDotacionToInst = (instKey: string) => {
+    setInstallations((prev) => prev.map((inst) => inst._key === instKey ? { ...inst, dotacion: [...inst.dotacion, createEmptyDotacion()] } : inst));
+  };
+  const updateDotacionField = (instKey: string, dotIdx: number, field: keyof DotacionItem, value: unknown) => {
+    setInstallations((prev) => prev.map((inst) => {
+      if (inst._key !== instKey) return inst;
+      const newDot = [...inst.dotacion];
+      newDot[dotIdx] = { ...newDot[dotIdx], [field]: value };
+      return { ...inst, dotacion: newDot };
+    }));
+  };
+  const removeDotacionFromInst = (instKey: string, dotIdx: number) => {
+    setInstallations((prev) => prev.map((inst) => {
+      if (inst._key !== instKey) return inst;
+      return { ...inst, dotacion: inst.dotacion.filter((_, i) => i !== dotIdx) };
+    }));
+  };
+  const toggleDotacionDay = (instKey: string, dotIdx: number, day: string) => {
+    setInstallations((prev) => prev.map((inst) => {
+      if (inst._key !== instKey) return inst;
+      const newDot = [...inst.dotacion];
+      const d = newDot[dotIdx];
+      newDot[dotIdx] = { ...d, dias: d.dias.includes(day) ? d.dias.filter((x) => x !== day) : [...d.dias, day] };
+      return { ...inst, dotacion: newDot };
+    }));
   };
 
   const approveLead = async () => {
@@ -232,11 +319,19 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
 
     setApproving(true);
     try {
+      // Build payload: form + installations
+      const payload = {
+        ...approveForm,
+        installations: installations
+          .filter((inst) => inst.name.trim())
+          .map(({ _key, ...rest }) => rest),
+      };
+
       if (!duplicateChecked) {
         const checkRes = await fetch(`/api/crm/leads/${approveLeadId}/approve`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...approveForm, checkDuplicates: true }),
+          body: JSON.stringify({ ...payload, checkDuplicates: true }),
         });
         const checkData = await checkRes.json();
         if (checkData.duplicates && checkData.duplicates.length > 0) {
@@ -251,11 +346,11 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
       const response = await fetch(`/api/crm/leads/${approveLeadId}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(approveForm),
+        body: JSON.stringify(payload),
       });
-      const payload = await response.json();
+      const result = await response.json();
       if (!response.ok) {
-        throw new Error(payload?.error || "Error aprobando lead");
+        throw new Error(result?.error || "Error aprobando lead");
       }
       setLeads((prev) =>
         prev.map((lead) =>
@@ -414,7 +509,7 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
 
       {/* ── Approve Modal ── */}
       <Dialog open={approveOpen} onOpenChange={setApproveOpen}>
-        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-xl md:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Aprobar lead</DialogTitle>
             <DialogDescription>
@@ -444,8 +539,8 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
               <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Cuenta (Prospecto)
               </h4>
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="space-y-1.5 md:col-span-2">
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
                   <Label className="text-xs">Nombre de empresa *</Label>
                   <Input
                     value={approveForm.accountName}
@@ -478,7 +573,16 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
                     ))}
                   </select>
                 </div>
-                <div className="space-y-1.5 md:col-span-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Segmento</Label>
+                  <Input
+                    value={approveForm.segment}
+                    onChange={(e) => updateApproveForm("segment", e.target.value)}
+                    placeholder="Corporativo, PYME..."
+                    className={inputClassName}
+                  />
+                </div>
+                <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
                   <Label className="text-xs">Página web</Label>
                   <Input
                     value={approveForm.website}
@@ -490,15 +594,6 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
                     Se detecta automáticamente desde el dominio del email. Se asocia a la cuenta.
                   </p>
                 </div>
-                <div className="space-y-1.5 md:col-span-2">
-                  <Label className="text-xs">Segmento</Label>
-                  <Input
-                    value={approveForm.segment}
-                    onChange={(e) => updateApproveForm("segment", e.target.value)}
-                    placeholder="Corporativo, PYME..."
-                    className={inputClassName}
-                  />
-                </div>
               </div>
             </div>
 
@@ -508,7 +603,7 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
               <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Contacto principal
               </h4>
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Nombre *</Label>
                   <Input
@@ -536,7 +631,7 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
                     className={inputClassName}
                   />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-1.5 md:col-span-2 lg:col-span-1">
                   <Label className="text-xs">Email</Label>
                   <Input
                     value={approveForm.email}
@@ -576,50 +671,223 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
 
             <div className="border-t border-border" />
 
+            {/* ── Instalaciones y Dotación ── */}
             <div className="space-y-3">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Instalación
-              </h4>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label className="text-xs">Nombre instalación</Label>
-                  <Input
-                    value={approveForm.installationName}
-                    onChange={(e) => updateApproveForm("installationName", e.target.value)}
-                    placeholder="Bodega central, Sucursal norte..."
-                    className={inputClassName}
-                  />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label className="text-xs">Dirección</Label>
-                  <Input
-                    value={approveForm.installationAddress}
-                    onChange={(e) => updateApproveForm("installationAddress", e.target.value)}
-                    placeholder="Av. Ejemplo 123, Santiago"
-                    className={inputClassName}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Comuna</Label>
-                  <Input
-                    value={approveForm.installationCommune}
-                    onChange={(e) => updateApproveForm("installationCommune", e.target.value)}
-                    placeholder="Las Condes"
-                    className={inputClassName}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Ciudad</Label>
-                  <Input
-                    value={approveForm.installationCity}
-                    onChange={(e) => updateApproveForm("installationCity", e.target.value)}
-                    placeholder="Santiago"
-                    className={inputClassName}
-                  />
-                </div>
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Instalaciones y Dotación
+                </h4>
+                <Button type="button" variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={addInstallation}>
+                  <Plus className="h-3 w-3" /> Nueva instalación
+                </Button>
               </div>
+
+              {installations.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-4">
+                  Sin instalaciones. Agrega una para asignar dotación.
+                </p>
+              )}
+
+              <div className="space-y-4">
+                {installations.map((inst, instIdx) => (
+                  <div
+                    key={inst._key}
+                    className="rounded-lg border border-border bg-muted/10 overflow-hidden"
+                  >
+                    {/* Installation header */}
+                    <div className="px-3 py-2 bg-muted/30 border-b border-border/60 flex items-center gap-2">
+                      <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-xs font-semibold flex-1">
+                        Instalación {instIdx + 1}
+                      </span>
+                      {installations.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-destructive hover:text-destructive"
+                          onClick={() => removeInstallation(inst._key)}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+
+                    <div className="p-3 space-y-3">
+                      {/* Name */}
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">Nombre *</Label>
+                        <Input
+                          value={inst.name}
+                          onChange={(e) => updateInstallation(inst._key, "name", e.target.value)}
+                          placeholder="Bodega central, Sucursal norte..."
+                          className={`h-9 text-sm ${inputClassName}`}
+                        />
+                      </div>
+
+                      {/* Address via Google Maps */}
+                      <div className="space-y-1">
+                        <Label className="text-[11px]">Dirección (Google Maps)</Label>
+                        <AddressAutocomplete
+                          value={inst.address}
+                          onChange={(result) => handleAddressChange(inst._key, result)}
+                          placeholder="Buscar dirección..."
+                          className={`h-9 text-sm ${inputClassName}`}
+                          showMap={false}
+                        />
+                      </div>
+
+                      {/* Comuna & Ciudad (auto-filled, editable) */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">Comuna</Label>
+                          <Input
+                            value={inst.commune}
+                            onChange={(e) => updateInstallation(inst._key, "commune", e.target.value)}
+                            placeholder="Las Condes"
+                            className={`h-9 text-sm ${inputClassName}`}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px]">Ciudad</Label>
+                          <Input
+                            value={inst.city}
+                            onChange={(e) => updateInstallation(inst._key, "city", e.target.value)}
+                            placeholder="Santiago"
+                            className={`h-9 text-sm ${inputClassName}`}
+                          />
+                        </div>
+                      </div>
+
+                      {/* ── Dotación de esta instalación ── */}
+                      <div className="space-y-2 pt-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                            <Users className="h-3 w-3" /> Dotación
+                            {inst.dotacion.length > 0 && (
+                              <span className="ml-1 text-[10px] font-medium bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                                {inst.dotacion.reduce((s, d) => s + d.cantidad, 0)} guardia{inst.dotacion.reduce((s, d) => s + d.cantidad, 0) !== 1 ? "s" : ""}
+                              </span>
+                            )}
+                          </span>
+                          <Button type="button" variant="ghost" size="sm" className="h-6 text-[10px] gap-1 px-2" onClick={() => addDotacionToInst(inst._key)}>
+                            <Plus className="h-2.5 w-2.5" /> Posición
+                          </Button>
+                        </div>
+
+                        {inst.dotacion.length === 0 && (
+                          <button
+                            type="button"
+                            onClick={() => addDotacionToInst(inst._key)}
+                            className="w-full py-3 rounded-md border border-dashed border-border text-xs text-muted-foreground hover:bg-muted/30 transition-colors"
+                          >
+                            + Agregar posición de guardia
+                          </button>
+                        )}
+
+                        {inst.dotacion.map((dot, dotIdx) => (
+                          <div
+                            key={dotIdx}
+                            className="rounded-md border border-border/60 bg-background p-2.5 space-y-2"
+                          >
+                            {/* Row 1: Puesto + Cantidad + Delete */}
+                            <div className="flex items-end gap-2">
+                              <div className="flex-1 space-y-1">
+                                <Label className="text-[10px]">Puesto</Label>
+                                <Input
+                                  value={dot.puesto}
+                                  onChange={(e) => updateDotacionField(inst._key, dotIdx, "puesto", e.target.value)}
+                                  placeholder="Ronda, Control Acceso..."
+                                  className={`h-8 text-sm ${inputClassName}`}
+                                />
+                              </div>
+                              <div className="w-20 space-y-1">
+                                <Label className="text-[10px]">Guardias</Label>
+                                <Input
+                                  type="number"
+                                  min={1}
+                                  max={100}
+                                  value={dot.cantidad}
+                                  onChange={(e) => updateDotacionField(inst._key, dotIdx, "cantidad", Math.max(1, Number(e.target.value) || 1))}
+                                  className={`h-8 text-sm text-center ${inputClassName}`}
+                                />
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive hover:text-destructive shrink-0"
+                                onClick={() => removeDotacionFromInst(inst._key, dotIdx)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+
+                            {/* Row 2: Horario */}
+                            <div className="flex items-end gap-2">
+                              <div className="flex-1 space-y-1">
+                                <Label className="text-[10px]">Hora inicio</Label>
+                                <Input
+                                  type="time"
+                                  value={dot.horaInicio}
+                                  onChange={(e) => updateDotacionField(inst._key, dotIdx, "horaInicio", e.target.value)}
+                                  className={`h-8 text-sm ${inputClassName}`}
+                                />
+                              </div>
+                              <div className="flex-1 space-y-1">
+                                <Label className="text-[10px]">Hora fin</Label>
+                                <Input
+                                  type="time"
+                                  value={dot.horaFin}
+                                  onChange={(e) => updateDotacionField(inst._key, dotIdx, "horaFin", e.target.value)}
+                                  className={`h-8 text-sm ${inputClassName}`}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Row 3: Días (chips) */}
+                            <div className="space-y-1">
+                              <Label className="text-[10px]">Días</Label>
+                              <div className="flex flex-wrap gap-1">
+                                {WEEKDAYS.map((day) => {
+                                  const active = dot.dias.includes(day);
+                                  return (
+                                    <button
+                                      key={day}
+                                      type="button"
+                                      onClick={() => toggleDotacionDay(inst._key, dotIdx, day)}
+                                      className={`px-2 py-1 rounded text-[10px] font-medium transition-colors ${
+                                        active
+                                          ? "bg-primary/15 text-primary border border-primary/30"
+                                          : "bg-muted text-muted-foreground border border-transparent hover:border-border"
+                                      }`}
+                                    >
+                                      {WEEKDAYS_SHORT[day]}
+                                    </button>
+                                  );
+                                })}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const allSelected = dot.dias.length === 7;
+                                    updateDotacionField(inst._key, dotIdx, "dias", allSelected ? [] : [...WEEKDAYS]);
+                                  }}
+                                  className="px-2 py-1 rounded text-[10px] font-medium text-muted-foreground hover:text-foreground border border-dashed border-border"
+                                >
+                                  {dot.dias.length === 7 ? "Ninguno" : "Todos"}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
               <p className="text-[10px] text-muted-foreground">
-                Si dejas el nombre vacío no se creará instalación. Puedes agregar más instalaciones después desde la cuenta.
+                Solo se crearán instalaciones con nombre. La dotación se guarda como referencia para el negocio.
               </p>
             </div>
           </div>
