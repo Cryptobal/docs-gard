@@ -76,7 +76,7 @@ export default async function CrmContactDetailPage({
     where: { tenantId, contactId: contact.id },
     select: { id: true },
   });
-  const threadIds = linkedThreads.map((thread) => thread.id);
+  const threadIds = linkedThreads.map((thread: { id: string }) => thread.id);
   const rawContactEmail = contact.email?.trim() || "";
   const normalizedContactEmail = rawContactEmail
     ? normalizeEmailAddress(rawContactEmail)
