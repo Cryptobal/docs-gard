@@ -230,6 +230,7 @@ export async function POST(request: NextRequest) {
       // PNG para que el logo se vea en clientes de correo (muchos bloquean SVG)
       const logoUrl = `${baseUrl}/Logo%20Gard%20Blanco.png`;
       const headerBg = "#0f2847"; // azul oscuro Gard
+      const ctaBg = "#0f2847"; // mismo azul Gard para CTA (sin verde)
 
       await resend.emails.send({
         from: EMAIL_CONFIG.from,
@@ -238,10 +239,8 @@ export async function POST(request: NextRequest) {
         subject: `🔔 Nuevo lead: ${data.empresa} — ${data.nombre} ${data.apellido}`,
         html: `
           <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 0 20px; color-scheme: light;">
-            <div style="background: ${headerBg}; padding: 28px 24px; border-radius: 12px 12px 0 0;">
-              <img src="${logoUrl}" alt="Gard Security" width="140" height="36" style="display: block; margin-bottom: 16px;" />
-              <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 600;">Nuevo lead desde gard.cl</h1>
-              <p style="color: #ffffff; opacity: 0.95; margin: 8px 0 0; font-size: 14px;">Formulario de cotización</p>
+            <div style="background: ${headerBg}; padding: 24px 24px; border-radius: 12px 12px 0 0; text-align: center;">
+              <img src="${logoUrl}" alt="Gard Security" width="160" height="48" style="display: block; margin: 0 auto; object-fit: contain; max-width: 180px; height: 48px;" />
             </div>
             <div style="background: #ffffff; padding: 28px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
               <h2 style="color: #0f172a; margin: 0 0 20px; font-size: 18px; font-weight: 600;">${data.empresa}</h2>
@@ -256,20 +255,14 @@ export async function POST(request: NextRequest) {
               </table>
               ${data.detalle ? `<div style="background: #f8fafc; padding: 16px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #0d9488;"><p style="margin: 0; color: #475569; font-size: 14px; line-height: 1.6;">${data.detalle.replace(/\n/g, "<br>")}</p></div>` : ""}
               ${dotacionHtml}
-              <div style="margin-top: 28px; padding-top: 20px; border-top: 1px solid #e2e8f0;">
+              <div style="margin-top: 28px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center;">
                 <p style="margin: 0 0 16px; font-size: 13px; color: #64748b;">Responde cuanto antes para aumentar la probabilidad de cierre:</p>
-                <table style="width: 100%; border-collapse: collapse;">
-                  <tr>
-                    <td style="padding: 8px 0; text-align: center;">
-                      <a href="${waUrlComercial}" style="display: inline-block; background: #25D366; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">Escribir en WhatsApp al cliente</a>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; text-align: center;">
-                      <a href="${baseUrl}/crm/leads" style="display: inline-block; color: #0d9488; font-size: 14px; text-decoration: none;">Ver en OPAI →</a>
-                    </td>
-                  </tr>
-                </table>
+                <p style="margin: 0 0 8px;">
+                  <a href="${waUrlComercial}" style="display: inline-block; background: ${ctaBg}; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">Contactar al cliente por WhatsApp</a>
+                </p>
+                <p style="margin: 0;">
+                  <a href="${baseUrl}/crm/leads" style="color: ${headerBg}; font-size: 14px; text-decoration: none;">Ver en OPAI →</a>
+                </p>
               </div>
             </div>
           </div>
@@ -283,10 +276,8 @@ export async function POST(request: NextRequest) {
         subject: `Tu solicitud fue recibida — Gard Security te contactará pronto`,
         html: `
           <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 0 20px; color-scheme: light;">
-            <div style="background: ${headerBg}; padding: 28px 24px; border-radius: 12px 12px 0 0;">
-              <img src="${logoUrl}" alt="Gard Security" width="140" height="36" style="display: block; margin-bottom: 16px;" />
-              <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 600;">Gard Security</h1>
-              <p style="color: #ffffff; opacity: 0.95; margin: 8px 0 0; font-size: 14px;">Solicitud de cotización recibida</p>
+            <div style="background: ${headerBg}; padding: 24px 24px; border-radius: 12px 12px 0 0; text-align: center;">
+              <img src="${logoUrl}" alt="Gard Security" width="160" height="48" style="display: block; margin: 0 auto; object-fit: contain; max-width: 180px; height: 48px;" />
             </div>
             <div style="background: #ffffff; padding: 28px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
               <p style="color: #0f172a; margin: 0 0 16px; font-size: 16px; line-height: 1.6;">Hola${data.nombre ? ` ${data.nombre}` : ""},</p>
@@ -318,8 +309,10 @@ export async function POST(request: NextRequest) {
               </table>
               ` : ""}
               <p style="color: #475569; margin: 0 0 24px; font-size: 15px; line-height: 1.6;">Nuestro equipo comercial te contactará en menos de 12 horas hábiles. Si necesitas más información antes, puedes escribirnos o llamarnos:</p>
-              <div style="margin: 24px 0; padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-                <a href="${waUrlCliente}" style="display: inline-block; background: #25D366; color: #ffffff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; margin-bottom: 12px;">Enviar WhatsApp a Gard</a>
+              <div style="margin: 24px 0; padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center;">
+                <p style="margin: 0 0 12px;">
+                  <a href="${waUrlCliente}" style="display: inline-block; background: ${ctaBg}; color: #ffffff; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">Escribir a Gard por WhatsApp</a>
+                </p>
                 <p style="color: #475569; font-size: 14px; margin: 0;">O llámanos al <a href="tel:+56982307771" style="color: ${headerBg}; font-weight: 500;">+56 98 230 7771</a></p>
               </div>
               <p style="color: #64748b; font-size: 13px; margin: 0;"><a href="http://gard.cl" style="color: ${headerBg};">http://gard.cl</a></p>
