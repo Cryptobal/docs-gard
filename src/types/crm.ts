@@ -117,6 +117,7 @@ export interface CrmDeal {
     firstName: string;
     lastName: string;
     email?: string | null;
+    phone?: string | null;
   } | null;
   quotes?: {
     id: string;

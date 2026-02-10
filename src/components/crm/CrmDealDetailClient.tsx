@@ -74,7 +74,7 @@ export type DealDetail = {
   stage?: { id: string; name: string } | null;
   account?: { id: string; name: string } | null;
   primaryContactId?: string | null;
-  primaryContact?: { firstName: string; lastName: string; email?: string | null } | null;
+  primaryContact?: { firstName: string; lastName: string; email?: string | null; phone?: string | null } | null;
   quotes?: DealQuote[];
   proposalLink?: string | null;
 };
