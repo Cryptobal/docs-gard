@@ -59,6 +59,76 @@ type DashboardAlert = {
   count: number;
 };
 
+type OpenDealRow = {
+  id: string;
+  title: string;
+  amount: unknown;
+  probability: number;
+  stageId: string;
+  expectedCloseDate: Date | null;
+  updatedAt: Date;
+  account: { name: string };
+  stage: {
+    id: string;
+    name: string;
+    order: number;
+    isClosedWon: boolean;
+    isClosedLost: boolean;
+  };
+};
+
+type RecentNotificationRow = {
+  id: string;
+  type: string;
+  title: string;
+  message: string | null;
+  read: boolean;
+  link: string | null;
+  createdAt: Date;
+};
+
+type PendingLeadRow = {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  companyName: string | null;
+  source: string | null;
+  createdAt: Date;
+};
+
+type UrgentTaskRow = {
+  id: string;
+  title: string;
+  dueAt: Date | null;
+  type: string;
+  deal: {
+    id: string;
+    title: string;
+    account: { name: string } | null;
+  } | null;
+};
+
+type FollowUpRow = {
+  id: string;
+  sequence: number;
+  scheduledAt: Date;
+  deal: {
+    id: string;
+    title: string;
+    account: { name: string };
+  };
+};
+
+type UpcomingClosingRow = {
+  id: string;
+  title: string;
+  expectedCloseDate: Date | null;
+  amount: unknown;
+  probability: number;
+  account: { name: string };
+  stage: { name: string };
+};
+
 const ALERT_STYLES: Record<
   AlertSeverity,
   {
@@ -385,7 +455,14 @@ export default async function CRMPage() {
     }),
   ]);
 
-  const openDeals = openDealsRaw.filter((deal) => !deal.stage.isClosedWon && !deal.stage.isClosedLost);
+  const openDealsData = openDealsRaw as OpenDealRow[];
+  const recentNotificationsData = recentNotifications as RecentNotificationRow[];
+  const pendingLeadsData = pendingLeadsQueue as PendingLeadRow[];
+  const urgentTasksData = urgentTasksQueue as UrgentTaskRow[];
+  const followUpsData = followUpsQueue as FollowUpRow[];
+  const upcomingClosingsData = upcomingClosings as UpcomingClosingRow[];
+
+  const openDeals = openDealsData.filter((deal) => !deal.stage.isClosedWon && !deal.stage.isClosedLost);
   const openDealsCount = openDeals.length;
   const pipelineAmount = openDeals.reduce((sum, deal) => sum + Number(deal.amount), 0);
   const weightedForecast = openDeals.reduce(
@@ -868,12 +945,12 @@ export default async function CRMPage() {
             <CardDescription>Priorizados por antigüedad de ingreso</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {pendingLeadsQueue.length === 0 ? (
+            {pendingLeadsData.length === 0 ? (
               <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
                 No hay leads pendientes. Excelente ritmo de calificación.
               </div>
             ) : (
-              pendingLeadsQueue.map((lead) => (
+              pendingLeadsData.map((lead) => (
                 <Link
                   key={lead.id}
                   href="/crm/leads"
@@ -913,12 +990,12 @@ export default async function CRMPage() {
                 Tareas comerciales
               </p>
               <div className="space-y-2">
-                {urgentTasksQueue.length === 0 ? (
+                {urgentTasksData.length === 0 ? (
                   <p className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
                     Sin tareas urgentes.
                   </p>
                 ) : (
-                  urgentTasksQueue.map((task) => {
+                  urgentTasksData.map((task) => {
                     if (!task.dueAt) return null;
                     const dueDate = new Date(task.dueAt);
                     const isOverdue = dueDate < now;
@@ -953,12 +1030,12 @@ export default async function CRMPage() {
                 Seguimientos automáticos
               </p>
               <div className="space-y-2">
-                {followUpsQueue.length === 0 ? (
+                {followUpsData.length === 0 ? (
                   <p className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">
                     No hay seguimientos pendientes en ventana crítica.
                   </p>
                 ) : (
-                  followUpsQueue.map((followUp) => {
+                  followUpsData.map((followUp) => {
                     const scheduledAt = new Date(followUp.scheduledAt);
                     const isOverdue = scheduledAt < now;
                     return (
@@ -996,12 +1073,12 @@ export default async function CRMPage() {
             <CardDescription>Eventos de CRM para seguimiento ejecutivo</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {recentNotifications.length === 0 ? (
+            {recentNotificationsData.length === 0 ? (
               <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
                 Sin actividad reciente.
               </div>
             ) : (
-              recentNotifications.map((item) => (
+              recentNotificationsData.map((item) => (
                 <Link
                   key={item.id}
                   href={item.link || '/crm'}
@@ -1039,12 +1116,12 @@ export default async function CRMPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
-          {upcomingClosings.length === 0 ? (
+          {upcomingClosingsData.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
               No hay cierres próximos definidos. Completa fechas para mejorar el forecast.
             </div>
           ) : (
-            upcomingClosings.map((deal) => {
+            upcomingClosingsData.map((deal) => {
               const closeDate = deal.expectedCloseDate ? new Date(deal.expectedCloseDate) : null;
               return (
                 <Link
