@@ -2,7 +2,7 @@
 
 import { cloneElement, isValidElement, ReactElement, ReactNode, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Menu, X } from 'lucide-react';
+import { Menu, RefreshCw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BottomNav } from './BottomNav';
 import { CommandPalette } from './CommandPalette';
@@ -29,6 +29,17 @@ export interface AppShellProps {
 export function AppShell({ sidebar, children, userName, className }: AppShellProps) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleMobileRefresh = () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+
+    // Pequeña demora para mostrar feedback visual antes del hard reload.
+    window.setTimeout(() => {
+      window.location.reload();
+    }, 120);
+  };
 
   useEffect(() => {
     if (!isMobileOpen) return;
@@ -66,6 +77,15 @@ export function AppShell({ sidebar, children, userName, className }: AppShellPro
           <Link href="/opai/inicio" className="text-sm font-semibold tracking-tight hover:opacity-80">OPAI</Link>
           <div className="flex items-center gap-2">
             <GlobalIndicators compact />
+            <button
+              type="button"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={handleMobileRefresh}
+              disabled={isRefreshing}
+              aria-label="Refrescar pantalla"
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </button>
             <button
               type="button"
               className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
