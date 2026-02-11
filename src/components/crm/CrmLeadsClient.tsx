@@ -16,7 +16,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { CrmLead } from "@/types";
-import { Plus, Loader2, AlertTriangle, Trash2, ChevronRight, UserPlus, Phone, Mail, MessageSquare, Clock, Users, Calendar, Briefcase, MapPin, X, Copy } from "lucide-react";
+import { Plus, Loader2, AlertTriangle, Trash2, ChevronRight, UserPlus, Phone, Mail, MessageSquare, Clock, Users, Calendar, Briefcase, MapPin, X, Copy, ExternalLink } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StatusBadge } from "@/components/opai/StatusBadge";
 import { EmptyState } from "@/components/opai/EmptyState";
@@ -1588,13 +1588,37 @@ export function CrmLeadsClient({
                       {/* Address via Google Maps */}
                       <div className="space-y-1">
                         <Label className="text-[11px]">Dirección (Google Maps)</Label>
-                        <AddressAutocomplete
-                          value={inst.address}
-                          onChange={(result) => handleAddressChange(inst._key, result)}
-                          placeholder="Buscar dirección..."
-                          className={`h-9 text-sm ${inputClassName}`}
-                          showMap={false}
-                        />
+                        <div className="flex gap-2 items-center">
+                          <AddressAutocomplete
+                            value={inst.address}
+                            onChange={(result) => handleAddressChange(inst._key, result)}
+                            placeholder="Buscar dirección..."
+                            className={`h-9 text-sm flex-1 ${inputClassName}`}
+                            showMap={false}
+                          />
+                          {(inst.address || (inst.lat != null && inst.lng != null)) && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-9 w-9 shrink-0"
+                              title="Abrir en Google Maps"
+                              asChild
+                            >
+                              <a
+                                href={
+                                  inst.lat != null && inst.lng != null
+                                    ? `https://www.google.com/maps/@${inst.lat},${inst.lng},17z`
+                                    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(inst.address)}`
+                                }
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                              </a>
+                            </Button>
+                          )}
+                        </div>
                       </div>
 
                       {/* Comuna & Ciudad (auto-filled, editable) */}
