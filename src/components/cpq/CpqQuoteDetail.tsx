@@ -43,7 +43,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
-import { ArrowLeft, Copy, RefreshCw, FileText, Users, Layers, Calculator, ChevronLeft, ChevronRight, Check, Trash2, Download, Send, Sparkles, Loader2, Plus, Building2 } from "lucide-react";
+import { ArrowLeft, Copy, RefreshCw, ChevronLeft, ChevronRight, Trash2, Download, Sparkles, Loader2, Plus, Building2 } from "lucide-react";
 
 interface CpqQuoteDetailProps {
   quoteId: string;
@@ -110,15 +110,27 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
 
   // CRM context
   const [crmAccounts, setCrmAccounts] = useState<{ id: string; name: string }[]>([]);
-  const [crmInstallations, setCrmInstallations] = useState<{ id: string; name: string; city?: string | null }[]>([]);
-  const [crmContacts, setCrmContacts] = useState<{ id: string; firstName: string; lastName: string; email?: string | null }[]>([]);
-  const [crmDeals, setCrmDeals] = useState<{ id: string; title: string }[]>([]);
+  const [crmInstallations, setCrmInstallations] = useState<
+    { id: string; name: string; city?: string | null; accountId?: string | null }[]
+  >([]);
+  const [crmContacts, setCrmContacts] = useState<
+    { id: string; accountId: string; firstName: string; lastName: string; email?: string | null }[]
+  >([]);
+  const [crmDeals, setCrmDeals] = useState<
+    { id: string; accountId: string; title: string; primaryContactId?: string | null }[]
+  >([]);
   const [crmContext, setCrmContext] = useState({
     accountId: "" as string,
     installationId: "" as string,
     contactId: "" as string,
     dealId: "" as string,
     currency: "CLP" as string,
+  });
+  const [crmSearch, setCrmSearch] = useState({
+    account: "",
+    installation: "",
+    contact: "",
+    deal: "",
   });
   const [generatingAi, setGeneratingAi] = useState(false);
   const [ufValue, setUfValue] = useState<number | null>(null);
@@ -197,15 +209,40 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
           setQuoteDirty(true);
           break;
         case "installation":
-          setCrmInstallations((prev) => [...prev, { id: created.id, name: created.name, city: created.city }]);
+          setCrmInstallations((prev) => [
+            ...prev,
+            {
+              id: created.id,
+              name: created.name,
+              city: created.city,
+              accountId: created.accountId ?? crmContext.accountId,
+            },
+          ]);
           saveCrmContext({ installationId: created.id });
           break;
         case "contact":
-          setCrmContacts((prev) => [...prev, { id: created.id, firstName: created.firstName, lastName: created.lastName, email: created.email }]);
+          setCrmContacts((prev) => [
+            ...prev,
+            {
+              id: created.id,
+              accountId: created.accountId ?? crmContext.accountId,
+              firstName: created.firstName,
+              lastName: created.lastName,
+              email: created.email,
+            },
+          ]);
           saveCrmContext({ contactId: created.id });
           break;
         case "deal":
-          setCrmDeals((prev) => [...prev, { id: created.id, title: created.title }]);
+          setCrmDeals((prev) => [
+            ...prev,
+            {
+              id: created.id,
+              accountId: created.accountId ?? crmContext.accountId,
+              title: created.title,
+              primaryContactId: created.primaryContactId ?? null,
+            },
+          ]);
           saveCrmContext({ dealId: created.id });
           break;
       }
@@ -224,7 +261,6 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
 
   const isLocked = quote?.status === "sent";
   const steps = ["Datos", "Puestos", "Costos", "Resumen", "Documento"];
-  const stepIcons = [FileText, Users, Layers, Calculator, Send];
   const formatDateInput = (value?: string | null) => (value ? value.split("T")[0] : "");
   const formatTime = (value: Date) =>
     value.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" });
@@ -266,6 +302,64 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
       )
     );
   };
+  const ensureSelectedOption = <T extends { id: string }>(
+    options: T[],
+    selectedId: string,
+    source: T[]
+  ) => {
+    if (!selectedId || options.some((item) => item.id === selectedId)) return options;
+    const selected = source.find((item) => item.id === selectedId);
+    return selected ? [selected, ...options] : options;
+  };
+  const filteredCrmAccounts = useMemo(() => {
+    const query = crmSearch.account.trim().toLowerCase();
+    if (!query) return crmAccounts;
+    return crmAccounts.filter((account) =>
+      account.name.toLowerCase().includes(query)
+    );
+  }, [crmAccounts, crmSearch.account]);
+  const filteredCrmInstallations = useMemo(() => {
+    const query = crmSearch.installation.trim().toLowerCase();
+    if (!query) return crmInstallations;
+    return crmInstallations.filter((installation) =>
+      `${installation.name} ${installation.city || ""}`.toLowerCase().includes(query)
+    );
+  }, [crmInstallations, crmSearch.installation]);
+  const filteredCrmContacts = useMemo(() => {
+    const query = crmSearch.contact.trim().toLowerCase();
+    if (!query) return crmContacts;
+    return crmContacts.filter((contact) =>
+      `${contact.firstName} ${contact.lastName} ${contact.email || ""}`
+        .toLowerCase()
+        .includes(query)
+    );
+  }, [crmContacts, crmSearch.contact]);
+  const filteredCrmDeals = useMemo(() => {
+    const query = crmSearch.deal.trim().toLowerCase();
+    if (!query) return crmDeals;
+    return crmDeals.filter((deal) => deal.title.toLowerCase().includes(query));
+  }, [crmDeals, crmSearch.deal]);
+  const accountOptions = useMemo(
+    () => ensureSelectedOption(filteredCrmAccounts, crmContext.accountId, crmAccounts),
+    [filteredCrmAccounts, crmContext.accountId, crmAccounts]
+  );
+  const installationOptions = useMemo(
+    () =>
+      ensureSelectedOption(
+        filteredCrmInstallations,
+        crmContext.installationId,
+        crmInstallations
+      ),
+    [filteredCrmInstallations, crmContext.installationId, crmInstallations]
+  );
+  const contactOptions = useMemo(
+    () => ensureSelectedOption(filteredCrmContacts, crmContext.contactId, crmContacts),
+    [filteredCrmContacts, crmContext.contactId, crmContacts]
+  );
+  const dealOptions = useMemo(
+    () => ensureSelectedOption(filteredCrmDeals, crmContext.dealId, crmDeals),
+    [filteredCrmDeals, crmContext.dealId, crmDeals]
+  );
 
   const refresh = async () => {
     setLoading(true);
@@ -357,39 +451,85 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
   useEffect(() => {
     fetch("/api/crm/accounts")
       .then((r) => r.json())
-      .then((d) => { if (d.success) setCrmAccounts(d.data.map((a: Record<string, string>) => ({ id: a.id, name: a.name }))); })
+      .then((d) => {
+        if (!d.success) return;
+        setCrmAccounts(
+          (d.data as Array<{ id: string; name: string }>).map((account) => ({
+            id: account.id,
+            name: account.name,
+          }))
+        );
+      })
       .catch(() => {});
   }, []);
 
   // Load installations/contacts/deals when account changes
   useEffect(() => {
-    if (!crmContext.accountId) {
-      setCrmInstallations([]);
-      setCrmContacts([]);
-      setCrmDeals([]);
-      return;
-    }
+    const accountQuery = crmContext.accountId
+      ? `?accountId=${encodeURIComponent(crmContext.accountId)}`
+      : "";
+    let cancelled = false;
+
     Promise.all([
-      fetch(`/api/crm/installations?accountId=${crmContext.accountId}`).then((r) => r.json()),
-      fetch("/api/crm/contacts").then((r) => r.json()),
-      fetch("/api/crm/deals").then((r) => r.json()),
-    ]).then(([instData, contactData, dealData]) => {
-      if (instData.success) setCrmInstallations(instData.data);
-      if (contactData.success) {
-        setCrmContacts(
-          contactData.data
-            .filter((c: Record<string, string>) => c.accountId === crmContext.accountId)
-            .map((c: Record<string, string>) => ({ id: c.id, firstName: c.firstName, lastName: c.lastName, email: c.email }))
-        );
-      }
-      if (dealData.success) {
-        setCrmDeals(
-          dealData.data
-            .filter((d: Record<string, string>) => d.accountId === crmContext.accountId)
-            .map((d: Record<string, string>) => ({ id: d.id, title: d.title }))
-        );
-      }
-    }).catch(() => {});
+      fetch(`/api/crm/installations${accountQuery}`).then((r) => r.json()),
+      fetch(`/api/crm/contacts${accountQuery}`).then((r) => r.json()),
+      fetch(`/api/crm/deals${accountQuery}`).then((r) => r.json()),
+    ])
+      .then(([instData, contactData, dealData]) => {
+        if (cancelled) return;
+        if (instData.success) {
+          setCrmInstallations(
+            (instData.data as Array<{
+              id: string;
+              name: string;
+              city?: string | null;
+              accountId?: string | null;
+            }>).map((installation) => ({
+              id: installation.id,
+              name: installation.name,
+              city: installation.city ?? null,
+              accountId: installation.accountId ?? null,
+            }))
+          );
+        }
+        if (contactData.success) {
+          setCrmContacts(
+            (contactData.data as Array<{
+              id: string;
+              accountId: string;
+              firstName: string;
+              lastName: string;
+              email?: string | null;
+            }>).map((contact) => ({
+              id: contact.id,
+              accountId: contact.accountId,
+              firstName: contact.firstName,
+              lastName: contact.lastName,
+              email: contact.email ?? null,
+            }))
+          );
+        }
+        if (dealData.success) {
+          setCrmDeals(
+            (dealData.data as Array<{
+              id: string;
+              accountId: string;
+              title: string;
+              primaryContactId?: string | null;
+            }>).map((deal) => ({
+              id: deal.id,
+              accountId: deal.accountId,
+              title: deal.title,
+              primaryContactId: deal.primaryContactId ?? null,
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
   }, [crmContext.accountId]);
 
   const saveCrmContext = async (patch: Partial<typeof crmContext>) => {
@@ -409,6 +549,68 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
         }),
       });
     } catch {}
+  };
+  const applyAccountToClientName = (accountId: string) => {
+    if (!accountId) return;
+    const account = crmAccounts.find((item) => item.id === accountId);
+    if (!account) return;
+    setQuoteForm((prev) => ({ ...prev, clientName: account.name }));
+    setQuoteDirty(true);
+  };
+  const handleAccountSelect = (accountId: string) => {
+    saveCrmContext({ accountId, installationId: "", contactId: "", dealId: "" });
+    applyAccountToClientName(accountId);
+    setCrmSearch((prev) => ({ ...prev, account: "" }));
+  };
+  const handleInstallationSelect = (installationId: string) => {
+    const installation = crmInstallations.find((item) => item.id === installationId);
+    if (installation?.accountId && installation.accountId !== crmContext.accountId) {
+      saveCrmContext({
+        accountId: installation.accountId,
+        installationId,
+        contactId: "",
+        dealId: "",
+      });
+      applyAccountToClientName(installation.accountId);
+    } else {
+      saveCrmContext({ installationId });
+    }
+    setCrmSearch((prev) => ({ ...prev, installation: "" }));
+  };
+  const handleContactSelect = (contactId: string) => {
+    const contact = crmContacts.find((item) => item.id === contactId);
+    if (contact?.accountId && contact.accountId !== crmContext.accountId) {
+      saveCrmContext({
+        accountId: contact.accountId,
+        installationId: "",
+        contactId,
+        dealId: "",
+      });
+      applyAccountToClientName(contact.accountId);
+    } else {
+      saveCrmContext({ contactId });
+    }
+    setCrmSearch((prev) => ({ ...prev, contact: "" }));
+  };
+  const handleDealSelect = (dealId: string) => {
+    const deal = crmDeals.find((item) => item.id === dealId);
+    if (deal?.accountId && deal.accountId !== crmContext.accountId) {
+      saveCrmContext({
+        accountId: deal.accountId,
+        installationId: "",
+        contactId: deal.primaryContactId || "",
+        dealId,
+      });
+      applyAccountToClientName(deal.accountId);
+    } else {
+      saveCrmContext({
+        dealId,
+        ...(!crmContext.contactId && deal?.primaryContactId
+          ? { contactId: deal.primaryContactId }
+          : {}),
+      });
+    }
+    setCrmSearch((prev) => ({ ...prev, deal: "" }));
   };
 
   const generateAiDescription = async () => {
@@ -899,7 +1101,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
         </div>
       </div>
 
-      <Stepper steps={steps} currentStep={activeStep} onStepClick={goToStep} className="mb-6" />
+      <Stepper steps={steps} currentStep={activeStep} onStepClick={goToStep} className="mb-3" />
 
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-5">
         <KpiCard
@@ -970,22 +1172,22 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-1.5">
                 <Label className="text-xs">Cuenta (empresa)</Label>
+                <Input
+                  value={crmSearch.account}
+                  onChange={(e) =>
+                    setCrmSearch((prev) => ({ ...prev, account: e.target.value }))
+                  }
+                  placeholder="Buscar cuenta..."
+                  className="h-8 bg-background text-xs"
+                />
                 <div className="flex gap-1">
                   <select
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     value={crmContext.accountId}
-                    onChange={(e) => {
-                      const accountId = e.target.value;
-                      const account = crmAccounts.find((a) => a.id === accountId);
-                      saveCrmContext({ accountId, installationId: "", contactId: "", dealId: "" });
-                      if (account) {
-                        setQuoteForm((prev) => ({ ...prev, clientName: account.name }));
-                        setQuoteDirty(true);
-                      }
-                    }}
+                    onChange={(e) => handleAccountSelect(e.target.value)}
                   >
                     <option value="">Seleccionar cuenta...</option>
-                    {crmAccounts.map((a) => (
+                    {accountOptions.map((a) => (
                       <option key={a.id} value={a.id}>{a.name}</option>
                     ))}
                   </select>
@@ -996,15 +1198,22 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Instalación</Label>
+                <Input
+                  value={crmSearch.installation}
+                  onChange={(e) =>
+                    setCrmSearch((prev) => ({ ...prev, installation: e.target.value }))
+                  }
+                  placeholder="Buscar instalación..."
+                  className="h-8 bg-background text-xs"
+                />
                 <div className="flex gap-1">
                   <select
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     value={crmContext.installationId}
-                    onChange={(e) => saveCrmContext({ installationId: e.target.value })}
-                    disabled={!crmContext.accountId}
+                    onChange={(e) => handleInstallationSelect(e.target.value)}
                   >
                     <option value="">Seleccionar instalación...</option>
-                    {crmInstallations.map((i) => (
+                    {installationOptions.map((i) => (
                       <option key={i.id} value={i.id}>{i.name}{i.city ? ` (${i.city})` : ""}</option>
                     ))}
                   </select>
@@ -1015,15 +1224,22 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Contacto</Label>
+                <Input
+                  value={crmSearch.contact}
+                  onChange={(e) =>
+                    setCrmSearch((prev) => ({ ...prev, contact: e.target.value }))
+                  }
+                  placeholder="Buscar contacto..."
+                  className="h-8 bg-background text-xs"
+                />
                 <div className="flex gap-1">
                   <select
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     value={crmContext.contactId}
-                    onChange={(e) => saveCrmContext({ contactId: e.target.value })}
-                    disabled={!crmContext.accountId}
+                    onChange={(e) => handleContactSelect(e.target.value)}
                   >
                     <option value="">Seleccionar contacto...</option>
-                    {crmContacts.map((c) => (
+                    {contactOptions.map((c) => (
                       <option key={c.id} value={c.id}>{c.firstName} {c.lastName}{c.email ? ` (${c.email})` : ""}</option>
                     ))}
                   </select>
@@ -1034,15 +1250,22 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Negocio</Label>
+                <Input
+                  value={crmSearch.deal}
+                  onChange={(e) =>
+                    setCrmSearch((prev) => ({ ...prev, deal: e.target.value }))
+                  }
+                  placeholder="Buscar negocio..."
+                  className="h-8 bg-background text-xs"
+                />
                 <div className="flex gap-1">
                   <select
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     value={crmContext.dealId}
-                    onChange={(e) => saveCrmContext({ dealId: e.target.value })}
-                    disabled={!crmContext.accountId}
+                    onChange={(e) => handleDealSelect(e.target.value)}
                   >
                     <option value="">Seleccionar negocio...</option>
-                    {crmDeals.map((d) => (
+                    {dealOptions.map((d) => (
                       <option key={d.id} value={d.id}>{d.title}</option>
                     ))}
                   </select>

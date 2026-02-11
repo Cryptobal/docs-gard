@@ -50,7 +50,7 @@ export function CrmCotizacionesClient({
 }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [accountFilter, setAccountFilter] = useState<string>("all");
+  const [accountFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [sort, setSort] = useState("newest");
 
@@ -133,8 +133,8 @@ export function CrmCotizacionesClient({
       />
 
       {/* ── Quote list / cards ── */}
-      <Card>
-        <CardContent className="pt-5">
+      <Card className="overflow-hidden">
+        <CardContent className="min-w-0 pt-5">
           {filteredQuotes.length === 0 ? (
             <EmptyState
               icon={<FileText className="h-8 w-8" />}
@@ -160,7 +160,7 @@ export function CrmCotizacionesClient({
               ))}
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {filteredQuotes.map((quote) => (
                 <QuoteCardItem key={quote.id} quote={quote} />
               ))}
@@ -224,32 +224,32 @@ function QuoteCardItem({ quote }: { quote: QuoteRow }) {
   return (
     <Link
       href={`/crm/cotizaciones/${quote.id}`}
-      className="block rounded-lg border p-4 transition-colors hover:bg-accent/30 group"
+      className="group block w-full min-w-0 max-w-full overflow-hidden rounded-lg border p-4 transition-colors hover:bg-accent/30"
     >
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <span className="font-mono text-sm font-medium truncate">{quote.code}</span>
+      <div className="mb-2 flex min-w-0 items-center justify-between gap-2">
+        <span className="truncate font-mono text-sm font-medium">{quote.code}</span>
         <Badge variant="outline" className={`shrink-0 ${status.className}`}>
           {status.label}
         </Badge>
       </div>
       {quote.dealTitle && (
-        <p className="text-sm font-medium truncate">{quote.dealTitle}</p>
+        <p className="truncate text-sm font-medium">{quote.dealTitle}</p>
       )}
-      <p className="text-xs text-muted-foreground truncate">
+      <p className="truncate text-xs text-muted-foreground">
         {quote.accountName || quote.clientName || "Sin cliente"}
       </p>
-      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-        <div>
+      <div className="mt-3 grid min-w-0 grid-cols-3 gap-2 text-center">
+        <div className="min-w-0">
           <p className="text-[10px] text-muted-foreground">Guardias</p>
-          <p className="text-sm font-medium">{quote.totalGuards}</p>
+          <p className="truncate text-sm font-medium">{quote.totalGuards}</p>
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="text-[10px] text-muted-foreground">P. venta</p>
-          <p className="text-sm font-medium">{formatCLP(Number(quote.salePriceMonthly))}</p>
+          <p className="truncate text-xs font-medium sm:text-sm">{formatCLP(Number(quote.salePriceMonthly))}</p>
         </div>
-        <div>
+        <div className="min-w-0">
           <p className="text-[10px] text-muted-foreground">Margen</p>
-          <p className="text-sm font-medium text-emerald-400">
+          <p className="truncate text-sm font-medium text-emerald-400">
             {quote.marginPct != null
               ? `${formatNumber(quote.marginPct, { minDecimals: 1, maxDecimals: 1 })}%`
               : "—"}

@@ -9,13 +9,17 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { createDealSchema } from "@/lib/validations/crm";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const accountId = request.nextUrl.searchParams.get("accountId") || undefined;
 
     const deals = await prisma.crmDeal.findMany({
-      where: { tenantId: ctx.tenantId },
+      where: {
+        tenantId: ctx.tenantId,
+        ...(accountId ? { accountId } : {}),
+      },
       include: {
         account: {
           select: {

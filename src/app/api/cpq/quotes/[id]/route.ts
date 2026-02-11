@@ -17,6 +17,61 @@ function forbiddenCpq() {
   );
 }
 
+async function reconcileQuoteCrmContext(
+  tenantId: string,
+  quote: Awaited<ReturnType<typeof prisma.cpqQuote.findFirst>>
+) {
+  if (!quote) return quote;
+
+  const patch: {
+    dealId?: string;
+    accountId?: string;
+    contactId?: string;
+    clientName?: string;
+  } = {};
+
+  let effectiveDealId = quote.dealId ?? null;
+
+  // Backfill from crm.deal_quotes link when cpq.quote.dealId is empty.
+  if (!effectiveDealId) {
+    const linkedDeal = await prisma.crmDealQuote.findFirst({
+      where: { tenantId, quoteId: quote.id },
+      orderBy: { createdAt: "desc" },
+      select: { dealId: true },
+    });
+    if (linkedDeal?.dealId) {
+      effectiveDealId = linkedDeal.dealId;
+      patch.dealId = linkedDeal.dealId;
+    }
+  }
+
+  // If there is a deal, infer missing account/contact/client fields.
+  if (effectiveDealId && (!quote.accountId || !quote.contactId || !quote.clientName)) {
+    const deal = await prisma.crmDeal.findFirst({
+      where: { id: effectiveDealId, tenantId },
+      select: {
+        accountId: true,
+        primaryContactId: true,
+        account: { select: { name: true } },
+      },
+    });
+    if (deal) {
+      if (!quote.accountId) patch.accountId = deal.accountId;
+      if (!quote.contactId && deal.primaryContactId) patch.contactId = deal.primaryContactId;
+      if (!quote.clientName && deal.account?.name) patch.clientName = deal.account.name;
+    }
+  }
+
+  if (!Object.keys(patch).length) return quote;
+
+  await prisma.cpqQuote.update({
+    where: { id: quote.id },
+    data: patch,
+  });
+
+  return { ...quote, ...patch };
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -49,7 +104,8 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ success: true, data: quote });
+    const reconciledQuote = await reconcileQuoteCrmContext(tenantId, quote);
+    return NextResponse.json({ success: true, data: reconciledQuote });
   } catch (error) {
     console.error("Error fetching CPQ quote:", error);
     return NextResponse.json(
