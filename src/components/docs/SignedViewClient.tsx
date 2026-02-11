@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FileText, Download, ShieldCheck, AlertCircle } from "lucide-react";
+import { FileText, Download, ShieldCheck, AlertCircle, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ContractEditor } from "./ContractEditor";
 
@@ -13,7 +13,10 @@ type Signer = {
   signedAt: Date | string | null;
   signatureMethod: string | null;
   signatureTypedName: string | null;
+  signatureFontFamily: string | null;
   signatureImageUrl: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
 };
 
 type Data = {
@@ -23,11 +26,35 @@ type Data = {
     content: unknown;
     signedAt: Date | string | null;
     signatureStatus: string | null;
-    signatureData: unknown;
   };
   signers: Signer[];
   completedAt: Date | string | null;
+  contentHash: string;
+  verificationUrl: string;
 };
+
+function SignatureBlock({ signer }: { signer: Signer }) {
+  if (signer.signatureMethod === "typed") {
+    return (
+      <div
+        style={{ fontFamily: `${signer.signatureFontFamily || "cursive"}, cursive`, fontSize: "32px", lineHeight: 1.1 }}
+        className="text-foreground py-2"
+      >
+        {signer.signatureTypedName || signer.name}
+      </div>
+    );
+  }
+  if (signer.signatureImageUrl) {
+    return (
+      <img
+        src={signer.signatureImageUrl}
+        alt={`Firma de ${signer.name}`}
+        className="max-h-20 max-w-[240px] object-contain py-2"
+      />
+    );
+  }
+  return <div className="text-muted-foreground italic py-2">Firma no disponible</div>;
+}
 
 export function SignedViewClient({
   documentId,
@@ -39,6 +66,7 @@ export function SignedViewClient({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<Data | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -52,6 +80,11 @@ export function SignedViewClient({
           return;
         }
         setData(json.data);
+        // Generate QR client-side
+        const QRCode = (await import("qrcode")).default;
+        const url = json.data.verificationUrl || window.location.href;
+        const qr = await QRCode.toDataURL(url, { width: 180, margin: 1, color: { dark: "#0f172a", light: "#ffffff" } });
+        setQrDataUrl(qr);
       } catch {
         setError("No se pudo cargar el documento");
       } finally {
@@ -60,6 +93,18 @@ export function SignedViewClient({
     }
     void load();
   }, [documentId, viewToken]);
+
+  // Load Google Fonts for typed signatures
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const id = "signed-view-google-fonts";
+    if (document.getElementById(id)) return;
+    const link = document.createElement("link");
+    link.id = id;
+    link.rel = "stylesheet";
+    link.href = "https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Dancing+Script:wght@400;700&family=Great+Vibes&family=Pacifico&display=swap";
+    document.head.appendChild(link);
+  }, []);
 
   const pdfUrl = typeof window !== "undefined"
     ? `${window.location.origin}/api/docs/documents/${documentId}/signed-pdf?viewToken=${viewToken}`
@@ -87,17 +132,14 @@ export function SignedViewClient({
 
   const completedAtFormatted = data.completedAt
     ? new Date(data.completedAt).toLocaleString("es-CL", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
+        day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit",
       })
     : "—";
 
   return (
     <div className="template-ui-scope min-h-screen bg-background text-foreground">
       <div className="max-w-4xl mx-auto px-4 py-8">
+        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
             <FileText className="h-8 w-8 text-primary" />
@@ -116,50 +158,71 @@ export function SignedViewClient({
           </Button>
         </div>
 
+        {/* Document content (tokens resolved) */}
         <div className="rounded-lg border border-border bg-card overflow-hidden mb-8">
           <ContractEditor content={data.document.content} editable={false} />
         </div>
 
+        {/* Signature blocks */}
+        <div className="grid gap-4 sm:grid-cols-2 mb-8">
+          {data.signers.map((s, i) => (
+            <div key={i} className="rounded-lg border border-border bg-card p-5">
+              <div className="text-sm font-semibold mb-1">{s.name}</div>
+              <div className="text-xs text-muted-foreground mb-2">
+                {s.email}{s.rut ? ` · RUT ${s.rut}` : ""}
+              </div>
+              <SignatureBlock signer={s} />
+              <div className="text-xs text-muted-foreground mt-2">
+                Firmado:{" "}
+                {s.signedAt
+                  ? new Date(s.signedAt).toLocaleString("es-CL", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                  : "—"}
+                {" · "}
+                {s.signatureMethod === "typed" ? "Nombre escrito" : s.signatureMethod === "drawn" ? "Dibujado" : "Imagen subida"}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Registro de firma + QR */}
         <section className="rounded-lg border border-border bg-card p-6">
-          <h2 className="flex items-center gap-2 text-base font-semibold mb-4">
-            <ShieldCheck className="h-5 w-5 text-primary" />
-            Registro de firma electrónica
-          </h2>
-          <p className="text-sm text-muted-foreground mb-4">
-            Este documento fue firmado electrónicamente conforme a la Ley 19.799 (Chile).
-            Las firmas se registraron con fecha, método e identificación del firmante.
-          </p>
-          <ul className="space-y-3">
-            {data.signers.map((s, i) => (
-              <li
-                key={i}
-                className="flex flex-wrap items-baseline gap-2 text-sm py-2 border-b border-border last:border-0"
-              >
-                <span className="font-medium">{s.name}</span>
-                <span className="text-muted-foreground">{s.email}</span>
-                {s.rut ? (
-                  <span className="text-muted-foreground">RUT {s.rut}</span>
-                ) : null}
-                <span className="text-muted-foreground">
-                  · Firmado:{" "}
-                  {s.signedAt
-                    ? new Date(s.signedAt).toLocaleString("es-CL", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "—"}
-                </span>
-                {s.signatureMethod ? (
-                  <span className="text-muted-foreground">
-                    · Método: {s.signatureMethod === "typed" ? "Nombre escrito" : s.signatureMethod === "drawn" ? "Dibujado" : "Imagen"}
-                  </span>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+          <div className="flex flex-col sm:flex-row gap-6">
+            <div className="flex-1">
+              <h2 className="flex items-center gap-2 text-base font-semibold mb-3">
+                <ShieldCheck className="h-5 w-5 text-primary" />
+                Certificado de firma electrónica
+              </h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Este documento fue firmado electrónicamente conforme a la Ley 19.799 (Chile).
+                Las firmas se registraron con fecha, método, dirección IP e identificación del firmante.
+              </p>
+              <div className="space-y-2 text-xs">
+                {data.signers.map((s, i) => (
+                  <div key={i} className="py-2 border-b border-border last:border-0">
+                    <div className="font-medium">{s.name} ({s.email}){s.rut ? ` · RUT ${s.rut}` : ""}</div>
+                    <div className="text-muted-foreground">
+                      Firmado: {s.signedAt ? new Date(s.signedAt).toLocaleString("es-CL") : "—"}
+                      {" · "}Método: {s.signatureMethod === "typed" ? "Nombre escrito" : s.signatureMethod === "drawn" ? "Dibujado" : "Imagen"}
+                    </div>
+                    {s.ipAddress ? <div className="text-muted-foreground">IP: {s.ipAddress}</div> : null}
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 text-xs text-muted-foreground">
+                <span className="font-medium">Huella digital (SHA-256):</span>{" "}
+                <code className="break-all">{data.contentHash}</code>
+              </div>
+            </div>
+            {qrDataUrl ? (
+              <div className="flex flex-col items-center gap-2 shrink-0">
+                <img src={qrDataUrl} alt="QR de verificación" className="w-[140px] h-[140px] rounded-lg border border-border" />
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <QrCode className="h-3 w-3" />
+                  Escanea para verificar
+                </div>
+              </div>
+            ) : null}
+          </div>
         </section>
       </div>
     </div>

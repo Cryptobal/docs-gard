@@ -10,6 +10,7 @@ import { getDefaultTenantId } from "@/lib/tenant";
 import { Breadcrumb } from "@/components/opai";
 import { CpqQuoteDetail } from "@/components/cpq/CpqQuoteDetail";
 import { CrmSubnav } from "@/components/crm/CrmSubnav";
+import { QuoteNotesWrapper } from "@/components/crm/QuoteNotesWrapper";
 
 export default async function CrmCotizacionDetailPage({
   params,
@@ -45,6 +46,7 @@ export default async function CrmCotizacionDetailPage({
       />
       <CrmSubnav role={role} />
       <CpqQuoteDetail quoteId={id} />
+      <QuoteNotesWrapper quoteId={id} currentUserId={session.user.id} />
     </>
   );
 }

@@ -12,6 +12,7 @@ import {
   Calculator,
   DollarSign,
   ChevronRight,
+  Bell,
 } from "lucide-react";
 
 type ConfigItem = {
@@ -44,6 +45,13 @@ const CONFIG_SECTIONS: ConfigSection[] = [
         title: "Integraciones",
         description: "Gmail y conectores externos",
         icon: Plug,
+      },
+      {
+        key: "notifications",
+        href: "/opai/configuracion/notificaciones",
+        title: "Notificaciones",
+        description: "Alertas, emails y campana por módulo",
+        icon: Bell,
       },
     ],
   },

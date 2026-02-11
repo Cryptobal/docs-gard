@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, ExternalLink, Trash2, TrendingUp, FileText, Mail, Users, ChevronRight, Pencil, Send, MessageSquare, Plus, Star, X } from "lucide-react";
+import { ArrowLeft, Loader2, ExternalLink, Trash2, TrendingUp, FileText, Mail, Users, ChevronRight, Pencil, Send, MessageSquare, MessageSquareText, Plus, Star, X } from "lucide-react";
 import { EmailHistoryList, type EmailMessage } from "@/components/crm/EmailHistoryList";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { CollapsibleSection } from "./CollapsibleSection";
@@ -31,6 +31,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { toast } from "sonner";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
+import { NotesSection } from "./NotesSection";
 
 /** Convierte Tiptap JSON a HTML para email */
 function tiptapToEmailHtml(doc: any): string {
@@ -83,12 +84,13 @@ type DocTemplateMail = { id: string; name: string; content: any };
 type DocTemplateWhatsApp = { id: string; name: string; content: any };
 
 export function CrmDealDetailClient({
-  deal, quotes, pipelineStages, dealContacts: initialDealContacts, accountContacts, gmailConnected, docTemplatesMail = [], docTemplatesWhatsApp = [],
+  deal, quotes, pipelineStages, dealContacts: initialDealContacts, accountContacts, gmailConnected, docTemplatesMail = [], docTemplatesWhatsApp = [], currentUserId = "",
 }: {
   deal: DealDetail; quotes: QuoteOption[];
   pipelineStages: PipelineStageOption[];
   dealContacts: DealContactRow[]; accountContacts: ContactRow[];
   gmailConnected: boolean; docTemplatesMail?: DocTemplateMail[]; docTemplatesWhatsApp?: DocTemplateWhatsApp[];
+  currentUserId?: string;
 }) {
   // ── Quote linking state ──
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
@@ -557,6 +559,15 @@ export function CrmDealDetailClient({
           compact
           onReply={gmailConnected ? handleReplyFromHistory : undefined}
         />
+      </CollapsibleSection>
+
+      {/* ── Section 5: Notas ── */}
+      <CollapsibleSection
+        icon={<MessageSquareText className="h-4 w-4" />}
+        title="Notas"
+        defaultOpen
+      >
+        <NotesSection entityType="deal" entityId={deal.id} currentUserId={currentUserId} />
       </CollapsibleSection>
 
       {/* ── Email Compose Modal ── */}

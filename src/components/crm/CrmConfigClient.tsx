@@ -527,21 +527,33 @@ export function CrmConfigClient({
               <button
                 type="button"
                 onClick={() => toggleStage(stage.id)}
-                className="flex w-full items-center justify-between gap-2 text-left hover:bg-accent/50 rounded-md -m-1 p-1 transition-colors"
+                className="flex w-full items-center justify-between gap-2 text-left hover:opacity-90 rounded-md -m-1 p-1 transition-opacity"
               >
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 min-w-0">
                   {isExpanded ? (
                     <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
                   ) : (
                     <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                   )}
                   <span
-                    className="h-2.5 w-2.5 rounded-full shrink-0"
-                    style={{ background: stage.color || "#94a3b8" }}
-                  />
-                  <span className="font-medium">{stage.name}</span>
+                    className={cn(
+                      "inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium shrink-0",
+                      "border-current"
+                    )}
+                    style={{
+                      borderColor: stage.color || "#94a3b8",
+                      backgroundColor: `${stage.color || "#94a3b8"}18`,
+                      color: "inherit",
+                    }}
+                  >
+                    <span
+                      className="h-2 w-2 rounded-full shrink-0"
+                      style={{ background: stage.color || "#94a3b8" }}
+                    />
+                    {stage.name}
+                  </span>
                 </div>
-                <Badge variant="outline">Orden {stage.order}</Badge>
+                <Badge variant="outline" className="shrink-0">Orden {stage.order}</Badge>
               </button>
               {isExpanded && (
               <>

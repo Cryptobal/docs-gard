@@ -35,9 +35,11 @@ import {
   Loader2,
   ChevronRight,
   Plus,
+  MessageSquareText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { NotesSection } from "./NotesSection";
 
 type ContactRow = {
   id: string;
@@ -87,7 +89,7 @@ type AccountDetail = {
   _count: { contacts: number; deals: number; installations: number };
 };
 
-export function CrmAccountDetailClient({ account: initialAccount }: { account: AccountDetail }) {
+export function CrmAccountDetailClient({ account: initialAccount, currentUserId }: { account: AccountDetail; currentUserId: string }) {
   const router = useRouter();
   const [account, setAccount] = useState(initialAccount);
 
@@ -430,6 +432,15 @@ export function CrmAccountDetailClient({ account: initialAccount }: { account: A
         defaultOpen={false}
       >
         <EmailHistoryList accountId={account.id} compact />
+      </CollapsibleSection>
+
+      {/* ── Section 6: Notas ── */}
+      <CollapsibleSection
+        icon={<MessageSquareText className="h-4 w-4" />}
+        title="Notas"
+        defaultOpen
+      >
+        <NotesSection entityType="account" entityId={account.id} currentUserId={currentUserId} />
       </CollapsibleSection>
 
       {/* ── Account Edit Modal ── */}

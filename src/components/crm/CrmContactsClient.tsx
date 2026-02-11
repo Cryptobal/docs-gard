@@ -16,11 +16,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Loader2, Trash2, Search, Users, ChevronRight, Mail, Phone, Building2, CheckSquare, Square } from "lucide-react";
+import { Plus, Pencil, Loader2, Trash2, Users, ChevronRight, Mail, Phone, Building2, CheckSquare, Square } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CrmDates } from "@/components/crm/CrmDates";
-import { ViewToggle, type ViewMode } from "./ViewToggle";
+import { CrmToolbar } from "./CrmToolbar";
+import type { ViewMode } from "./ViewToggle";
 import { toast } from "sonner";
 import Link from "next/link";
 
@@ -80,6 +81,8 @@ export function CrmContactsClient({
   const [editOpen, setEditOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [view, setView] = useState<ViewMode>("list");
+  const [sort, setSort] = useState("newest");
+  const [contactFilter, setContactFilter] = useState("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -105,12 +108,46 @@ export function CrmContactsClient({
 
   const filteredContacts = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return contacts;
-    return contacts.filter((c) => {
-      const searchable = `${c.firstName} ${c.lastName} ${c.email || ""} ${c.phone || ""} ${c.account?.name || ""}`.toLowerCase();
-      return searchable.includes(q);
+    let result = contacts;
+
+    // Filter by type
+    if (contactFilter === "with_account") {
+      result = result.filter((c) => !!c.account);
+    } else if (contactFilter === "without_account") {
+      result = result.filter((c) => !c.account);
+    }
+
+    // Search
+    if (q) {
+      result = result.filter((c) => {
+        const searchable = `${c.firstName} ${c.lastName} ${c.email || ""} ${c.phone || ""} ${c.account?.name || ""}`.toLowerCase();
+        return searchable.includes(q);
+      });
+    }
+
+    // Sort
+    result = [...result].sort((a, b) => {
+      switch (sort) {
+        case "oldest":
+          return (a.createdAt || "").localeCompare(b.createdAt || "");
+        case "az":
+          return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+        case "za":
+          return `${b.firstName} ${b.lastName}`.localeCompare(`${a.firstName} ${a.lastName}`);
+        case "newest":
+        default:
+          return (b.createdAt || "").localeCompare(a.createdAt || "");
+      }
     });
-  }, [contacts, search]);
+
+    return result;
+  }, [contacts, search, sort, contactFilter]);
+
+  const contactFilterOptions = useMemo(() => [
+    { key: "all", label: "Todos", count: contacts.length },
+    { key: "with_account", label: "Con cuenta", count: contacts.filter((c) => !!c.account).length },
+    { key: "without_account", label: "Sin cuenta", count: contacts.filter((c) => !c.account).length },
+  ], [contacts]);
 
   const updateForm = (key: keyof ContactFormState, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -248,25 +285,25 @@ export function CrmContactsClient({
 
   return (
     <div className={`space-y-4 ${selectedIds.size > 0 ? "pb-24" : ""}`}>
-      {/* ── Search + Filters + Create ── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nombre, email o teléfono..."
-            className="pl-9 h-9 bg-background text-foreground border-input"
-          />
-        </div>
-        {filteredContacts.length > 0 && (
-          <Button variant="ghost" size="sm" className="shrink-0 gap-1.5" onClick={toggleSelectAll}>
-            {selectedIds.size === filteredContacts.length ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4" />}
-            {selectedIds.size === filteredContacts.length ? "Deseleccionar todos" : "Seleccionar todos"}
-          </Button>
-        )}
-        <div className="flex items-center gap-2">
-          <ViewToggle view={view} onChange={setView} />
+      {/* ── Toolbar ── */}
+      <CrmToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Buscar por nombre, email o teléfono..."
+        filters={contactFilterOptions}
+        activeFilter={contactFilter}
+        onFilterChange={setContactFilter}
+        activeSort={sort}
+        onSortChange={setSort}
+        viewModes={["list", "cards"]}
+        activeView={view}
+        onViewChange={(v) => setView(v as ViewMode)}
+        selectAll={{
+          checked: filteredContacts.length > 0 && selectedIds.size === filteredContacts.length,
+          onToggle: toggleSelectAll,
+          show: filteredContacts.length > 0,
+        }}
+        actionSlot={
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0">
@@ -361,8 +398,8 @@ export function CrmContactsClient({
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
-      </div>
+        }
+      />
 
       {/* Edit modal */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>

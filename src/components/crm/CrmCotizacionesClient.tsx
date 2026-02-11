@@ -4,12 +4,13 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/opai/EmptyState";
-import { FileText, Search, ChevronRight, Plus, List, LayoutGrid } from "lucide-react";
+import { FileText, ChevronRight, Plus } from "lucide-react";
 import { formatCLP, formatNumber } from "@/lib/utils";
 import { CrmDates } from "@/components/crm/CrmDates";
+import { CrmToolbar } from "./CrmToolbar";
+import type { ViewMode } from "./ViewToggle";
 
 type QuoteRow = {
   id: string;
@@ -50,11 +51,12 @@ export function CrmCotizacionesClient({
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [accountFilter, setAccountFilter] = useState<string>("all");
-  const [viewMode, setViewMode] = useState<"list" | "cards">("list");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [sort, setSort] = useState("newest");
 
   const filteredQuotes = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return quotes.filter((quote) => {
+    let result = quotes.filter((quote) => {
       if (statusFilter !== "all" && quote.status !== statusFilter) return false;
       if (accountFilter !== "all") {
         const matchesAccount = quote.clientName?.toLowerCase() === accounts.find((a) => a.id === accountFilter)?.name.toLowerCase();
@@ -63,7 +65,23 @@ export function CrmCotizacionesClient({
       if (q && !`${quote.code} ${quote.clientName || ""} ${quote.dealTitle || ""} ${quote.accountName || ""}`.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [quotes, search, statusFilter, accountFilter, accounts]);
+
+    result = [...result].sort((a, b) => {
+      switch (sort) {
+        case "oldest":
+          return (a.createdAt || "").localeCompare(b.createdAt || "");
+        case "az":
+          return (a.code || "").localeCompare(b.code || "");
+        case "za":
+          return (b.code || "").localeCompare(a.code || "");
+        case "newest":
+        default:
+          return (b.createdAt || "").localeCompare(a.createdAt || "");
+      }
+    });
+
+    return result;
+  }, [quotes, search, statusFilter, accountFilter, accounts, sort]);
 
   const counts = useMemo(() => ({
     total: quotes.length,
@@ -91,61 +109,28 @@ export function CrmCotizacionesClient({
         <SummaryCard label="Aprobadas" value={counts.approved} className="text-emerald-400" />
       </div>
 
-      {/* ── Search + Filters + View Toggle + Create ── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por código, cliente o negocio..."
-            className="pl-9 h-9 bg-background text-foreground border-input"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
-            {statusFilters.map((opt) => (
-              <button
-                key={opt.key}
-                type="button"
-                onClick={() => setStatusFilter(opt.key)}
-                className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors shrink-0 ${
-                  statusFilter === opt.key
-                    ? "bg-primary/15 text-primary border border-primary/30"
-                    : "text-muted-foreground hover:text-foreground border border-transparent"
-                }`}
-              >
-                {opt.label} ({opt.count})
-              </button>
-            ))}
-          </div>
-          {/* View toggle */}
-          <div className="flex rounded-md border border-border overflow-hidden shrink-0">
-            <button
-              type="button"
-              onClick={() => setViewMode("list")}
-              className={`p-1.5 transition-colors ${viewMode === "list" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"}`}
-              title="Vista lista"
-            >
-              <List className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("cards")}
-              className={`p-1.5 transition-colors ${viewMode === "cards" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"}`}
-              title="Vista tarjetas"
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
-          </div>
+      {/* ── Toolbar ── */}
+      <CrmToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Buscar por código, cliente o negocio..."
+        filters={statusFilters}
+        activeFilter={statusFilter}
+        onFilterChange={setStatusFilter}
+        activeSort={sort}
+        onSortChange={setSort}
+        viewModes={["list", "cards"]}
+        activeView={viewMode}
+        onViewChange={(v) => setViewMode(v as ViewMode)}
+        actionSlot={
           <Link href="/cpq">
             <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0">
               <Plus className="h-4 w-4" />
               <span className="sr-only">Nueva cotización</span>
             </Button>
           </Link>
-        </div>
-      </div>
+        }
+      />
 
       {/* ── Quote list / cards ── */}
       <Card>

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, Check, CheckCheck, ExternalLink, Circle, MessageSquare } from 'lucide-react';
+import { Bell, Check, CheckCheck, ExternalLink, Circle, MessageSquare, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -31,6 +31,7 @@ const TYPE_ICONS: Record<string, string> = {
   contract_required: '📝',
   contract_expiring: '⚠️',
   contract_expired: '🔴',
+  document_signed_completed: '✅',
   email_opened: '👀',
   email_clicked: '🖱️',
   email_bounced: '⚠️',
@@ -123,6 +124,40 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
     }
   };
 
+  const deleteAll = async () => {
+    setLoading(true);
+    try {
+      await fetch('/api/notifications', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deleteAll: true }),
+      });
+      setNotifications([]);
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Error deleting notifications:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteOne = async (id: string) => {
+    try {
+      await fetch('/api/notifications', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: [id] }),
+      });
+      const removed = notifications.find((n) => n.id === id);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      if (removed && !removed.read) {
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
+  };
+
   const handleClick = (notification: Notification) => {
     if (!notification.read) markOneRead(notification.id);
     if (notification.link) {
@@ -164,19 +199,34 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
               </p>
             )}
           </div>
-          {unreadCount > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 text-xs gap-1"
-              onClick={markAllRead}
-              disabled={loading}
-              title="Marcar todas como leídas"
-            >
-              <CheckCheck className="h-3.5 w-3.5" />
-              Marcar todas como leídas
-            </Button>
-          )}
+          <div className="flex items-center gap-1">
+            {unreadCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs gap-1"
+                onClick={markAllRead}
+                disabled={loading}
+                title="Marcar todas como leídas"
+              >
+                <CheckCheck className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Leídas</span>
+              </Button>
+            )}
+            {notifications.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs gap-1 text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={deleteAll}
+                disabled={loading}
+                title="Eliminar todas"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Eliminar todas</span>
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* Notifications list */}
@@ -192,7 +242,7 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
             {notifications.map((notification) => (
               <div
                 key={notification.id}
-                className={`flex items-start gap-3 p-3 hover:bg-accent/50 transition-colors ${
+                className={`group/notif flex items-start gap-3 p-3 hover:bg-accent/50 transition-colors ${
                   !notification.read ? 'bg-primary/5' : ''
                 }`}
               >
@@ -254,9 +304,23 @@ export function NotificationBell({ compact = false }: { compact?: boolean }) {
                       </a>
                     )}
                 </div>
-                {notification.link && (
-                  <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0 mt-1" />
-                )}
+                <div className="shrink-0 flex flex-col items-center gap-1 mt-0.5">
+                  {notification.link && (
+                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/50" />
+                  )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteOne(notification.id);
+                    }}
+                    className="rounded p-0.5 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover/notif:opacity-100"
+                    title="Eliminar notificación"
+                    aria-label="Eliminar notificación"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>

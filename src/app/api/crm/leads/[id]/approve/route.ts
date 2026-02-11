@@ -225,6 +225,8 @@ export async function POST(
         contact = { id: created.id };
       }
 
+      const dealNotes = body?.notes?.trim() || null;
+
       const deal = await tx.crmDeal.create({
         data: {
           tenantId: ctx.tenantId,
@@ -238,8 +240,22 @@ export async function POST(
             ? new Date(body.expectedCloseDate)
             : null,
           status: "open",
+          notes: dealNotes,
         },
       });
+
+      // Create initial note on the deal if notes were provided
+      if (dealNotes) {
+        await tx.crmNote.create({
+          data: {
+            tenantId: ctx.tenantId,
+            entityType: "deal",
+            entityId: deal.id,
+            content: dealNotes,
+            createdBy: ctx.userId,
+          },
+        });
+      }
 
       await tx.crmDealStageHistory.create({
         data: {
@@ -345,8 +361,22 @@ export async function POST(
                 installationId,
                 totalPositions: dotacion.length,
                 totalGuards: dotacion.reduce((sum: number, d: { cantidad?: number }) => sum + (d.cantidad || 1), 0),
+                notes: dealNotes,
               },
             });
+
+            // Create initial note on the quote if notes were provided
+            if (dealNotes) {
+              await tx.crmNote.create({
+                data: {
+                  tenantId: ctx.tenantId,
+                  entityType: "quote",
+                  entityId: quote.id,
+                  content: dealNotes,
+                  createdBy: ctx.userId,
+                },
+              });
+            }
           } catch (quoteErr: unknown) {
             const prismaErr = quoteErr as { code?: string; meta?: { code?: string }; message?: string };
             const code = prismaErr?.code ?? prismaErr?.meta?.code;

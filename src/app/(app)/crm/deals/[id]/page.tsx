@@ -128,6 +128,7 @@ export default async function CrmDealDetailPage({
           gmailConnected={Boolean(gmailAccount)}
           docTemplatesMail={initialDocTemplatesMail}
           docTemplatesWhatsApp={initialDocTemplatesWhatsApp}
+          currentUserId={session.user.id}
         />
       </div>
     </>

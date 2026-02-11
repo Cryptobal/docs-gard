@@ -48,7 +48,9 @@ import { useLocalStorage } from "@/lib/hooks";
 import { CrmAccount, CrmDeal, CrmPipelineStage } from "@/types";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { EmptyState } from "@/components/opai/EmptyState";
-import { GripVertical, Loader2, Plus, ExternalLink, Search, TrendingUp, ChevronRight } from "lucide-react";
+import { GripVertical, Loader2, Plus, ExternalLink, TrendingUp, ChevronRight } from "lucide-react";
+import { CrmToolbar } from "./CrmToolbar";
+import type { ViewMode } from "./ViewToggle";
 import { toast } from "sonner";
 
 type DealFormState = {
@@ -102,6 +104,8 @@ function DealColumn({ stage, deals, children }: DealColumnProps) {
     id: `stage-${stage.id}`,
   });
 
+  const stageColor = stage.color || "#94a3b8";
+
   return (
     <div
       ref={setNodeRef}
@@ -110,9 +114,19 @@ function DealColumn({ stage, deals, children }: DealColumnProps) {
         isOver ? "border-primary/60" : "border-border"
       )}
     >
-      <div className="mb-3 flex items-center justify-between">
-        <div className="text-sm font-semibold">{stage.name}</div>
-        <Badge variant="outline">{deals.length}</Badge>
+      <div
+        className="mb-3 rounded-lg border px-3 py-2 flex items-center justify-between gap-2"
+        style={{
+          borderColor: stageColor,
+          backgroundColor: `${stageColor}18`,
+        }}
+      >
+        <span className="text-sm font-semibold truncate" style={{ color: stageColor }}>
+          {stage.name}
+        </span>
+        <Badge variant="secondary" className="shrink-0 text-xs font-medium tabular-nums">
+          {deals.length}
+        </Badge>
       </div>
       {children}
     </div>
@@ -301,6 +315,7 @@ export function CrmDealsClient({
   const [view, setView] = useLocalStorage<"kanban" | "list">("crm-deals-view", "kanban");
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState<string>("all");
+  const [sort, setSort] = useState("newest");
   // Per-deal loading states
   const [linkingDealId, setLinkingDealId] = useState<string | null>(null);
   const [changingStageId, setChangingStageId] = useState<string | null>(null);
@@ -439,7 +454,7 @@ export function CrmDealsClient({
 
   const filteredDeals = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return deals.filter((deal) => {
+    let result = deals.filter((deal) => {
       if (stageFilter !== "all" && deal.stage?.id !== stageFilter) return false;
       if (q) {
         const searchable = `${deal.title} ${deal.account?.name || ""} ${deal.primaryContact?.firstName || ""} ${deal.primaryContact?.lastName || ""}`.toLowerCase();
@@ -447,7 +462,23 @@ export function CrmDealsClient({
       }
       return true;
     });
-  }, [deals, stageFilter, search]);
+
+    result = [...result].sort((a, b) => {
+      switch (sort) {
+        case "oldest":
+          return (a.createdAt || "").localeCompare(b.createdAt || "");
+        case "az":
+          return (a.title || "").localeCompare(b.title || "");
+        case "za":
+          return (b.title || "").localeCompare(a.title || "");
+        case "newest":
+        default:
+          return (b.createdAt || "").localeCompare(a.createdAt || "");
+      }
+    });
+
+    return result;
+  }, [deals, stageFilter, search, sort]);
 
   const stageCounts = useMemo(() => {
     const map: Record<string, number> = {};
@@ -458,6 +489,15 @@ export function CrmDealsClient({
     });
     return map;
   }, [deals]);
+
+  const stageFilterOptions = useMemo(() => [
+    { key: "all", label: "Todos", count: deals.length },
+    ...stages.map((stage) => ({
+      key: stage.id,
+      label: stage.name,
+      count: stageCounts[stage.id] || 0,
+    })),
+  ], [deals.length, stages, stageCounts]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -506,43 +546,20 @@ export function CrmDealsClient({
 
   return (
     <div className="space-y-4">
-      {/* ── Search + Filters + View Toggle + Create ── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por título, cuenta o contacto..."
-            className="pl-9 h-9 bg-background text-foreground border-input"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          {/* View toggle */}
-          <div className="inline-flex rounded-full border p-0.5 text-xs shrink-0">
-            <button
-              type="button"
-              className={`rounded-full px-2.5 py-1 transition-colors ${
-                view === "kanban"
-                  ? "bg-foreground/10 text-foreground"
-                  : "text-muted-foreground"
-              }`}
-              onClick={() => setView("kanban")}
-            >
-              Kanban
-            </button>
-            <button
-              type="button"
-              className={`rounded-full px-2.5 py-1 transition-colors ${
-                view === "list"
-                  ? "bg-foreground/10 text-foreground"
-                  : "text-muted-foreground"
-              }`}
-              onClick={() => setView("list")}
-            >
-              Lista
-            </button>
-          </div>
+      {/* ── Toolbar ── */}
+      <CrmToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Buscar por título, cuenta o contacto..."
+        filters={stageFilterOptions}
+        activeFilter={stageFilter}
+        onFilterChange={setStageFilter}
+        activeSort={sort}
+        onSortChange={setSort}
+        viewModes={["kanban", "list"]}
+        activeView={view as ViewMode}
+        onViewChange={(v) => setView(v as "kanban" | "list")}
+        actionSlot={
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0">
@@ -635,39 +652,8 @@ export function CrmDealsClient({
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
-      </div>
-
-      {/* ── Stage filter pills (for list view) ── */}
-      {view === "list" && (
-        <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
-          <button
-            type="button"
-            onClick={() => setStageFilter("all")}
-            className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors shrink-0 ${
-              stageFilter === "all"
-                ? "bg-primary/15 text-primary border border-primary/30"
-                : "text-muted-foreground hover:text-foreground border border-transparent"
-            }`}
-          >
-            Todos ({deals.length})
-          </button>
-          {stages.map((stage) => (
-            <button
-              key={stage.id}
-              type="button"
-              onClick={() => setStageFilter(stage.id)}
-              className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors shrink-0 ${
-                stageFilter === stage.id
-                  ? "bg-primary/15 text-primary border border-primary/30"
-                  : "text-muted-foreground hover:text-foreground border border-transparent"
-              }`}
-            >
-              {stage.name} ({stageCounts[stage.id] || 0})
-            </button>
-          ))}
-        </div>
-      )}
+        }
+      />
 
       {view === "kanban" ? (
         <Card>

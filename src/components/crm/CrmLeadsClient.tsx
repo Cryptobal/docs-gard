@@ -16,11 +16,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { CrmLead } from "@/types";
-import { Plus, Loader2, AlertTriangle, Trash2, Search, ChevronRight, UserPlus, Phone, Mail, MessageSquare, Clock, Users, Calendar, Briefcase, MapPin, X } from "lucide-react";
+import { Plus, Loader2, AlertTriangle, Trash2, ChevronRight, UserPlus, Phone, Mail, MessageSquare, Clock, Users, Calendar, Briefcase, MapPin, X } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StatusBadge } from "@/components/opai/StatusBadge";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CrmDates } from "@/components/crm/CrmDates";
+import { CrmToolbar } from "./CrmToolbar";
+import type { ViewMode } from "./ViewToggle";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { toast } from "sonner";
 
@@ -136,6 +138,7 @@ type ApproveFormState = {
   segment: string;
   roleTitle: string;
   website: string;
+  notes: string;
 };
 
 const DEFAULT_FORM: LeadFormState = {
@@ -158,6 +161,8 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [sort, setSort] = useState("newest");
+  const [view, setView] = useState<ViewMode>("list");
 
   // Approve modal state
   const [approveOpen, setApproveOpen] = useState(false);
@@ -182,6 +187,7 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
     segment: "",
     roleTitle: "",
     website: "",
+    notes: "",
   });
   const [installations, setInstallations] = useState<InstallationDraft[]>([]);
 
@@ -208,7 +214,7 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
 
   const filteredLeads = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return leads.filter((lead) => {
+    let result = leads.filter((lead) => {
       // "all" muestra solo pendientes + rechazados (aprobados ya son cuentas)
       if (statusFilter === "all" && lead.status === "approved") return false;
       if (statusFilter !== "all" && lead.status !== statusFilter) return false;
@@ -218,7 +224,23 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
       }
       return true;
     });
-  }, [leads, statusFilter, search]);
+
+    result = [...result].sort((a, b) => {
+      switch (sort) {
+        case "oldest":
+          return (a.createdAt || "").localeCompare(b.createdAt || "");
+        case "az":
+          return (a.companyName || "").localeCompare(b.companyName || "");
+        case "za":
+          return (b.companyName || "").localeCompare(a.companyName || "");
+        case "newest":
+        default:
+          return (b.createdAt || "").localeCompare(a.createdAt || "");
+      }
+    });
+
+    return result;
+  }, [leads, statusFilter, search, sort]);
 
   const updateForm = (key: keyof LeadFormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -285,6 +307,7 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
       segment: "",
       roleTitle: "",
       website: (lead as any).website || extractWebsiteFromEmail(lead.email || ""),
+      notes: lead.notes || "",
     });
 
     // Pre-crear una instalación con la dirección, coordenadas y dotación del lead
@@ -558,34 +581,20 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
 
   return (
     <div className="space-y-4">
-      {/* ── Search + Filters + Create ── */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por empresa, contacto o email..."
-            className="pl-9 h-9 bg-background text-foreground border-input"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
-            {statusFilters.map((opt) => (
-              <button
-                key={opt.key}
-                type="button"
-                onClick={() => setStatusFilter(opt.key)}
-                className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors shrink-0 ${
-                  statusFilter === opt.key
-                    ? "bg-primary/15 text-primary border border-primary/30"
-                    : "text-muted-foreground hover:text-foreground border border-transparent"
-                }`}
-              >
-                {opt.label} ({opt.count})
-              </button>
-            ))}
-          </div>
+      {/* ── Toolbar ── */}
+      <CrmToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Buscar por empresa, contacto o email..."
+        filters={statusFilters}
+        activeFilter={statusFilter}
+        onFilterChange={setStatusFilter}
+        activeSort={sort}
+        onSortChange={setSort}
+        viewModes={["list", "cards"]}
+        activeView={view}
+        onViewChange={(v) => setView(v as ViewMode)}
+        actionSlot={
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0">
@@ -664,8 +673,8 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
-      </div>
+        }
+      />
 
       {/* ── Approve Modal ── */}
       <Dialog open={approveOpen} onOpenChange={setApproveOpen}>
@@ -933,6 +942,19 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
                   className={inputClassName}
                 />
               </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Notas iniciales</Label>
+                <textarea
+                  value={approveForm.notes}
+                  onChange={(e) => updateApproveForm("notes", e.target.value)}
+                  placeholder="Notas sobre este negocio (se copiarán al negocio y cotización)..."
+                  className={`w-full min-h-[64px] resize-none rounded-md border px-3 py-2 text-sm ${inputClassName}`}
+                  rows={2}
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Estas notas se agregarán al negocio y a las cotizaciones creadas.
+                </p>
+              </div>
             </div>
 
             <div className="border-t border-border" />
@@ -1183,6 +1205,65 @@ export function CrmLeadsClient({ initialLeads }: { initialLeads: CrmLead[] }) {
               }
               compact
             />
+          ) : view === "cards" ? (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredLeads.map((lead) => {
+                const meta = lead.metadata as Record<string, unknown> | undefined;
+                const totalGuards = (meta?.totalGuards as number) || 0;
+                return (
+                  <div
+                    key={lead.id}
+                    className="rounded-lg border p-4 transition-colors hover:border-primary/30 hover:bg-accent/30 group space-y-2"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium text-sm truncate">{lead.companyName || "Empresa sin nombre"}</p>
+                      <StatusBadge status={lead.status} />
+                    </div>
+                    <p className="text-xs text-muted-foreground">{leadDisplayName(lead)}</p>
+                    {lead.email && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
+                        <Mail className="h-3 w-3 shrink-0" />{lead.email}
+                      </p>
+                    )}
+                    {lead.phone && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Phone className="h-3 w-3 shrink-0" />{lead.phone}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {totalGuards > 0 && (
+                        <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
+                          {totalGuards} guardia{totalGuards > 1 ? "s" : ""}
+                        </span>
+                      )}
+                      {lead.source && (
+                        <span className="text-[10px] text-muted-foreground/80">
+                          {lead.source === "web_cotizador" ? "Cotizador Web" : lead.source === "web_cotizador_inteligente" ? "Cotizador IA" : lead.source}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between pt-1">
+                      <CrmDates createdAt={lead.createdAt} />
+                      <div className="flex items-center gap-1">
+                        {lead.status === "pending" && (
+                          <Button onClick={() => openApproveModal(lead)} size="sm" className="h-7 text-xs">
+                            Aprobar
+                          </Button>
+                        )}
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => setDeleteConfirm({ open: true, id: lead.id })}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           ) : (
             <div className="space-y-2">
               {filteredLeads.map((lead) => {

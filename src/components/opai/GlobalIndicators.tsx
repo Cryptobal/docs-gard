@@ -66,37 +66,34 @@ export function GlobalIndicators({
         <div
           className={cn(
             'shrink-0 rounded-lg border border-border bg-card px-3 py-1.5 text-center',
-            compact && 'px-2 py-1'
+            compact ? 'px-2 py-1' : 'min-w-[140px]'
           )}
           title={`UF vigente ${data.uf.date || ''}`}
         >
           <p className={cn('text-xs uppercase text-muted-foreground', compact && 'text-[10px]')}>
             {compact ? 'UF' : `UF ${data.uf.date || ''}`}
           </p>
-          <p className={cn('text-xs font-mono font-semibold', compact && 'text-[10px]')}>
+          <p className={cn('text-sm font-mono font-semibold', compact && 'text-[10px]')}>
             {formatCLP(data.uf.value)}
           </p>
         </div>
       )}
 
-      {/* UTM */}
+      {/* UTM - mismo formato que UF: solo etiqueta + valor (ej. "UTM enero" / "$69.611") */}
       {data?.utm && (
         <div
           className={cn(
             'shrink-0 rounded-lg border border-border bg-card px-3 py-1.5 text-center',
-            compact && 'px-2 py-1 max-[420px]:hidden'
+            compact ? 'px-2 py-1 max-[420px]:hidden' : 'min-w-[140px]'
           )}
           title={data.utm.updatedAt ? `UTM vigente ${data.utm.month || ''} (actualizado ${data.utm.updatedAt})` : `UTM ${data.utm.month || ''}`}
         >
           <p className={cn('text-xs uppercase text-muted-foreground', compact && 'text-[10px]')}>
-            {compact ? 'UTM' : `UTM ${data.utm.monthShort ?? data.utm.month ?? ''}`}
+            {compact ? 'UTM' : `UTM ${(data.utm.month || '').split(' ')[0] || data.utm.monthShort || 'UTM'}`}
           </p>
-          <p className={cn('text-xs font-mono font-semibold', compact && 'text-[10px]')}>
+          <p className={cn('text-sm font-mono font-semibold', compact && 'text-[10px]')}>
             {formatCLP(data.utm.value)}
           </p>
-          {!compact && data.utm.updatedAt && (
-            <p className="text-[10px] text-muted-foreground/80">act. {data.utm.updatedAt}</p>
-          )}
         </div>
       )}
 

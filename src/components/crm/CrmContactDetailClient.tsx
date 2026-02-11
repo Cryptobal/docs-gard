@@ -42,9 +42,11 @@ import {
   Send,
   MessageSquare,
   FileText,
+  MessageSquareText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { NotesSection } from "./NotesSection";
 import { resolveDocument, tiptapToPlainText } from "@/lib/docs/token-resolver";
 
 /** Convierte Tiptap JSON a HTML para email */
@@ -128,6 +130,7 @@ export function CrmContactDetailClient({
   docTemplatesMail = [],
   docTemplatesWhatsApp = [],
   initialEmailCount = 0,
+  currentUserId = "",
 }: {
   contact: ContactDetail;
   deals: DealRow[];
@@ -136,6 +139,7 @@ export function CrmContactDetailClient({
   docTemplatesMail?: DocTemplateMail[];
   docTemplatesWhatsApp?: DocTemplateWhatsApp[];
   initialEmailCount?: number;
+  currentUserId?: string;
 }) {
   const router = useRouter();
   const [contact, setContact] = useState(initialContact);
@@ -565,6 +569,15 @@ export function CrmContactDetailClient({
           onReply={gmailConnected ? handleReplyFromHistory : undefined}
           onCountChange={setEmailCount}
         />
+      </CollapsibleSection>
+
+      {/* ── Section 5: Notas ── */}
+      <CollapsibleSection
+        icon={<MessageSquareText className="h-4 w-4" />}
+        title="Notas"
+        defaultOpen
+      >
+        <NotesSection entityType="contact" entityId={contact.id} currentUserId={currentUserId} />
       </CollapsibleSection>
 
       {/* ── Email Compose Modal ── */}

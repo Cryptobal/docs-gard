@@ -1,7 +1,8 @@
 /**
  * API Route: /api/notifications
- * GET   - Listar notificaciones del tenant
- * PATCH - Marcar notificaciones como leídas
+ * GET    - Listar notificaciones del tenant
+ * PATCH  - Marcar notificaciones como leídas
+ * DELETE - Eliminar notificaciones (todas o por IDs)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -78,6 +79,41 @@ export async function PATCH(request: NextRequest) {
     console.error("Error updating notifications:", error);
     return NextResponse.json(
       { success: false, error: "Failed to update notifications" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+
+    const body = await request.json();
+
+    if (body.deleteAll) {
+      await prisma.notification.deleteMany({
+        where: { tenantId: ctx.tenantId },
+      });
+    } else if (body.ids && Array.isArray(body.ids)) {
+      await prisma.notification.deleteMany({
+        where: {
+          id: { in: body.ids },
+          tenantId: ctx.tenantId,
+        },
+      });
+    } else {
+      return NextResponse.json(
+        { success: false, error: "Provide 'deleteAll: true' or 'ids: string[]'" },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting notifications:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to delete notifications" },
       { status: 500 }
     );
   }

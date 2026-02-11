@@ -145,6 +145,7 @@ export default async function CrmContactDetailPage({
         docTemplatesMail={initialDocTemplatesMail}
         docTemplatesWhatsApp={initialDocTemplatesWhatsApp}
         initialEmailCount={initialEmailCount}
+        currentUserId={session.user.id}
       />
     </>
   );

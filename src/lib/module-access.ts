@@ -25,6 +25,7 @@ export type ConfigSubmoduleKey =
   | "integrations"
   | "signatures"
   | "doc_categories"
+  | "notifications"
   | "crm"
   | "cpq"
   | "payroll";
@@ -59,6 +60,7 @@ export const CONFIG_SUBMODULE_NAV_ITEMS: SubmoduleNavItem<ConfigSubmoduleKey>[] 
   { key: "crm", href: "/opai/configuracion/crm", label: "CRM" },
   { key: "cpq", href: "/opai/configuracion/cpq", label: "Configuración CPQ" },
   { key: "payroll", href: "/opai/configuracion/payroll", label: "Payroll" },
+  { key: "notifications", href: "/opai/configuracion/notificaciones", label: "Notificaciones" },
 ];
 
 const ROLE_CRM_SUBMODULE_ACCESS: Record<Role, CrmSubmoduleKey[]> = {
@@ -69,8 +71,8 @@ const ROLE_CRM_SUBMODULE_ACCESS: Record<Role, CrmSubmoduleKey[]> = {
 };
 
 const ROLE_CONFIG_SUBMODULE_ACCESS: Record<Role, ConfigSubmoduleKey[]> = {
-  owner: ["overview", "users", "integrations", "signatures", "doc_categories", "crm", "cpq", "payroll"],
-  admin: ["overview", "users", "integrations", "signatures", "doc_categories", "crm", "cpq", "payroll"],
+  owner: ["overview", "users", "integrations", "signatures", "doc_categories", "notifications", "crm", "cpq", "payroll"],
+  admin: ["overview", "users", "integrations", "signatures", "doc_categories", "notifications", "crm", "cpq", "payroll"],
   editor: [],
   viewer: [],
 };

@@ -17,11 +17,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import Link from "next/link";
-import { Loader2, Plus, Building2, Users, ChevronRight, Trash2, Search, TrendingUp, Mail, Globe, CheckSquare, Square } from "lucide-react";
+import { Loader2, Plus, Building2, Users, ChevronRight, Trash2, TrendingUp, Mail, Globe, CheckSquare, Square } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CrmDates } from "@/components/crm/CrmDates";
-import { ViewToggle, type ViewMode } from "./ViewToggle";
+import { CrmToolbar } from "./CrmToolbar";
+import type { ViewMode } from "./ViewToggle";
 import { toast } from "sonner";
 
 type AccountFormState = {
@@ -67,6 +68,7 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
   const [typeFilter, setTypeFilter] = useState<"all" | "prospect" | "client">("all");
   const [search, setSearch] = useState("");
   const [view, setView] = useState<ViewMode>("list");
+  const [sort, setSort] = useState("newest");
   const [industries, setIndustries] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
@@ -83,12 +85,28 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
 
   const filteredAccounts = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return accounts.filter((a) => {
+    let result = accounts.filter((a) => {
       if (typeFilter !== "all" && a.type !== typeFilter) return false;
       if (q && !`${a.name} ${a.rut || ""} ${a.industry || ""}`.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [accounts, typeFilter, search]);
+
+    result = [...result].sort((a, b) => {
+      switch (sort) {
+        case "oldest":
+          return (a.createdAt || "").localeCompare(b.createdAt || "");
+        case "az":
+          return a.name.localeCompare(b.name);
+        case "za":
+          return b.name.localeCompare(a.name);
+        case "newest":
+        default:
+          return (b.createdAt || "").localeCompare(a.createdAt || "");
+      }
+    });
+
+    return result;
+  }, [accounts, typeFilter, search, sort]);
 
   const counts = useMemo(() => {
     const prospects = accounts.filter((a) => a.type === "prospect").length;
@@ -190,59 +208,31 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
 
   const typeFilters = [
     { key: "all" as const, label: "Todos", count: counts.total },
-    { key: "prospect" as const, label: "Prospectos", count: counts.prospects, icon: Users },
-    { key: "client" as const, label: "Clientes", count: counts.clients, icon: Building2 },
+    { key: "prospect" as const, label: "Prospectos", count: counts.prospects },
+    { key: "client" as const, label: "Clientes", count: counts.clients },
   ];
 
   return (
     <div className={`space-y-4 ${selectedIds.size > 0 ? "pb-24" : ""}`}>
-      {/* ── Search + Filters + Create ── */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nombre, RUT o industria..."
-            className="pl-9 h-9 bg-background text-foreground border-input"
-          />
-        </div>
-        {filteredAccounts.length > 0 && (
-          <Button variant="ghost" size="sm" className="shrink-0 gap-1.5" onClick={toggleSelectAll}>
-            {selectedIds.size === filteredAccounts.length ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4" />}
-            {selectedIds.size === filteredAccounts.length ? "Deseleccionar todos" : "Seleccionar todos"}
-          </Button>
-        )}
-        <div className="flex items-center gap-2">
-          <ViewToggle view={view} onChange={setView} />
-          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide">
-            {typeFilters.map((opt) => {
-              const Icon = opt.icon;
-              const isActive = typeFilter === opt.key;
-              // Color-coded pills for type
-              let activeClass = "bg-primary/15 text-primary border border-primary/30";
-              if (opt.key === "prospect" && isActive) activeClass = "bg-amber-500/15 text-amber-400 border border-amber-500/30";
-              if (opt.key === "client" && isActive) activeClass = "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30";
-
-              return (
-                <button
-                  key={opt.key}
-                  type="button"
-                  onClick={() => setTypeFilter(opt.key)}
-                  className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium transition-colors shrink-0 ${
-                    isActive
-                      ? activeClass
-                      : "text-muted-foreground hover:text-foreground border border-transparent"
-                  }`}
-                >
-                  <span className="flex items-center gap-1">
-                    {Icon && <Icon className="h-3 w-3" />}
-                    {opt.label} ({opt.count})
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+      {/* ── Toolbar ── */}
+      <CrmToolbar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Buscar por nombre, RUT o industria..."
+        filters={typeFilters}
+        activeFilter={typeFilter}
+        onFilterChange={(k) => setTypeFilter(k as "all" | "prospect" | "client")}
+        activeSort={sort}
+        onSortChange={setSort}
+        viewModes={["list", "cards"]}
+        activeView={view}
+        onViewChange={(v) => setView(v as ViewMode)}
+        selectAll={{
+          checked: filteredAccounts.length > 0 && selectedIds.size === filteredAccounts.length,
+          onToggle: toggleSelectAll,
+          show: filteredAccounts.length > 0,
+        }}
+        actionSlot={
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0">
@@ -329,8 +319,8 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
-      </div>
+        }
+      />
 
       {/* ── Account list ── */}
       <Card>

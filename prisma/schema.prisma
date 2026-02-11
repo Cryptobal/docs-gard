@@ -1165,6 +1165,26 @@ model CrmHistoryLog {
   @@schema("crm")
 }
 
+// ── Notes (shared across modules) ──
+
+model CrmNote {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId   String   @map("tenant_id")
+  entityType String   @map("entity_type") // "account", "contact", "deal", "quote"
+  entityId   String   @map("entity_id")
+  content    String   @db.Text
+  mentions   String[] @default([]) // Array of admin IDs mentioned with @
+  createdBy  String   @map("created_by") // admin ID
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([tenantId], map: "idx_crm_notes_tenant")
+  @@index([entityType, entityId], map: "idx_crm_notes_entity")
+  @@index([createdAt(sort: Desc)], map: "idx_crm_notes_created_desc")
+  @@map("notes")
+  @@schema("crm")
+}
+
 // ── Follow-up configuration (per tenant) ──
 
 model CrmFollowUpConfig {

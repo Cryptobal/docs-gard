@@ -353,10 +353,25 @@ export async function POST(
       });
 
       const signedViewToken = allSigned ? randomBytes(32).toString("hex") : null;
+
+      // Determinar nuevo status del documento al completar firma
+      let newDocStatus: string | undefined;
+      if (allSigned) {
+        const doc = recipient.request.document;
+        const effectiveDate = doc.effectiveDate;
+        if (effectiveDate && new Date(effectiveDate) > now) {
+          newDocStatus = "approved"; // Firmado pero effectiveDate es futura
+        } else {
+          newDocStatus = "active"; // Firmado y vigente
+        }
+      }
+
+      const previousStatus = recipient.request.document.status;
       await tx.document.update({
         where: { id: recipient.request.documentId },
         data: {
           signatureStatus: requestStatus,
+          ...(newDocStatus ? { status: newDocStatus } : {}),
           signedAt: allSigned ? now : null,
           signedBy: allSigned && signers.length === 1 ? signers[0].name : allSigned ? "multiple_signers" : null,
           pdfUrl: allSigned
@@ -396,6 +411,23 @@ export async function POST(
         },
       });
 
+      // Registrar cambio automático de status + notificación
+      if (allSigned && newDocStatus && newDocStatus !== previousStatus) {
+        await tx.docHistory.create({
+          data: {
+            documentId: recipient.request.documentId,
+            action: "status_changed",
+            details: {
+              from: previousStatus,
+              to: newDocStatus,
+              automated: true,
+              reason: "Firma completada por todos los firmantes",
+            },
+            createdBy: "system:signature_completed",
+          },
+        });
+      }
+
       return {
         recipient: updatedRecipient,
         requestStatus,
@@ -422,6 +454,28 @@ export async function POST(
     const signedAtText = new Date().toLocaleString("es-CL");
     const signerName = payload.signerName;
     const signerEmail = recipient.email;
+
+    // Notificación en campana: firma completada (respeta preferencias)
+    if (result.allSigned) {
+      try {
+        const { getNotificationPrefs } = await import("@/lib/notification-prefs");
+        const nPrefs = await getNotificationPrefs(result.tenantId);
+        if (nPrefs.signatureCompleteBellEnabled) {
+          await prisma.notification.create({
+            data: {
+              tenantId: result.tenantId,
+              type: "document_signed_completed",
+              title: `Documento firmado: ${result.documentTitle}`,
+              message: `Todos los firmantes han firmado el documento "${result.documentTitle}".`,
+              data: { documentId: result.documentId, requestId: result.requestId },
+              link: `/opai/documentos/${result.documentId}`,
+            },
+          });
+        }
+      } catch (e) {
+        console.warn("Sign: failed to create completion notification", e);
+      }
+    }
 
     const notifyTargets: string[] = [];
     try {

@@ -63,7 +63,7 @@ export default async function CrmAccountDetailPage({
         description={`${account.type === "client" ? "Cliente" : "Prospecto"} · ${account.industry || "Sin industria"}`}
       />
       <CrmSubnav role={role} />
-      <CrmAccountDetailClient account={data} />
+      <CrmAccountDetailClient account={data} currentUserId={session.user.id} />
     </>
   );
 }
