@@ -79,6 +79,19 @@ export default async function PreviewPage({ params, searchParams }: PreviewPageP
     );
   }
 
+  // 4.1 Buscar el borrador asociado a esta sesión (para permitir eliminación directa)
+  const draftPresentation = await prisma.presentation.findFirst({
+    where: {
+      tenantId: webhookSession.tenantId,
+      status: "draft",
+      clientData: {
+        path: ["id"],
+        equals: sessionId,
+      },
+    },
+    select: { id: true },
+  });
+
   // 5. Mapear datos a PresentationPayload
   // Para borradores CPQ, los datos ya vienen en formato PresentationPayload
   // Para datos Zoho, se usa el mapper de Zoho
@@ -135,6 +148,7 @@ export default async function PreviewPage({ params, searchParams }: PreviewPageP
         companyName={presentationData.client.company_name}
         contactName={contactName}
         contactEmail={contactEmail}
+        draftPresentationId={draftPresentation?.id}
       />
       
       {/* Espaciador para los botones */}
