@@ -8,7 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { EmptyState, StatusBadge } from "@/components/opai";
-import { ShieldUser } from "lucide-react";
+import { ShieldUser, Plus, ExternalLink } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   BANK_ACCOUNT_TYPES,
   CHILE_BANKS,
@@ -53,6 +61,8 @@ export function GuardiasClient({ initialGuardias }: GuardiasClientProps) {
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [loadingPublicForm, setLoadingPublicForm] = useState(false);
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -171,6 +181,7 @@ export function GuardiasClient({ initialGuardias }: GuardiasClientProps) {
         holderName: "",
       });
       toast.success("Guardia creado");
+      setCreateModalOpen(false);
     } catch (error) {
       console.error(error);
       toast.error("No se pudo crear guardia");
@@ -251,114 +262,161 @@ export function GuardiasClient({ initialGuardias }: GuardiasClientProps) {
     }
   };
 
+  const handleOpenPublicPostulacion = async () => {
+    setLoadingPublicForm(true);
+    try {
+      const response = await fetch("/api/personas/postulacion-link");
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || "No se pudo generar el link de postulación");
+      }
+      const path = payload.data?.path as string | undefined;
+      if (!path) {
+        throw new Error("No se recibió el link");
+      }
+      window.open(path, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo abrir el formulario de postulación");
+    } finally {
+      setLoadingPublicForm(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <Card>
-        <CardContent className="pt-5 space-y-3">
-          <div className="grid gap-3 md:grid-cols-3">
-            <Input
-              placeholder="Nombre *"
-              value={form.firstName}
-              onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
-            />
-            <Input
-              placeholder="Apellido *"
-              value={form.lastName}
-              onChange={(e) => setForm((prev) => ({ ...prev, lastName: e.target.value }))}
-            />
-            <select
-              className="h-10 rounded-md border border-border bg-background px-3 text-sm"
-              value={form.lifecycleStatus}
-              onChange={(e) => setForm((prev) => ({ ...prev, lifecycleStatus: e.target.value }))}
-            >
-              {GUARDIA_LIFECYCLE_STATUSES.map((status) => (
-                <option key={status} value={status}>
-                  {LIFECYCLE_LABELS[status] || status}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="grid gap-3 md:grid-cols-3">
-            <Input
-              placeholder="RUT * (sin puntos y con guión)"
-              value={form.rut}
-              onChange={(e) => setForm((prev) => ({ ...prev, rut: normalizeRut(e.target.value) }))}
-            />
-            <Input
-              placeholder="Email *"
-              value={form.email}
-              onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-            />
-            <Input
-              placeholder="Celular * (9 dígitos)"
-              value={form.phoneMobile}
-              maxLength={9}
-              onChange={(e) =>
-                setForm((prev) => ({
-                  ...prev,
-                  phoneMobile: normalizeMobileNineDigits(e.target.value).slice(0, 9),
-                }))
-              }
-            />
-          </div>
-          <AddressAutocomplete
-            value={form.addressFormatted}
-            onChange={onAddressChange}
-            placeholder="Dirección (Google Maps) *"
-            showMap={false}
-          />
-          <div className="grid gap-3 md:grid-cols-3">
-            <Input placeholder="Comuna" value={form.commune} readOnly />
-            <Input placeholder="Ciudad" value={form.city} readOnly />
-            <Input placeholder="Región" value={form.region} readOnly />
-          </div>
-          <div className="grid gap-3 md:grid-cols-4">
-            <select
-              className="h-10 rounded-md border border-border bg-background px-3 text-sm"
-              value={form.bankCode}
-              onChange={(e) => setForm((prev) => ({ ...prev, bankCode: e.target.value }))}
-            >
-              <option value="">Banco chileno (opcional)</option>
-              {CHILE_BANKS.map((bank) => (
-                <option key={bank.code} value={bank.code}>
-                  {bank.name}
-                </option>
-              ))}
-            </select>
-            <select
-              className="h-10 rounded-md border border-border bg-background px-3 text-sm"
-              value={form.accountType}
-              onChange={(e) => setForm((prev) => ({ ...prev, accountType: e.target.value }))}
-            >
-              <option value="">Tipo de cuenta</option>
-              {BANK_ACCOUNT_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {ACCOUNT_TYPE_LABELS[type]}
-                </option>
-              ))}
-            </select>
-            <Input
-              placeholder="Número de cuenta"
-              value={form.accountNumber}
-              onChange={(e) => setForm((prev) => ({ ...prev, accountNumber: e.target.value }))}
-            />
-            <Input
-              placeholder="Titular cuenta"
-              value={form.holderName}
-              onChange={(e) => setForm((prev) => ({ ...prev, holderName: e.target.value }))}
-            />
-          </div>
-          <div className="grid gap-3 md:grid-cols-2">
-            <Input placeholder="Latitud" value={form.lat} readOnly />
-            <Input placeholder="Longitud" value={form.lng} readOnly />
-          </div>
-          <div className="flex justify-end">
-            <Button onClick={handleCreate} disabled={saving}>
-              {saving ? "Guardando..." : "Agregar guardia"}
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 px-2 text-xs"
+          disabled={loadingPublicForm}
+          onClick={() => void handleOpenPublicPostulacion()}
+        >
+          <ExternalLink className="h-3.5 w-3.5 mr-1" />
+          Acceder al formulario de postulación
+        </Button>
+        <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
+          <DialogTrigger asChild>
+            <Button type="button" size="icon" variant="outline" className="h-8 w-8" title="Agregar postulante manualmente">
+              <Plus className="h-4 w-4" />
             </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Nuevo postulante (manual)</DialogTitle>
+              <DialogDescription>
+                Crea un postulante manualmente desde Ops. Los campos obligatorios son nombre, apellido, RUT, email, celular y dirección.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-3">
+                <Input
+                  placeholder="Nombre *"
+                  value={form.firstName}
+                  onChange={(e) => setForm((prev) => ({ ...prev, firstName: e.target.value }))}
+                />
+                <Input
+                  placeholder="Apellido *"
+                  value={form.lastName}
+                  onChange={(e) => setForm((prev) => ({ ...prev, lastName: e.target.value }))}
+                />
+                <select
+                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                  value={form.lifecycleStatus}
+                  onChange={(e) => setForm((prev) => ({ ...prev, lifecycleStatus: e.target.value }))}
+                >
+                  {GUARDIA_LIFECYCLE_STATUSES.map((status) => (
+                    <option key={status} value={status}>
+                      {LIFECYCLE_LABELS[status] || status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid gap-3 md:grid-cols-3">
+                <Input
+                  placeholder="RUT * (sin puntos y con guión)"
+                  value={form.rut}
+                  onChange={(e) => setForm((prev) => ({ ...prev, rut: normalizeRut(e.target.value) }))}
+                />
+                <Input
+                  placeholder="Email *"
+                  value={form.email}
+                  onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                />
+                <Input
+                  placeholder="Celular * (9 dígitos)"
+                  value={form.phoneMobile}
+                  maxLength={9}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      phoneMobile: normalizeMobileNineDigits(e.target.value).slice(0, 9),
+                    }))
+                  }
+                />
+              </div>
+              <AddressAutocomplete
+                value={form.addressFormatted}
+                onChange={onAddressChange}
+                placeholder="Dirección (Google Maps) *"
+                showMap={false}
+              />
+              <div className="grid gap-3 md:grid-cols-3">
+                <Input placeholder="Comuna" value={form.commune} readOnly />
+                <Input placeholder="Ciudad" value={form.city} readOnly />
+                <Input placeholder="Región" value={form.region} readOnly />
+              </div>
+              <div className="grid gap-3 md:grid-cols-4">
+                <select
+                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                  value={form.bankCode}
+                  onChange={(e) => setForm((prev) => ({ ...prev, bankCode: e.target.value }))}
+                >
+                  <option value="">Banco chileno (opcional)</option>
+                  {CHILE_BANKS.map((bank) => (
+                    <option key={bank.code} value={bank.code}>
+                      {bank.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="h-10 rounded-md border border-border bg-background px-3 text-sm"
+                  value={form.accountType}
+                  onChange={(e) => setForm((prev) => ({ ...prev, accountType: e.target.value }))}
+                >
+                  <option value="">Tipo de cuenta</option>
+                  {BANK_ACCOUNT_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {ACCOUNT_TYPE_LABELS[type]}
+                    </option>
+                  ))}
+                </select>
+                <Input
+                  placeholder="Número de cuenta"
+                  value={form.accountNumber}
+                  onChange={(e) => setForm((prev) => ({ ...prev, accountNumber: e.target.value }))}
+                />
+                <Input
+                  placeholder="Titular cuenta"
+                  value={form.holderName}
+                  onChange={(e) => setForm((prev) => ({ ...prev, holderName: e.target.value }))}
+                />
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <Input placeholder="Latitud" value={form.lat} readOnly />
+                <Input placeholder="Longitud" value={form.lng} readOnly />
+              </div>
+              <div className="flex justify-end">
+                <Button onClick={handleCreate} disabled={saving}>
+                  {saving ? "Guardando..." : "Agregar guardia"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
 
       <Card>
         <CardContent className="pt-5 space-y-3">
