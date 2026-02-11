@@ -5,7 +5,6 @@
  */
 
 import { CTALinks } from '@/types';
-import Image from 'next/image';
 import { Calendar, MessageCircle, Sparkles } from 'lucide-react';
 import { ZohoToken } from '@/components/presentation/ZohoToken';
 
@@ -22,7 +21,7 @@ interface PresentationHeaderProps {
 }
 
 export function PresentationHeader({ 
-  logo = '/uploads/company-logos/Logo%20Gard%2015%20x%207%20cm%20Blanco.png',
+  logo = '/uploads/company-logos/Logo Gard 15 x 7 cm Blanco.png',
   clientLogoUrl = null,
   cta,
   contactName = 'Interesado',
@@ -95,14 +94,12 @@ export function PresentationHeader({
           {/* Logos: Gard siempre + cliente si existe */}
           <div className="flex items-center gap-4 flex-shrink-0">
             <a href="https://gard.cl" target="_blank" rel="noopener noreferrer" className="group">
-              <div className="relative w-28 h-10 sm:w-32 sm:h-12 transition-transform group-hover:scale-110">
-                <Image
+              <div className="w-28 h-10 sm:w-32 sm:h-12 transition-transform group-hover:scale-110">
+                {/* Se usa img directo para respetar ruta con espacios exacta del archivo solicitado */}
+                <img
                   src={logo}
                   alt="Gard Security"
-                  fill
-                  unoptimized
-                  className="object-contain drop-shadow-[0_0_10px_rgba(0,212,170,0.3)]"
-                  priority
+                  className="h-full w-auto object-contain drop-shadow-[0_0_10px_rgba(0,212,170,0.3)]"
                 />
               </div>
             </a>
