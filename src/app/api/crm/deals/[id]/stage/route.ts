@@ -51,7 +51,14 @@ export async function POST(
           status: nextStatus,
         },
         include: {
-          account: true,
+          account: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              status: true,
+            },
+          },
           stage: true,
           primaryContact: true,
         },

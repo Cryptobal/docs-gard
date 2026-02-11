@@ -31,7 +31,14 @@ export default async function CrmDealDetailPage({
   const deal = await prisma.crmDeal.findFirst({
     where: { id, tenantId },
     include: {
-      account: true,
+      account: {
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          status: true,
+        },
+      },
       stage: true,
       primaryContact: true,
       quotes: true,

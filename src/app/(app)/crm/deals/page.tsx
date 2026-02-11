@@ -57,7 +57,14 @@ export default async function CrmDealsPage({
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   const includeRelations = {
-    account: true,
+    account: {
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        status: true,
+      },
+    },
     stage: true,
     primaryContact: true,
     quotes: true,
@@ -141,6 +148,12 @@ export default async function CrmDealsPage({
   const [accounts, stages, quotes] = await Promise.all([
     prisma.crmAccount.findMany({
       where: { tenantId },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        status: true,
+      },
       orderBy: { createdAt: "desc" },
     }),
     prisma.crmPipelineStage.findMany({

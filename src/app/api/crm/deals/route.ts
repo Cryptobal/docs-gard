@@ -17,7 +17,14 @@ export async function GET() {
     const deals = await prisma.crmDeal.findMany({
       where: { tenantId: ctx.tenantId },
       include: {
-        account: true,
+        account: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            status: true,
+          },
+        },
         stage: true,
         primaryContact: true,
       },
@@ -73,7 +80,14 @@ export async function POST(request: NextRequest) {
         status: "open",
       },
       include: {
-        account: true,
+        account: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            status: true,
+          },
+        },
         stage: true,
         primaryContact: true,
       },
