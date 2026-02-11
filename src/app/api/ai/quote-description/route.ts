@@ -9,6 +9,7 @@ import { openai } from "@/lib/openai";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 import { formatCurrency } from "@/lib/utils";
+import { clpToUf, getUfValue } from "@/lib/uf";
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,6 +32,7 @@ export async function POST(request: NextRequest) {
           include: { puestoTrabajo: true, cargo: true },
         },
         installation: true,
+        parameters: true,
       },
     });
 
@@ -44,25 +46,53 @@ export async function POST(request: NextRequest) {
     // Get account info if linked
     let accountName = quote.clientName || "Cliente";
     let accountIndustry = "";
+    let accountWebsite = "";
     if (quote.accountId) {
       const account = await prisma.crmAccount.findUnique({
         where: { id: quote.accountId },
-        select: { name: true, industry: true },
+        select: { name: true, industry: true, website: true },
       });
       if (account) {
         accountName = account.name;
         accountIndustry = account.industry || "";
+        accountWebsite = account.website || "";
       }
     }
 
-    // Get costs
+    // Get costs and compute sale price (same logic used by send/create presentation)
     let monthlyTotal = Number(quote.monthlyCost) || 0;
+    let salePriceMonthly = 0;
     try {
       const costs = await computeCpqQuoteCosts(quoteId);
       monthlyTotal = costs.monthlyTotal;
+      const marginPct = Number(quote.parameters?.marginPct ?? 20);
+      const margin = marginPct / 100;
+      const costsBase =
+        costs.monthlyPositions +
+        (costs.monthlyUniforms ?? 0) +
+        (costs.monthlyExams ?? 0) +
+        (costs.monthlyMeals ?? 0) +
+        (costs.monthlyVehicles ?? 0) +
+        (costs.monthlyInfrastructure ?? 0) +
+        (costs.monthlyCostItems ?? 0);
+      const bwm = margin < 1 ? costsBase / (1 - margin) : costsBase;
+      salePriceMonthly = bwm + (costs.monthlyFinancial ?? 0) + (costs.monthlyPolicy ?? 0);
     } catch {
       // fallback to stored monthlyCost
     }
+    if (!salePriceMonthly || salePriceMonthly <= 0) {
+      salePriceMonthly = monthlyTotal;
+    }
+
+    const quoteCurrency = (quote.currency || "CLP").toUpperCase();
+    const displaySalePrice =
+      quoteCurrency === "UF"
+        ? formatCurrency(clpToUf(salePriceMonthly, await getUfValue()), "UF", { ufSuffix: true })
+        : formatCurrency(salePriceMonthly, quoteCurrency);
+    const companySource =
+      accountWebsite.trim().length > 0
+        ? "Cuenta con datos web"
+        : "Sin datos web (lead manual/correo genérico)";
 
     // Build positions summary
     const positionsSummary = quote.positions
@@ -82,6 +112,8 @@ CONTEXTO: Este texto irá en la página 2 (Resumen Ejecutivo) de una propuesta c
 PASO 1: Contexto del cliente
 - Cliente: ${accountName}
 ${accountIndustry ? `- Industria/Rubro: ${accountIndustry}` : ""}
+${accountWebsite ? `- Sitio web: ${accountWebsite}` : ""}
+${`- Origen de datos empresa: ${companySource}`}
 ${installationName ? `- Instalación: ${installationName}` : ""}
 ${city ? `- Ciudad: ${city}` : ""}
 
@@ -89,7 +121,7 @@ PASO 2: Crear texto personalizado
 - Servicio propuesto:
 ${positionsSummary}
 - Total guardias: ${quote.totalGuards}
-- Costo mensual: ${formatCurrency(monthlyTotal, "CLP")}
+- Precio mensual ofertado: ${displaySalePrice}
 
 El texto debe:
 1. Conectar el servicio con la realidad específica del cliente
@@ -103,6 +135,7 @@ Requisitos CRÍTICOS:
 - Prioriza: Cliente + Servicio concreto + Valor diferencial
 - Tono: ejecutivo, directo, memorable
 - NO inventes características que no están en los datos
+- Si no hay sitio web ni datos de empresa, NO inventes historia corporativa; enfócate en instalación, dotación y necesidad operativa
 
 Estructura ideal:
 1. Para [Cliente] + contexto industria/ciudad

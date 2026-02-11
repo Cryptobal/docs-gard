@@ -193,7 +193,10 @@ export async function POST(
     const dealTitle = body?.dealTitle?.trim() || `Oportunidad ${accountName}`;
     const installationsPayload = Array.isArray(body?.installations) ? body.installations : [];
     const accountLogoUrl = sanitizeAccountLogoUrl(body?.accountLogoUrl);
-    const accountNotesBase = body?.accountNotes?.trim() || lead.notes || null;
+    const accountNotesBase =
+      typeof body?.accountNotes === "string" && body.accountNotes.trim().length > 0
+        ? body.accountNotes.trim()
+        : null;
     const accountNotesWithLogo = buildAccountNotesWithLogo(accountNotesBase, accountLogoUrl);
     const legalName = normalizeOptionalText(body?.legalName);
     const legalRepresentativeName = normalizeOptionalText(body?.legalRepresentativeName);

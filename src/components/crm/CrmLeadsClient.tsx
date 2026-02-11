@@ -63,6 +63,14 @@ const DAY_START_OPTIONS = ["07:00", "07:30", "08:00", "08:30", "09:00", "09:30"]
 
 type CpqCatalogOption = { id: string; name: string };
 
+function normalizeCatalogLabel(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
 /** Normaliza días que vienen del lead (ej. "Lunes", "Miércoles") al formato interno (minúsculas, sin tilde). */
 function normalizeLeadDias(dias: string[] | undefined): string[] {
   if (!dias || dias.length === 0) return [...WEEKDAYS];
@@ -128,10 +136,15 @@ function createEmptyInstallation(name = "", address = "", city = "", commune = "
   return { _key: newInstallationKey(), name, address, city, commune, dotacion: [] };
 }
 
-function createEmptyDotacion(defaultCargoId = "", defaultRolId = ""): DotacionItem {
+function createEmptyDotacion(
+  defaultCargoId = "",
+  defaultRolId = "",
+  defaultPuestoTrabajoId = "",
+  defaultPuestoName = "Control de Acceso"
+): DotacionItem {
   return {
-    puestoTrabajoId: "",
-    puesto: "",
+    puestoTrabajoId: defaultPuestoTrabajoId,
+    puesto: defaultPuestoName,
     customName: "",
     cargoId: defaultCargoId,
     rolId: defaultRolId,
@@ -389,14 +402,36 @@ export function CrmLeadsClient({
       .catch(() => {});
   }, []);
 
-  const defaultCargoId = useMemo(
-    () => cpqCargos.find((c) => c.name.toLowerCase().includes("guardia"))?.id || cpqCargos[0]?.id || "",
-    [cpqCargos]
-  );
-  const defaultRolId = useMemo(
-    () => cpqRoles.find((r) => r.name.trim().toLowerCase() === "2x5")?.id || cpqRoles[0]?.id || "",
-    [cpqRoles]
-  );
+  const defaultPuesto = useMemo(() => {
+    const byControlAcceso = cpqPuestos.find((p) => {
+      const normalized = normalizeCatalogLabel(p.name);
+      return normalized.includes("control") && normalized.includes("acceso");
+    });
+    const byAcceso = cpqPuestos.find((p) =>
+      normalizeCatalogLabel(p.name).includes("acceso")
+    );
+    const selected = byControlAcceso || byAcceso || cpqPuestos[0];
+    return selected
+      ? { id: selected.id, name: selected.name }
+      : { id: "", name: "Control de Acceso" };
+  }, [cpqPuestos]);
+
+  const defaultCargoId = useMemo(() => {
+    const byGuardiaExact = cpqCargos.find(
+      (c) => normalizeCatalogLabel(c.name) === "guardia"
+    );
+    const byGuardiaContains = cpqCargos.find((c) =>
+      normalizeCatalogLabel(c.name).includes("guardia")
+    );
+    return byGuardiaExact?.id || byGuardiaContains?.id || cpqCargos[0]?.id || "";
+  }, [cpqCargos]);
+
+  const defaultRolId = useMemo(() => {
+    const by4x4 = cpqRoles.find(
+      (r) => normalizeCatalogLabel(r.name).replace(/\s+/g, "") === "4x4"
+    );
+    return by4x4?.id || cpqRoles[0]?.id || "";
+  }, [cpqRoles]);
 
   const inputClassName =
     "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
@@ -407,12 +442,14 @@ export function CrmLeadsClient({
 
   useEffect(() => {
     if (!approveOpen) return;
-    if (!defaultCargoId && !defaultRolId) return;
+    if (!defaultPuesto.id && !defaultCargoId && !defaultRolId) return;
     setInstallations((prev) =>
       prev.map((inst) => ({
         ...inst,
         dotacion: inst.dotacion.map((dot) => ({
           ...dot,
+          puestoTrabajoId: dot.puestoTrabajoId || defaultPuesto.id,
+          puesto: dot.puesto || defaultPuesto.name,
           cargoId: dot.cargoId || defaultCargoId,
           rolId: dot.rolId || defaultRolId,
           baseSalary: dot.baseSalary || 550000,
@@ -420,7 +457,7 @@ export function CrmLeadsClient({
         })),
       }))
     );
-  }, [approveOpen, defaultCargoId, defaultRolId]);
+  }, [approveOpen, defaultPuesto.id, defaultPuesto.name, defaultCargoId, defaultRolId]);
 
   const counts = useMemo(() => ({
     total: leads.filter((l) => l.status !== "approved").length,
@@ -636,19 +673,33 @@ export function CrmLeadsClient({
     );
     if (leadLat != null) firstInst.lat = leadLat;
     if (leadLng != null) firstInst.lng = leadLng;
-    firstInst.dotacion = leadDotacion.map((d) => ({
-      puestoTrabajoId: typeof d.puestoTrabajoId === "string" ? d.puestoTrabajoId : "",
-      puesto: d.puesto || "",
-      customName: typeof d.customName === "string" ? d.customName : "",
-      cargoId: typeof d.cargoId === "string" ? d.cargoId : defaultCargoId,
-      rolId: typeof d.rolId === "string" ? d.rolId : defaultRolId,
-      baseSalary: typeof d.baseSalary === "number" ? d.baseSalary : 550000,
-      shiftType: inferShiftType(d.horaInicio || "08:00", d.horaFin || "20:00"),
-      cantidad: d.cantidad || 1,
-      horaInicio: normalizeTimeToHHmm(d.horaInicio, "08:00"),
-      horaFin: normalizeTimeToHHmm(d.horaFin, "20:00"),
-      dias: normalizeLeadDias(d.dias),
-    }));
+    const hasUsefulSchedule = (d: DotacionItem): boolean => {
+      const start = normalizeTimeToHHmm(d.horaInicio, "");
+      const end = normalizeTimeToHHmm(d.horaFin, "");
+      if (!start || !end) return false;
+      if (start === "00:00" && end === "00:00") return false;
+      return true;
+    };
+    firstInst.dotacion = leadDotacion.map((d) => {
+      const useLeadSchedule = hasUsefulSchedule(d);
+      const shiftType = useLeadSchedule ? inferShiftType(d.horaInicio || "08:00", d.horaFin || "20:00") : "day";
+      return {
+        puestoTrabajoId: defaultPuesto.id,
+        puesto: defaultPuesto.name,
+        customName:
+          typeof d.customName === "string" && d.customName.trim().length > 0
+            ? d.customName
+            : defaultPuesto.name,
+        cargoId: defaultCargoId,
+        rolId: defaultRolId,
+        baseSalary: typeof d.baseSalary === "number" && d.baseSalary > 0 ? d.baseSalary : 550000,
+        shiftType,
+        cantidad: d.cantidad || 1,
+        horaInicio: useLeadSchedule ? normalizeTimeToHHmm(d.horaInicio, "08:00") : "08:00",
+        horaFin: useLeadSchedule ? normalizeTimeToHHmm(d.horaFin, "20:00") : "20:00",
+        dias: useLeadSchedule ? normalizeLeadDias(d.dias) : [...WEEKDAYS],
+      };
+    });
     setInstallations([firstInst]);
     setApproveOpen(true);
   };
@@ -672,7 +723,18 @@ export function CrmLeadsClient({
     setInstallations((prev) =>
       prev.map((inst) =>
         inst._key === instKey
-          ? { ...inst, dotacion: [...inst.dotacion, createEmptyDotacion(defaultCargoId, defaultRolId)] }
+          ? {
+              ...inst,
+              dotacion: [
+                ...inst.dotacion,
+                createEmptyDotacion(
+                  defaultCargoId,
+                  defaultRolId,
+                  defaultPuesto.id,
+                  defaultPuesto.name
+                ),
+              ],
+            }
           : inst
       )
     );

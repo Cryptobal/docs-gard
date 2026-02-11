@@ -92,11 +92,17 @@ export async function POST(
       if (!notes) return "";
       return notes.replace(/\[\[ACCOUNT_LOGO_URL:[^\]]+\]\]\n?/g, "").trim();
     }
-    let account: { name: string; logoUrl?: string | null; companyDescription?: string } | null = null;
+    let account: {
+      name: string;
+      logoUrl?: string | null;
+      companyDescription?: string;
+      industry?: string | null;
+      segment?: string | null;
+    } | null = null;
     if (quote.accountId) {
       const acc = await prisma.crmAccount.findUnique({
         where: { id: quote.accountId },
-        select: { name: true, notes: true },
+        select: { name: true, notes: true, industry: true, segment: true },
       });
       if (acc) {
         const logoUrl = extractAccountLogoUrl(acc.notes);
@@ -105,6 +111,8 @@ export async function POST(
           name: acc.name,
           logoUrl: logoUrl || null,
           companyDescription: companyDescription || undefined,
+          industry: acc.industry || undefined,
+          segment: acc.segment || undefined,
         };
       }
     }

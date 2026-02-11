@@ -37,6 +37,8 @@ interface CpqMapperInput {
     name: string;
     logoUrl?: string | null;
     companyDescription?: string;
+    industry?: string | null;
+    segment?: string | null;
   } | null;
   siteUrl?: string;
   contact?: {
@@ -78,7 +80,14 @@ export function mapCpqDataToPresentation(
         ? `${siteUrl}${account.logoUrl}`
         : account.logoUrl
       : null;
-  const companyDescription = account?.companyDescription || "";
+  const explicitCompanyDescription = (account?.companyDescription || "").trim();
+  const fallbackFromBusinessContext = [account?.industry, account?.segment]
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter(Boolean)
+    .join(" · ");
+  const companyDescription =
+    explicitCompanyDescription ||
+    (fallbackFromBusinessContext ? `Cliente del rubro ${fallbackFromBusinessContext}.` : "");
   const contactFullName = contact
     ? `${contact.firstName} ${contact.lastName}`.trim()
     : "";
@@ -219,7 +228,7 @@ export function mapCpqDataToPresentation(
           adjustment_terms: "Reajuste anual: 70% IPC + 30% IMO",
           billing_frequency: "monthly" as const,
           notes: [
-            "Valor mensual en pesos chilenos",
+            currency === "UF" ? "Valor mensual expresado en UF" : "Valor mensual en pesos chilenos",
             "Incluye seguros y cumplimiento legal",
             "Mínimo 12 meses de contrato",
             "Equipamiento incluido (radios, linternas)",

@@ -91,17 +91,25 @@ export async function POST(
       process.env.NEXT_PUBLIC_SITE_URL ||
       process.env.SITE_URL ||
       "https://opai.gard.cl";
-    let account: { name: string; logoUrl?: string | null; companyDescription?: string } | null = null;
+    let account: {
+      name: string;
+      logoUrl?: string | null;
+      companyDescription?: string;
+      industry?: string | null;
+      segment?: string | null;
+    } | null = null;
     if (quote.accountId) {
       const acc = await prisma.crmAccount.findUnique({
         where: { id: quote.accountId },
-        select: { name: true, notes: true },
+        select: { name: true, notes: true, industry: true, segment: true },
       });
       if (acc) {
         account = {
           name: acc.name,
           logoUrl: extractLogo(acc.notes),
           companyDescription: stripLogo(acc.notes) || undefined,
+          industry: acc.industry || undefined,
+          segment: acc.segment || undefined,
         };
       }
     }
