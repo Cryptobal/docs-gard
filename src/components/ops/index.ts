@@ -8,4 +8,5 @@ export * from "./OpsPpcClient";
 export * from "./TeTurnosClient";
 export * from "./TeLotesClient";
 export * from "./GuardiasClient";
+export * from "./GuardiaDetailClient";
 export * from "./ListaNegraClient";

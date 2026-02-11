@@ -1,4 +1,17 @@
 import { z } from "zod";
+import {
+  BANK_ACCOUNT_TYPES,
+  CHILE_BANK_CODES,
+  DOCUMENT_STATUS,
+  DOCUMENT_TYPES,
+  GUARDIA_COMM_CHANNELS,
+  GUARDIA_LIFECYCLE_STATUSES,
+  isChileanRutFormat,
+  isValidChileanRut,
+  isValidMobileNineDigits,
+  normalizeMobileNineDigits,
+  normalizeRut,
+} from "@/lib/personas";
 
 const weekdayEnum = z.enum([
   "monday",
@@ -12,6 +25,7 @@ const weekdayEnum = z.enum([
 
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+const decimalCoordinateRegex = /^-?\d+(\.\d+)?$/;
 
 export const createPuestoSchema = z.object({
   installationId: z.string().uuid("installationId inválido"),
@@ -67,30 +81,133 @@ export const updateAsistenciaSchema = z.object({
 export const createGuardiaSchema = z.object({
   firstName: z.string().trim().min(1, "Nombre es requerido").max(100),
   lastName: z.string().trim().min(1, "Apellido es requerido").max(100),
-  rut: z.string().trim().max(20).optional().nullable(),
-  email: z.string().trim().email("Email inválido").max(200).optional().nullable().or(z.literal("")),
+  rut: z.string().trim()
+    .refine((v) => isChileanRutFormat(v), "RUT debe ir sin puntos y con guión (ej: 12345678-5)")
+    .refine((v) => isValidChileanRut(v), "RUT chileno inválido (dígito verificador incorrecto)")
+    .transform((v) => normalizeRut(v)),
+  email: z.string().trim().email("Email inválido").max(200),
   phone: z.string().trim().max(30).optional().nullable(),
-  code: z.string().trim().max(50).optional().nullable(),
-  bankName: z.string().trim().max(100).optional().nullable(),
-  accountType: z.string().trim().max(50).optional().nullable(),
+  phoneMobile: z.string().trim()
+    .refine((v) => isValidMobileNineDigits(v), "Celular debe tener exactamente 9 dígitos (sin +56)")
+    .transform((v) => normalizeMobileNineDigits(v)),
+  addressFormatted: z.string().trim().min(5, "Dirección es requerida").max(300),
+  googlePlaceId: z.string().trim().min(10, "Debes seleccionar una dirección válida de Google Maps").max(200),
+  addressLine1: z.string().trim().max(200).optional().nullable(),
+  commune: z.string().trim().max(120).optional().nullable(),
+  city: z.string().trim().max(120).optional().nullable(),
+  region: z.string().trim().max(120).optional().nullable(),
+  lat: z.union([z.number(), z.string().regex(decimalCoordinateRegex)]).optional().nullable(),
+  lng: z.union([z.number(), z.string().regex(decimalCoordinateRegex)]).optional().nullable(),
+  lifecycleStatus: z.enum(GUARDIA_LIFECYCLE_STATUSES).default("postulante"),
+  bankCode: z.string().trim().max(20).optional().nullable(),
+  bankName: z.string().trim().max(120).optional().nullable(),
+  accountType: z.enum(BANK_ACCOUNT_TYPES).optional().nullable(),
   accountNumber: z.string().trim().max(100).optional().nullable(),
   holderName: z.string().trim().max(150).optional().nullable(),
-  holderRut: z.string().trim().max(20).optional().nullable(),
+}).superRefine((val, ctx) => {
+  const hasBankData = Boolean(val.bankCode || val.accountType || val.accountNumber || val.holderName);
+  if (hasBankData) {
+    if (!val.bankCode || !CHILE_BANK_CODES.includes(val.bankCode)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["bankCode"],
+        message: "Debes seleccionar un banco chileno válido",
+      });
+    }
+    if (!val.accountType) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["accountType"],
+        message: "Debes seleccionar el tipo de cuenta",
+      });
+    }
+    if (!val.accountNumber?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["accountNumber"],
+        message: "Número de cuenta es requerido",
+      });
+    }
+    if (!val.holderName?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["holderName"],
+        message: "Titular de cuenta es requerido",
+      });
+    }
+  }
 });
 
 export const updateGuardiaSchema = z.object({
   firstName: z.string().trim().min(1).max(100).optional(),
   lastName: z.string().trim().min(1).max(100).optional(),
-  rut: z.string().trim().max(20).optional().nullable(),
+  rut: z.string().trim()
+    .refine((v) => isChileanRutFormat(v), "RUT debe ir sin puntos y con guión (ej: 12345678-5)")
+    .refine((v) => isValidChileanRut(v), "RUT chileno inválido (dígito verificador incorrecto)")
+    .transform((v) => normalizeRut(v))
+    .optional()
+    .nullable(),
   email: z.string().trim().email("Email inválido").max(200).optional().nullable().or(z.literal("")),
   phone: z.string().trim().max(30).optional().nullable(),
-  code: z.string().trim().max(50).optional().nullable(),
+  phoneMobile: z.string().trim()
+    .refine((v) => isValidMobileNineDigits(v), "Celular debe tener exactamente 9 dígitos (sin +56)")
+    .transform((v) => normalizeMobileNineDigits(v))
+    .optional()
+    .nullable(),
+  addressFormatted: z.string().trim().min(5).max(300).optional(),
+  googlePlaceId: z.string().trim().min(10).max(200).optional(),
+  addressLine1: z.string().trim().max(200).optional().nullable(),
+  commune: z.string().trim().max(120).optional().nullable(),
+  city: z.string().trim().max(120).optional().nullable(),
+  region: z.string().trim().max(120).optional().nullable(),
+  lat: z.union([z.number(), z.string().regex(decimalCoordinateRegex)]).optional().nullable(),
+  lng: z.union([z.number(), z.string().regex(decimalCoordinateRegex)]).optional().nullable(),
+  lifecycleStatus: z.enum(GUARDIA_LIFECYCLE_STATUSES).optional(),
   status: z.string().trim().max(50).optional(),
+  hiredAt: z.string().regex(dateRegex, "hiredAt debe tener formato YYYY-MM-DD").optional().nullable(),
+  terminatedAt: z.string().regex(dateRegex, "terminatedAt debe tener formato YYYY-MM-DD").optional().nullable(),
+  terminationReason: z.string().trim().max(500).optional().nullable(),
 });
 
 export const updateBlacklistSchema = z.object({
   isBlacklisted: z.boolean(),
   reason: z.string().trim().max(500).optional().nullable(),
+});
+
+export const createGuardiaBankAccountSchema = z.object({
+  bankCode: z.string().trim().refine((v) => CHILE_BANK_CODES.includes(v), "Banco inválido"),
+  bankName: z.string().trim().min(2).max(120),
+  accountType: z.enum(BANK_ACCOUNT_TYPES),
+  accountNumber: z.string().trim().min(4).max(100),
+  holderName: z.string().trim().min(3).max(150),
+  isDefault: z.boolean().default(false),
+});
+
+export const updateGuardiaBankAccountSchema = createGuardiaBankAccountSchema.partial();
+
+export const createGuardiaDocumentSchema = z.object({
+  type: z.enum(DOCUMENT_TYPES),
+  fileUrl: z.string().trim().max(3000000).refine(
+    (value) => /^https?:\/\//i.test(value) || value.startsWith("/uploads/guardias/"),
+    "fileUrl inválido"
+  ),
+  status: z.enum(DOCUMENT_STATUS).default("pendiente"),
+  issuedAt: z.string().regex(dateRegex, "issuedAt debe tener formato YYYY-MM-DD").optional().nullable(),
+  expiresAt: z.string().regex(dateRegex, "expiresAt debe tener formato YYYY-MM-DD").optional().nullable(),
+  notes: z.string().trim().max(1000).optional().nullable(),
+});
+
+export const updateGuardiaDocumentSchema = createGuardiaDocumentSchema.partial();
+
+export const updateGuardiaLifecycleSchema = z.object({
+  lifecycleStatus: z.enum(GUARDIA_LIFECYCLE_STATUSES),
+  reason: z.string().trim().max(500).optional().nullable(),
+  effectiveAt: z.string().regex(dateRegex, "effectiveAt debe tener formato YYYY-MM-DD").optional().nullable(),
+});
+
+export const sendGuardiaCommunicationSchema = z.object({
+  channel: z.enum(GUARDIA_COMM_CHANNELS),
+  templateId: z.string().trim().min(1, "templateId es requerido"),
 });
 
 export const rejectTeSchema = z.object({

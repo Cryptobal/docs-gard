@@ -42,6 +42,17 @@ export const approveLeadSchema = z.object({
   expectedCloseDate: z.string().optional(),
 });
 
+export const rejectLeadSchema = z.object({
+  reason: z
+    .enum(["spot_service", "out_of_scope", "no_budget", "duplicate", "no_response", "other"])
+    .default("other"),
+  note: z.string().trim().max(5000).optional().nullable(),
+  sendEmail: z.boolean().optional().default(false),
+  emailTemplateId: z.string().uuid().optional().nullable(),
+  emailSubject: z.string().trim().max(500).optional().nullable(),
+  emailBody: z.string().trim().max(50000).optional().nullable(),
+});
+
 // ── Account ──
 export const createAccountSchema = z.object({
   name: z.string().trim().min(1, "Nombre es requerido").max(200),

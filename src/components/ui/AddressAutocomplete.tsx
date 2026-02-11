@@ -7,6 +7,7 @@ import { MapPin } from "lucide-react";
 /** Minimal types for Google Places API (no @types/google.maps dependency) */
 interface PlaceResult {
   formatted_address?: string;
+  place_id?: string;
   geometry?: { location?: { lat(): number; lng(): number } };
   address_components?: Array<{ long_name: string; types: string[] }>;
 }
@@ -32,6 +33,8 @@ export type AddressResult = {
   address: string;
   city: string;
   commune: string;
+  region?: string;
+  placeId?: string;
   lat: number;
   lng: number;
 };
@@ -93,6 +96,7 @@ function extractComponents(place: PlaceResult): Partial<AddressResult> {
   const formatted = place.formatted_address || "";
   const result: Partial<AddressResult> = {
     address: formatted,
+    placeId: place.place_id || "",
     lat: place.geometry?.location?.lat() ?? 0,
     lng: place.geometry?.location?.lng() ?? 0,
   };
@@ -129,6 +133,7 @@ function extractComponents(place: PlaceResult): Partial<AddressResult> {
   } else {
     result.city = admin1 || admin2 || "";
   }
+  result.region = admin1 || "";
 
   return result;
 }
@@ -154,6 +159,8 @@ export function AddressAutocomplete({
       address: components.address || "",
       city: components.city || "",
       commune: components.commune || "",
+      region: components.region || "",
+      placeId: components.placeId || "",
       lat: components.lat ?? 0,
       lng: components.lng ?? 0,
     };
@@ -202,7 +209,7 @@ export function AddressAutocomplete({
 
       autocompleteRef.current = new g.maps.places.Autocomplete(inputRef.current, {
         componentRestrictions: { country: "cl" },
-        fields: ["formatted_address", "geometry", "address_components"],
+        fields: ["formatted_address", "geometry", "address_components", "place_id"],
         types: ["address"],
       });
 

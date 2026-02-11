@@ -153,8 +153,49 @@ const DEFAULT_FORM: LeadFormState = {
 type DuplicateAccount = { id: string; name: string; rut?: string | null; type?: string };
 type ExistingContact = { id: string; firstName: string | null; lastName: string | null; email: string | null };
 type InstallationConflict = { name: string; id: string };
+type EmailTemplate = { id: string; name: string; subject: string; body: string };
 
 type LeadStatusFilter = "all" | "pending" | "approved" | "rejected";
+type LeadRejectReason =
+  | "spot_service"
+  | "out_of_scope"
+  | "no_budget"
+  | "duplicate"
+  | "no_response"
+  | "other";
+
+const REJECTION_REASON_OPTIONS: { value: LeadRejectReason; label: string }[] = [
+  { value: "spot_service", label: "Servicio spot" },
+  { value: "out_of_scope", label: "Fuera de perfil / alcance" },
+  { value: "no_budget", label: "Sin presupuesto" },
+  { value: "duplicate", label: "Duplicado" },
+  { value: "no_response", label: "Sin respuesta" },
+  { value: "other", label: "Otro" },
+];
+
+type LeadRejectReasonFilter = "all" | LeadRejectReason;
+
+function getLeadRejectReasonLabel(value: LeadRejectReasonFilter): string {
+  if (value === "all") return "Todos";
+  return REJECTION_REASON_OPTIONS.find((opt) => opt.value === value)?.label ?? value;
+}
+
+function getLeadRejectReasonFromMetadata(metadata: unknown): LeadRejectReason | null {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+  const rejection = (metadata as Record<string, unknown>).rejection;
+  if (!rejection || typeof rejection !== "object" || Array.isArray(rejection)) return null;
+  const reason = (rejection as Record<string, unknown>).reason;
+  if (typeof reason !== "string") return null;
+  const validReasons = new Set<LeadRejectReason>([
+    "spot_service",
+    "out_of_scope",
+    "no_budget",
+    "duplicate",
+    "no_response",
+    "other",
+  ]);
+  return validReasons.has(reason as LeadRejectReason) ? (reason as LeadRejectReason) : null;
+}
 
 function getLeadFilterLabel(filter: LeadStatusFilter): string | null {
   if (filter === "pending") return "Mostrando leads pendientes";
@@ -207,11 +248,32 @@ export function CrmLeadsClient({
   const [installations, setInstallations] = useState<InstallationDraft[]>([]);
 
   const [industries, setIndustries] = useState<{ id: string; name: string }[]>([]);
+  const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>([]);
+
+  const [rejectOpen, setRejectOpen] = useState(false);
+  const [rejectLeadId, setRejectLeadId] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState(false);
+  const [rejectReason, setRejectReason] = useState<LeadRejectReason>("other");
+  const [rejectNote, setRejectNote] = useState("");
+  const [rejectSendEmail, setRejectSendEmail] = useState(false);
+  const [rejectTemplateId, setRejectTemplateId] = useState<string>("");
+  const [rejectEmailSubject, setRejectEmailSubject] = useState("");
+  const [rejectEmailBody, setRejectEmailBody] = useState("");
+  const [rejectReasonFilter, setRejectReasonFilter] = useState<LeadRejectReasonFilter>("all");
 
   useEffect(() => {
     fetch("/api/crm/industries?active=true")
       .then((r) => r.json())
       .then((res) => res.success && setIndustries(res.data || []))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/crm/email-templates")
+      .then((r) => r.json())
+      .then((res) => {
+        if (res?.success) setEmailTemplates(res.data || []);
+      })
       .catch(() => {});
   }, []);
 
@@ -240,6 +302,12 @@ export function CrmLeadsClient({
       return true;
     });
 
+    if (statusFilter === "rejected" && rejectReasonFilter !== "all") {
+      result = result.filter(
+        (lead) => getLeadRejectReasonFromMetadata(lead.metadata) === rejectReasonFilter
+      );
+    }
+
     result = [...result].sort((a, b) => {
       switch (sort) {
         case "oldest":
@@ -255,7 +323,7 @@ export function CrmLeadsClient({
     });
 
     return result;
-  }, [leads, statusFilter, search, sort]);
+  }, [leads, statusFilter, rejectReasonFilter, search, sort]);
 
   const updateForm = (key: keyof LeadFormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -587,6 +655,64 @@ export function CrmLeadsClient({
     }
   };
 
+  const openRejectModal = (lead: CrmLead) => {
+    setRejectLeadId(lead.id);
+    setRejectReason("other");
+    setRejectNote("");
+    setRejectSendEmail(false);
+    setRejectTemplateId("");
+    setRejectEmailSubject("");
+    setRejectEmailBody("");
+    setRejectOpen(true);
+  };
+
+  const applyRejectTemplate = (templateId: string) => {
+    setRejectTemplateId(templateId);
+    if (!templateId) return;
+    const template = emailTemplates.find((t) => t.id === templateId);
+    if (!template) return;
+    setRejectEmailSubject(template.subject || "");
+    setRejectEmailBody(template.body || "");
+  };
+
+  const rejectLead = async () => {
+    if (!rejectLeadId) return;
+    setRejecting(true);
+    try {
+      const response = await fetch(`/api/crm/leads/${rejectLeadId}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reason: rejectReason,
+          note: rejectNote || undefined,
+          sendEmail: rejectSendEmail,
+          emailTemplateId: rejectTemplateId || undefined,
+          emailSubject: rejectEmailSubject || undefined,
+          emailBody: rejectEmailBody || undefined,
+        }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || "No se pudo rechazar el lead");
+      }
+
+      setLeads((prev) =>
+        prev.map((lead) =>
+          lead.id === rejectLeadId ? { ...lead, status: "rejected", metadata: payload?.data?.metadata ?? lead.metadata } : lead
+        )
+      );
+      setRejectOpen(false);
+      setRejectLeadId(null);
+      toast.success(rejectSendEmail ? "Lead rechazado y correo enviado" : "Lead rechazado");
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo rechazar el lead.");
+    } finally {
+      setRejecting(false);
+    }
+  };
+
   const statusFilters = [
     { key: "all", label: "Todos", count: counts.total },
     { key: "pending", label: "Pendientes", count: counts.pending },
@@ -696,6 +822,31 @@ export function CrmLeadsClient({
           </Dialog>
         }
       />
+
+      {statusFilter === "rejected" && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">Motivo:</span>
+          <Button
+            size="sm"
+            variant={rejectReasonFilter === "all" ? "default" : "outline"}
+            className="h-7 text-xs"
+            onClick={() => setRejectReasonFilter("all")}
+          >
+            {getLeadRejectReasonLabel("all")}
+          </Button>
+          {REJECTION_REASON_OPTIONS.map((opt) => (
+            <Button
+              key={opt.value}
+              size="sm"
+              variant={rejectReasonFilter === opt.value ? "default" : "outline"}
+              className="h-7 text-xs"
+              onClick={() => setRejectReasonFilter(opt.value)}
+            >
+              {opt.label}
+            </Button>
+          ))}
+        </div>
+      )}
 
       {/* ── Approve Modal ── */}
       <Dialog open={approveOpen} onOpenChange={setApproveOpen}>
@@ -1212,6 +1363,106 @@ export function CrmLeadsClient({
         </DialogContent>
       </Dialog>
 
+      {/* ── Reject Modal ── */}
+      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+        <DialogContent className="sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Rechazar lead</DialogTitle>
+            <DialogDescription>
+              El lead se mantiene en CRM Leads con estado rechazado. Puedes enviar una respuesta por correo.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Motivo *</Label>
+              <select
+                className={selectClassName}
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value as LeadRejectReason)}
+              >
+                {REJECTION_REASON_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs">Nota interna</Label>
+              <textarea
+                value={rejectNote}
+                onChange={(e) => setRejectNote(e.target.value)}
+                placeholder="Contexto interno del rechazo..."
+                className={`w-full min-h-[80px] resize-none rounded-md border px-3 py-2 text-sm ${inputClassName}`}
+                rows={3}
+              />
+            </div>
+
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                checked={rejectSendEmail}
+                onChange={(e) => setRejectSendEmail(e.target.checked)}
+              />
+              Enviar correo de respuesta
+            </label>
+
+            {rejectSendEmail && (
+              <div className="space-y-3 rounded-md border border-border p-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Template (opcional)</Label>
+                  <select
+                    className={selectClassName}
+                    value={rejectTemplateId}
+                    onChange={(e) => applyRejectTemplate(e.target.value)}
+                  >
+                    <option value="">Sin template</option>
+                    {emailTemplates.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Asunto *</Label>
+                  <Input
+                    value={rejectEmailSubject}
+                    onChange={(e) => setRejectEmailSubject(e.target.value)}
+                    placeholder="Asunto del correo"
+                    className={inputClassName}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Mensaje *</Label>
+                  <textarea
+                    value={rejectEmailBody}
+                    onChange={(e) => setRejectEmailBody(e.target.value)}
+                    placeholder="Contenido del correo..."
+                    className={`w-full min-h-[140px] rounded-md border px-3 py-2 text-sm ${inputClassName}`}
+                    rows={6}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectOpen(false)} disabled={rejecting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={rejectLead} disabled={rejecting}>
+              {rejecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Confirmar rechazo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Lead list ── */}
       <Card>
         <CardContent className="pt-5">
@@ -1267,9 +1518,19 @@ export function CrmLeadsClient({
                       <CrmDates createdAt={lead.createdAt} />
                       <div className="flex items-center gap-1">
                         {lead.status === "pending" && (
-                          <Button onClick={() => openApproveModal(lead)} size="sm" className="h-7 text-xs">
-                            Aprobar
-                          </Button>
+                          <>
+                            <Button onClick={() => openApproveModal(lead)} size="sm" className="h-7 text-xs">
+                              Aprobar
+                            </Button>
+                            <Button
+                              onClick={() => openRejectModal(lead)}
+                              size="sm"
+                              variant="destructive"
+                              className="h-7 text-xs"
+                            >
+                              Rechazar
+                            </Button>
+                          </>
                         )}
                         <Button
                           size="icon"
@@ -1399,12 +1660,21 @@ export function CrmLeadsClient({
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {lead.status === "pending" && (
-                          <Button
-                            onClick={() => openApproveModal(lead)}
-                            size="sm"
-                          >
-                            Revisar y aprobar
-                          </Button>
+                          <>
+                            <Button
+                              onClick={() => openApproveModal(lead)}
+                              size="sm"
+                            >
+                              Revisar y aprobar
+                            </Button>
+                            <Button
+                              onClick={() => openRejectModal(lead)}
+                              size="sm"
+                              variant="destructive"
+                            >
+                              Rechazar
+                            </Button>
+                          </>
                         )}
                         <Button
                           size="icon"

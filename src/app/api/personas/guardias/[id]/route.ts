@@ -1,10 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
 import { updateGuardiaSchema } from "@/lib/validations/ops";
 import { createOpsAuditLog, ensureOpsAccess } from "@/lib/ops";
+import {
+  lifecycleToLegacyStatus,
+  normalizeNullable,
+  type GuardiaLifecycleStatus,
+} from "@/lib/personas";
 
 type Params = { id: string };
+
+function toNullableDate(value?: string | null): Date | null {
+  if (!value) return null;
+  const d = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function toNullableDecimal(value?: number | string | null): Prisma.Decimal | null {
+  if (value === null || value === undefined || value === "") return null;
+  return new Prisma.Decimal(value);
+}
 
 export async function GET(
   _request: NextRequest,
@@ -32,6 +49,14 @@ export async function GET(
         comments: {
           orderBy: [{ createdAt: "desc" }],
           take: 20,
+        },
+        documents: {
+          orderBy: [{ createdAt: "desc" }],
+          take: 20,
+        },
+        historyEvents: {
+          orderBy: [{ createdAt: "desc" }],
+          take: 50,
         },
       },
     });
@@ -80,22 +105,52 @@ export async function PATCH(
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      const prevLifecycle = existing.lifecycleStatus;
+      const nextLifecycle = (body.lifecycleStatus ?? prevLifecycle) as GuardiaLifecycleStatus;
+
       await tx.opsPersona.update({
         where: { id: existing.personaId },
         data: {
           firstName: body.firstName ?? undefined,
           lastName: body.lastName ?? undefined,
-          rut: body.rut ?? undefined,
-          email: body.email ?? undefined,
-          phone: body.phone ?? undefined,
+          rut: body.rut !== undefined ? normalizeNullable(body.rut) : undefined,
+          email: body.email !== undefined ? normalizeNullable(body.email) : undefined,
+          phone: body.phone !== undefined ? normalizeNullable(body.phone) : undefined,
+          phoneMobile: body.phoneMobile !== undefined ? normalizeNullable(body.phoneMobile) : undefined,
+          addressFormatted: normalizeNullable(body.addressFormatted) ?? undefined,
+          googlePlaceId: normalizeNullable(body.googlePlaceId) ?? undefined,
+          addressLine1: body.addressLine1 !== undefined ? normalizeNullable(body.addressLine1) : undefined,
+          commune: body.commune !== undefined ? normalizeNullable(body.commune) : undefined,
+          city: body.city !== undefined ? normalizeNullable(body.city) : undefined,
+          region: body.region !== undefined ? normalizeNullable(body.region) : undefined,
+          lat: body.lat !== undefined ? toNullableDecimal(body.lat) : undefined,
+          lng: body.lng !== undefined ? toNullableDecimal(body.lng) : undefined,
         },
       });
 
-      return tx.opsGuardia.update({
+      const updated = await tx.opsGuardia.update({
         where: { id },
         data: {
-          code: body.code ?? undefined,
-          status: body.status ?? undefined,
+          lifecycleStatus: nextLifecycle,
+          status: body.status ?? lifecycleToLegacyStatus(nextLifecycle),
+          hiredAt:
+            body.hiredAt !== undefined
+              ? toNullableDate(body.hiredAt)
+              : nextLifecycle === "contratado_activo" && !existing.hiredAt
+                ? new Date()
+                : undefined,
+          terminatedAt:
+            body.terminatedAt !== undefined
+              ? toNullableDate(body.terminatedAt)
+              : nextLifecycle === "desvinculado" && !existing.terminatedAt
+                ? new Date()
+                : undefined,
+          terminationReason:
+            body.terminationReason !== undefined
+              ? normalizeNullable(body.terminationReason)
+              : nextLifecycle === "desvinculado" && existing.lifecycleStatus !== "desvinculado"
+                ? "Desvinculación registrada"
+                : undefined,
         },
         include: {
           persona: true,
@@ -104,6 +159,22 @@ export async function PATCH(
           },
         },
       });
+
+      if (prevLifecycle !== nextLifecycle) {
+        await tx.opsGuardiaHistory.create({
+          data: {
+            tenantId: ctx.tenantId,
+            guardiaId: id,
+            eventType: "lifecycle_changed",
+            previousValue: { lifecycleStatus: prevLifecycle },
+            newValue: { lifecycleStatus: nextLifecycle },
+            reason: normalizeNullable(body.terminationReason),
+            createdBy: ctx.userId,
+          },
+        });
+      }
+
+      return updated;
     });
 
     await createOpsAuditLog(ctx, "personas.guardia.updated", "ops_guardia", id, {

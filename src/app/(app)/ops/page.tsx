@@ -22,7 +22,7 @@ export default async function OpsDashboardPage() {
 
   const [puestosCount, guardiasCount, ppcCount] = await Promise.all([
     prisma.opsPuestoOperativo.count({ where: { tenantId, active: true } }),
-    prisma.opsGuardia.count({ where: { tenantId, status: "active" } }),
+    prisma.opsGuardia.count({ where: { tenantId } }),
     prisma.opsAsistenciaDiaria.count({
       where: {
         tenantId,

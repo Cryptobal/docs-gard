@@ -1,8 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
 import { createGuardiaSchema } from "@/lib/validations/ops";
 import { createOpsAuditLog, ensureOpsAccess } from "@/lib/ops";
+import { lifecycleToLegacyStatus, normalizeNullable } from "@/lib/personas";
+
+function buildNextGuardiaCode(lastCode?: string | null): string {
+  if (!lastCode) return "G-000001";
+  const match = /^G-(\d{6})$/.exec(lastCode);
+  const next = (match ? Number(match[1]) : 0) + 1;
+  return `G-${String(next).padStart(6, "0")}`;
+}
+
+async function generateUniqueGuardiaCode(
+  tx: Prisma.TransactionClient,
+  tenantId: string
+): Promise<string> {
+  const rows = await tx.$queryRaw<Array<{ code: string | null }>>`
+    SELECT code
+    FROM ops.guardias
+    WHERE tenant_id = ${tenantId}
+      AND code ~ '^G-[0-9]{6}$'
+    ORDER BY code DESC
+    LIMIT 1
+  `;
+  return buildNextGuardiaCode(rows[0]?.code ?? null);
+}
+
+function toNullableDate(value?: string | null): Date | null {
+  if (!value) return null;
+  const d = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function toNullableDecimal(value?: number | string | null): Prisma.Decimal | null {
+  if (value === null || value === undefined || value === "") return null;
+  return new Prisma.Decimal(value);
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -70,9 +105,10 @@ export async function POST(request: NextRequest) {
     if (parsed.error) return parsed.error;
     const body = parsed.data;
 
-    const existingByRut = body.rut
+    const normalizedRut = normalizeNullable(body.rut);
+    const existingByRut = normalizedRut
       ? await prisma.opsPersona.findFirst({
-          where: { tenantId: ctx.tenantId, rut: body.rut },
+          where: { tenantId: ctx.tenantId, rut: normalizedRut },
           select: { id: true },
         })
       : null;
@@ -83,55 +119,96 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = await prisma.$transaction(async (tx) => {
-      const persona = await tx.opsPersona.create({
-        data: {
-          tenantId: ctx.tenantId,
-          firstName: body.firstName,
-          lastName: body.lastName,
-          rut: body.rut || null,
-          email: body.email || null,
-          phone: body.phone || null,
-          status: "active",
-        },
-      });
+    let result: Awaited<ReturnType<typeof prisma.opsGuardia.findUnique>> | null = null;
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      try {
+        result = await prisma.$transaction(async (tx) => {
+          const persona = await tx.opsPersona.create({
+            data: {
+              tenantId: ctx.tenantId,
+              firstName: body.firstName,
+              lastName: body.lastName,
+              rut: normalizedRut,
+              email: normalizeNullable(body.email),
+              phone: normalizeNullable(body.phone),
+              phoneMobile: normalizeNullable(body.phoneMobile),
+              addressFormatted: normalizeNullable(body.addressFormatted),
+              googlePlaceId: normalizeNullable(body.googlePlaceId),
+              addressLine1: normalizeNullable(body.addressLine1),
+              commune: normalizeNullable(body.commune),
+              city: normalizeNullable(body.city),
+              region: normalizeNullable(body.region),
+              lat: toNullableDecimal(body.lat),
+              lng: toNullableDecimal(body.lng),
+              addressSource: "google_places",
+              status: "active",
+            },
+          });
 
-      const guardia = await tx.opsGuardia.create({
-        data: {
-          tenantId: ctx.tenantId,
-          personaId: persona.id,
-          code: body.code || null,
-          status: "active",
-        },
-      });
+          const lifecycleStatus = body.lifecycleStatus;
+          const generatedCode = await generateUniqueGuardiaCode(tx, ctx.tenantId);
+          const guardia = await tx.opsGuardia.create({
+            data: {
+              tenantId: ctx.tenantId,
+              personaId: persona.id,
+              code: generatedCode,
+              lifecycleStatus,
+              status: lifecycleToLegacyStatus(lifecycleStatus),
+              hiredAt: lifecycleStatus === "contratado_activo" ? new Date() : null,
+            },
+          });
 
-      if (body.bankName && body.accountType && body.accountNumber && body.holderName) {
-        await tx.opsCuentaBancaria.create({
-          data: {
-            tenantId: ctx.tenantId,
-            guardiaId: guardia.id,
-            bankName: body.bankName,
-            accountType: body.accountType,
-            accountNumber: body.accountNumber,
-            holderName: body.holderName,
-            holderRut: body.holderRut || body.rut || null,
-            isDefault: true,
-          },
+          if (body.bankCode && body.accountType && body.accountNumber && body.holderName) {
+            await tx.opsCuentaBancaria.create({
+              data: {
+                tenantId: ctx.tenantId,
+                guardiaId: guardia.id,
+                bankCode: body.bankCode,
+                bankName: body.bankName || body.bankCode,
+                accountType: body.accountType,
+                accountNumber: body.accountNumber,
+                holderName: body.holderName,
+                holderRut: normalizedRut,
+                isDefault: true,
+              },
+            });
+          }
+
+          await tx.opsGuardiaHistory.create({
+            data: {
+              tenantId: ctx.tenantId,
+              guardiaId: guardia.id,
+              eventType: "created",
+              newValue: {
+                lifecycleStatus,
+                isBlacklisted: false,
+                code: guardia.code,
+              },
+              createdBy: ctx.userId,
+            },
+          });
+
+          return tx.opsGuardia.findUnique({
+            where: { id: guardia.id },
+            include: {
+              persona: true,
+              bankAccounts: true,
+            },
+          });
         });
+        break;
+      } catch (error) {
+        const duplicateCodeError =
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2002";
+        if (!duplicateCodeError || attempt === 3) throw error;
       }
-
-      return tx.opsGuardia.findUnique({
-        where: { id: guardia.id },
-        include: {
-          persona: true,
-          bankAccounts: true,
-        },
-      });
-    });
+    }
 
     await createOpsAuditLog(ctx, "personas.guardia.created", "ops_guardia", result?.id, {
-      rut: body.rut || null,
-      code: body.code || null,
+      rut: normalizedRut,
+      code: result?.code ?? null,
+      lifecycleStatus: body.lifecycleStatus,
     });
 
     return NextResponse.json({ success: true, data: result }, { status: 201 });

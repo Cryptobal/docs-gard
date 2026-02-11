@@ -8,6 +8,76 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { addDays } from "date-fns";
+
+const GUARDIA_DOC_ALERT_DAYS = 30;
+
+async function ensureGuardiaDocExpiryNotifications(tenantId: string) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const limitDate = addDays(today, GUARDIA_DOC_ALERT_DAYS);
+
+  const docs = await prisma.opsDocumentoPersona.findMany({
+    where: {
+      tenantId,
+      expiresAt: { not: null, lte: limitDate },
+      status: { not: "vencido" },
+    },
+    include: {
+      guardia: {
+        include: {
+          persona: { select: { firstName: true, lastName: true } },
+        },
+      },
+    },
+    take: 200,
+  });
+
+  for (const doc of docs) {
+    if (!doc.expiresAt) continue;
+    const expiresAt = new Date(doc.expiresAt);
+    const daysRemaining = Math.ceil(
+      (expiresAt.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    const type = daysRemaining < 0 ? "guardia_doc_expired" : "guardia_doc_expiring";
+    const personName = `${doc.guardia.persona.firstName} ${doc.guardia.persona.lastName}`.trim();
+    const title =
+      daysRemaining < 0
+        ? `Documento vencido de guardia: ${personName}`
+        : `Documento por vencer de guardia: ${personName}`;
+    const message =
+      daysRemaining < 0
+        ? `${doc.type} venció y requiere renovación.`
+        : `${doc.type} vence en ${daysRemaining} día(s).`;
+
+    const existing = await prisma.notification.findFirst({
+      where: {
+        tenantId,
+        type,
+        data: { path: ["guardiaDocumentId"], equals: doc.id },
+        createdAt: { gte: addDays(today, -1) },
+      },
+      select: { id: true },
+    });
+    if (existing) continue;
+
+    await prisma.notification.create({
+      data: {
+        tenantId,
+        type,
+        title,
+        message,
+        link: `/personas/guardias/${doc.guardiaId}`,
+        data: {
+          guardiaId: doc.guardiaId,
+          guardiaDocumentId: doc.id,
+          expiresAt: doc.expiresAt,
+          docType: doc.type,
+        },
+      },
+    });
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,6 +87,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const unreadOnly = searchParams.get("unread") === "true";
     const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50);
+
+    await ensureGuardiaDocExpiryNotifications(ctx.tenantId);
 
     const notifications = await prisma.notification.findMany({
       where: {

@@ -1287,6 +1287,16 @@ model OpsPersona {
   rut       String?
   email     String?
   phone     String?
+  phoneMobile String? @map("phone_mobile")
+  addressFormatted String? @map("address_formatted")
+  googlePlaceId String? @map("google_place_id")
+  addressLine1 String? @map("address_line_1")
+  commune   String?
+  city      String?
+  region    String?
+  lat       Decimal? @db.Decimal(10, 7)
+  lng       Decimal? @db.Decimal(10, 7)
+  addressSource String? @default("google_places") @map("address_source")
   status    String   @default("active")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -1306,6 +1316,10 @@ model OpsGuardia {
   personaId       String    @unique @map("persona_id") @db.Uuid
   code            String?
   status          String    @default("active")
+  lifecycleStatus String    @default("postulante") @map("lifecycle_status")
+  hiredAt         DateTime? @map("hired_at") @db.Date
+  terminatedAt    DateTime? @map("terminated_at") @db.Date
+  terminationReason String? @map("termination_reason")
   isBlacklisted   Boolean   @default(false) @map("is_blacklisted")
   blacklistReason String?   @map("blacklist_reason")
   blacklistedAt   DateTime? @map("blacklisted_at") @db.Timestamptz(6)
@@ -1317,6 +1331,7 @@ model OpsGuardia {
   flags                 OpsGuardiaFlag[]
   comments              OpsComentarioGuardia[]
   documents             OpsDocumentoPersona[]
+  historyEvents         OpsGuardiaHistory[]
   pautas                OpsPautaMensual[]      @relation("ops_pauta_guardia")
   asistenciasPlanificadas OpsAsistenciaDiaria[] @relation("ops_asistencia_planificada_guardia")
   asistenciasReales     OpsAsistenciaDiaria[]  @relation("ops_asistencia_real_guardia")
@@ -1364,6 +1379,8 @@ model OpsDocumentoPersona {
   issuedAt  DateTime? @map("issued_at") @db.Date
   expiresAt DateTime? @map("expires_at") @db.Date
   notes     String?
+  validatedBy String?  @map("validated_by")
+  validatedAt DateTime? @map("validated_at") @db.Timestamptz(6)
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -1380,6 +1397,7 @@ model OpsCuentaBancaria {
   id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId      String   @map("tenant_id")
   guardiaId     String   @map("guardia_id") @db.Uuid
+  bankCode      String?  @map("bank_code")
   bankName      String   @map("bank_name")
   accountType   String   @map("account_type")
   accountNumber String   @map("account_number")
@@ -1395,6 +1413,26 @@ model OpsCuentaBancaria {
   @@index([guardiaId], map: "idx_ops_cuentas_bancarias_guardia")
   @@index([isDefault], map: "idx_ops_cuentas_bancarias_default")
   @@map("cuentas_bancarias")
+  @@schema("ops")
+}
+
+model OpsGuardiaHistory {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId      String   @map("tenant_id")
+  guardiaId     String   @map("guardia_id") @db.Uuid
+  eventType     String   @map("event_type")
+  previousValue Json?    @map("previous_value") @db.JsonB
+  newValue      Json?    @map("new_value") @db.JsonB
+  reason        String?
+  createdBy     String?  @map("created_by")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  guardia OpsGuardia @relation(fields: [guardiaId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_ops_guardia_history_tenant")
+  @@index([guardiaId], map: "idx_ops_guardia_history_guardia")
+  @@index([eventType], map: "idx_ops_guardia_history_event_type")
+  @@map("guardia_history")
   @@schema("ops")
 }
 
