@@ -3,7 +3,7 @@
 import { type ComponentType, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Command } from 'cmdk';
-import { Search, FileText, Building2, Calculator, Settings, Plus, UserPlus, Grid3x3 } from 'lucide-react';
+import { Search, FileText, Building2, Calculator, Settings, Plus, UserPlus, Grid3x3, ClipboardList } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { hasAppAccess } from '@/lib/app-access';
 import {
@@ -51,6 +51,13 @@ const pages: PaletteItem[] = [
     canShow: (role) => hasAppAccess(role, 'payroll'),
   },
   {
+    title: 'Ops',
+    href: '/ops',
+    icon: ClipboardList,
+    keywords: 'operaciones pauta asistencia turnos',
+    canShow: (role) => hasAppAccess(role, 'ops'),
+  },
+  {
     title: 'Configuración',
     href: '/opai/configuracion',
     icon: Settings,
@@ -80,6 +87,13 @@ const actions: PaletteItem[] = [
     icon: Plus,
     keywords: 'cpq quote presupuesto',
     canShow: (role) => hasCrmSubmoduleAccess(role, 'quotes'),
+  },
+  {
+    title: 'Ir a Pauta Diaria',
+    href: '/ops/pauta-diaria',
+    icon: Plus,
+    keywords: 'asistencia diaria reemplazo ppc',
+    canShow: (role) => hasAppAccess(role, 'ops'),
   },
 ];
 

@@ -42,6 +42,7 @@ import {
   Clock,
   TrendingUp,
   Calculator,
+  ClipboardList,
 } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
@@ -129,6 +130,14 @@ export default async function HubPage() {
       desc: 'Liquidaciones',
       color: 'text-purple-400 bg-purple-400/10',
       show: hasAppAccess(role, 'payroll'),
+    },
+    {
+      href: '/ops',
+      icon: ClipboardList,
+      title: 'Ops',
+      desc: 'Pauta y cobertura',
+      color: 'text-amber-400 bg-amber-400/10',
+      show: hasAppAccess(role, 'ops'),
     },
     {
       href: '/opai/configuracion',

@@ -14,6 +14,7 @@ import {
   TrendingUp,
   DollarSign,
   MapPin,
+  ClipboardList,
 } from 'lucide-react';
 import { hasAppAccess } from '@/lib/app-access';
 import { hasAnyConfigSubmoduleAccess, hasCrmSubmoduleAccess } from '@/lib/module-access';
@@ -23,6 +24,7 @@ const MAIN_NAV_ITEMS = [
   { href: '/opai/inicio', label: 'Docs', icon: FileText, app: 'docs' as const },
   { href: '/crm', label: 'CRM', icon: Building2, app: 'crm' as const },
   { href: '/payroll', label: 'Payroll', icon: Calculator, app: 'payroll' as const },
+  { href: '/ops', label: 'Ops', icon: ClipboardList, app: 'ops' as const },
   { href: '/opai/configuracion', label: 'Config', icon: Settings, app: 'admin' as const },
 ];
 

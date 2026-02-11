@@ -8,6 +8,7 @@ import {
   Building2,
   Grid3x3,
   Calculator,
+  ClipboardList,
   Settings,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
@@ -51,6 +52,12 @@ export function AppLayoutClient({
       label: 'Payroll',
       icon: Calculator,
       show: hasAppAccess(userRole, 'payroll'),
+    },
+    {
+      href: '/ops',
+      label: 'Ops',
+      icon: ClipboardList,
+      show: hasAppAccess(userRole, 'ops'),
     },
     {
       href: '/opai/configuracion',

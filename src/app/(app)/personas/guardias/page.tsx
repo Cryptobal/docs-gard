@@ -1,0 +1,46 @@
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
+import { hasAppAccess } from "@/lib/app-access";
+import { prisma } from "@/lib/prisma";
+import { getDefaultTenantId } from "@/lib/tenant";
+import { PageHeader } from "@/components/opai";
+import { GuardiasClient, PersonasSubnav } from "@/components/ops";
+
+export default async function GuardiasPage() {
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/opai/login?callbackUrl=/personas/guardias");
+  }
+  const role = session.user.role;
+  if (!hasAppAccess(role, "ops")) {
+    redirect("/hub");
+  }
+
+  const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
+  const guardias = await prisma.opsGuardia.findMany({
+    where: { tenantId },
+    include: {
+      persona: {
+        select: {
+          firstName: true,
+          lastName: true,
+          rut: true,
+          email: true,
+          phone: true,
+        },
+      },
+    },
+    orderBy: [{ isBlacklisted: "asc" }, { createdAt: "desc" }],
+  });
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Personas · Guardias"
+        description="Alta de guardias y control de elegibilidad operativa."
+      />
+      <PersonasSubnav />
+      <GuardiasClient initialGuardias={JSON.parse(JSON.stringify(guardias))} />
+    </div>
+  );
+}
