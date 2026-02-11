@@ -26,6 +26,8 @@ import type { ViewMode } from "./ViewToggle";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { toast } from "sonner";
 import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
+import { resolveDocument } from "@/lib/docs/token-resolver";
+import { tiptapToEmailHtml } from "@/lib/docs/tiptap-to-html";
 
 /* ─── Dotación & Installation draft types ─── */
 
@@ -214,7 +216,7 @@ const DEFAULT_FORM: LeadFormState = {
 type DuplicateAccount = { id: string; name: string; rut?: string | null; type?: string };
 type ExistingContact = { id: string; firstName: string | null; lastName: string | null; email: string | null };
 type InstallationConflict = { name: string; id: string };
-type EmailTemplate = { id: string; name: string; subject: string; body: string };
+type DocTemplateForReject = { id: string; name: string; content: unknown; module: string };
 
 type LeadStatusFilter = "all" | "pending" | "approved" | "rejected";
 type LeadRejectReason =
@@ -309,13 +311,14 @@ export function CrmLeadsClient({
   const [installations, setInstallations] = useState<InstallationDraft[]>([]);
 
   const [industries, setIndustries] = useState<{ id: string; name: string }[]>([]);
-  const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>([]);
+  const [docTemplatesReject, setDocTemplatesReject] = useState<DocTemplateForReject[]>([]);
   const [cpqPuestos, setCpqPuestos] = useState<CpqCatalogOption[]>([]);
   const [cpqCargos, setCpqCargos] = useState<CpqCatalogOption[]>([]);
   const [cpqRoles, setCpqRoles] = useState<CpqCatalogOption[]>([]);
 
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectLeadId, setRejectLeadId] = useState<string | null>(null);
+  const [rejectLeadData, setRejectLeadData] = useState<CrmLead | null>(null);
   const [rejecting, setRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState<LeadRejectReason>("other");
   const [rejectNote, setRejectNote] = useState("");
@@ -333,10 +336,14 @@ export function CrmLeadsClient({
   }, []);
 
   useEffect(() => {
-    fetch("/api/crm/email-templates")
+    fetch("/api/docs/templates?active=true")
       .then((r) => r.json())
       .then((res) => {
-        if (res?.success) setEmailTemplates(res.data || []);
+        if (res?.success) {
+          const all = (res.data || []) as DocTemplateForReject[];
+          const forReject = all.filter((t) => t.module === "crm" || t.module === "mail");
+          setDocTemplatesReject(forReject);
+        }
       })
       .catch(() => {});
   }, []);
@@ -828,6 +835,7 @@ export function CrmLeadsClient({
 
   const openRejectModal = (lead: CrmLead) => {
     setRejectLeadId(lead.id);
+    setRejectLeadData(lead);
     setRejectReason("other");
     setRejectNote("");
     setRejectSendEmail(false);
@@ -840,10 +848,21 @@ export function CrmLeadsClient({
   const applyRejectTemplate = (templateId: string) => {
     setRejectTemplateId(templateId);
     if (!templateId) return;
-    const template = emailTemplates.find((t) => t.id === templateId);
-    if (!template) return;
-    setRejectEmailSubject(template.subject || "");
-    setRejectEmailBody(template.body || "");
+    const template = docTemplatesReject.find((t) => t.id === templateId);
+    const lead = rejectLeadData;
+    if (!template?.content || !lead) return;
+    const entities = {
+      contact: {
+        firstName: lead.firstName || "",
+        lastName: lead.lastName || "",
+        email: lead.email || "",
+        phone: lead.phone || "",
+      },
+      account: { name: lead.companyName || "" },
+    };
+    const { resolvedContent } = resolveDocument(template.content, entities);
+    setRejectEmailSubject(template.name);
+    setRejectEmailBody(tiptapToEmailHtml(resolvedContent));
   };
 
   const rejectLead = async () => {
@@ -857,7 +876,6 @@ export function CrmLeadsClient({
           reason: rejectReason,
           note: rejectNote || undefined,
           sendEmail: rejectSendEmail,
-          emailTemplateId: rejectTemplateId || undefined,
           emailSubject: rejectEmailSubject || undefined,
           emailBody: rejectEmailBody || undefined,
         }),
@@ -875,6 +893,7 @@ export function CrmLeadsClient({
       );
       setRejectOpen(false);
       setRejectLeadId(null);
+      setRejectLeadData(null);
       toast.success(rejectSendEmail ? "Lead rechazado y correo enviado" : "Lead rechazado");
     } catch (error) {
       console.error(error);
@@ -1201,7 +1220,20 @@ export function CrmLeadsClient({
                   />
                 </div>
                 <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
-                  <Label className="text-xs">Página web</Label>
+                  <div className="flex items-center justify-between gap-2">
+                    <Label className="text-xs">Página web</Label>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs"
+                      onClick={enrichCompanyInfoFromWebsite}
+                      disabled={enrichingCompanyInfo || !approveForm.website.trim()}
+                    >
+                      {enrichingCompanyInfo && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                      Traer datos de la empresa
+                    </Button>
+                  </div>
                   <Input
                     value={approveForm.website}
                     onChange={(e) => updateApproveForm("website", e.target.value)}
@@ -1211,6 +1243,37 @@ export function CrmLeadsClient({
                   <p className="text-[10px] text-muted-foreground">
                     Se detecta automáticamente desde el dominio del email. Se asocia a la cuenta.
                   </p>
+                </div>
+                <div className="space-y-1.5 md:col-span-2 lg:col-span-3">
+                  <Label className="text-xs">Información de la empresa</Label>
+                  <textarea
+                    value={approveForm.companyInfo}
+                    onChange={(e) => updateApproveForm("companyInfo", e.target.value)}
+                    placeholder="Resumen comercial de qué hace la empresa, a qué se dedica y contexto útil para cotización..."
+                    className={`w-full min-h-[96px] resize-y rounded-md border px-3 py-2 text-sm ${inputClassName}`}
+                    rows={4}
+                  />
+                  {detectedCompanyLogoUrl && (
+                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                      <span className="truncate">Logo detectado: {detectedCompanyLogoUrl}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-[10px]"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(detectedCompanyLogoUrl);
+                            toast.success("URL del logo copiada.");
+                          } catch {
+                            toast.error("No se pudo copiar la URL del logo.");
+                          }
+                        }}
+                      >
+                        Copiar URL
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -1651,7 +1714,13 @@ export function CrmLeadsClient({
       </Dialog>
 
       {/* ── Reject Modal ── */}
-      <Dialog open={rejectOpen} onOpenChange={setRejectOpen}>
+      <Dialog
+        open={rejectOpen}
+        onOpenChange={(open) => {
+          setRejectOpen(open);
+          if (!open) setRejectLeadData(null);
+        }}
+      >
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Rechazar lead</DialogTitle>
@@ -1706,7 +1775,7 @@ export function CrmLeadsClient({
                     onChange={(e) => applyRejectTemplate(e.target.value)}
                   >
                     <option value="">Sin template</option>
-                    {emailTemplates.map((t) => (
+                    {docTemplatesReject.map((t) => (
                       <option key={t.id} value={t.id}>
                         {t.name}
                       </option>
