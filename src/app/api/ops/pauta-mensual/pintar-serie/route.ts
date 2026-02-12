@@ -8,6 +8,7 @@ import {
   getMonthDateRange,
   listDatesBetween,
   parseDateOnly,
+  toISODate,
 } from "@/lib/ops";
 
 /**
@@ -108,9 +109,11 @@ export async function POST(request: NextRequest) {
     await prisma.opsSerieAsignacion.create({
       data: {
         tenantId: ctx.tenantId,
-        puestoId: body.puestoId,
+        puesto: { connect: { id: body.puestoId } },
         slotNumber: body.slotNumber,
-        guardiaId: asignacion?.guardiaId ?? null,
+        guardia: asignacion?.guardiaId
+          ? { connect: { id: asignacion.guardiaId } }
+          : undefined,
         patternCode: body.patternCode,
         patternWork: body.patternWork,
         patternOff: body.patternOff,
@@ -129,17 +132,18 @@ export async function POST(request: NextRequest) {
       return asignacion.guardiaId;
     };
 
-    // Update pauta entries for this slot
+    // Update pauta entries for this slot (normalize date to UTC midnight for Prisma @db.Date)
     let updated = 0;
     for (const entry of serieEntries) {
       try {
+        const dateOnly = parseDateOnly(toISODate(entry.date));
         const plannedGuardiaId = getPlannedGuardiaId(entry);
         await prisma.opsPautaMensual.upsert({
           where: {
             puestoId_slotNumber_date: {
               puestoId: body.puestoId,
               slotNumber: body.slotNumber,
-              date: entry.date,
+              date: dateOnly,
             },
           },
           create: {
@@ -147,7 +151,7 @@ export async function POST(request: NextRequest) {
             installationId: puesto.installationId,
             puestoId: body.puestoId,
             slotNumber: body.slotNumber,
-            date: entry.date,
+            date: dateOnly,
             plannedGuardiaId,
             shiftCode: entry.shiftCode,
             status: "planificado",
@@ -161,6 +165,7 @@ export async function POST(request: NextRequest) {
         updated++;
       } catch (e) {
         console.error("[OPS] Error upserting pauta entry:", e);
+        throw e;
       }
     }
 
@@ -184,9 +189,10 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "No se pudo pintar la serie";
     console.error("[OPS] Error painting serie:", error);
     return NextResponse.json(
-      { success: false, error: "No se pudo pintar la serie" },
+      { success: false, error: message },
       { status: 500 }
     );
   }

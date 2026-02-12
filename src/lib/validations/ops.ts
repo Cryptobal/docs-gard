@@ -106,14 +106,14 @@ export const generatePautaSchema = z.object({
 
 export const pintarSerieSchema = z.object({
   puestoId: z.string().uuid("puestoId inválido"),
-  slotNumber: z.number().int().min(1).max(20),
+  slotNumber: z.coerce.number().int().min(1).max(20),
   patternCode: z.string().trim().min(1).max(20),
-  patternWork: z.number().int().min(1).max(30),
-  patternOff: z.number().int().min(0).max(30),
+  patternWork: z.coerce.number().int().min(1).max(30),
+  patternOff: z.coerce.number().int().min(0).max(30),
   startDate: z.string().regex(dateRegex, "startDate debe tener formato YYYY-MM-DD"),
-  startPosition: z.number().int().min(1).max(60),
-  month: z.number().int().min(1).max(12),
-  year: z.number().int().min(2020).max(2100),
+  startPosition: z.coerce.number().int().min(1).max(60),
+  month: z.coerce.number().int().min(1).max(12),
+  year: z.coerce.number().int().min(2020).max(2100),
 });
 
 export const updateAsistenciaSchema = z.object({
