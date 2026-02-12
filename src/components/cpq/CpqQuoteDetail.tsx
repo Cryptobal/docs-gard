@@ -641,23 +641,9 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
     setCrmSearch((prev) => ({ ...prev, contact: "" }));
   };
   const handleDealSelect = (dealId: string) => {
-    const deal = crmDeals.find((item) => item.id === dealId);
-    if (deal?.accountId && deal.accountId !== crmContext.accountId) {
-      saveCrmContext({
-        accountId: deal.accountId,
-        installationId: "",
-        contactId: deal.primaryContactId || "",
-        dealId,
-      });
-      applyAccountToClientName(deal.accountId);
-    } else {
-      saveCrmContext({
-        dealId,
-        ...(!crmContext.contactId && deal?.primaryContactId
-          ? { contactId: deal.primaryContactId }
-          : {}),
-      });
-    }
+    // Keep deal selection lightweight; authoritative account/contact sync
+    // is resolved by /api/crm/deals/[id] to avoid propagating stale tenant data.
+    saveCrmContext({ dealId });
     setCrmSearch((prev) => ({ ...prev, deal: "" }));
   };
   useEffect(() => {

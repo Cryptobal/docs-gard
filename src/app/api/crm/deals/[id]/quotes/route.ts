@@ -54,7 +54,7 @@ export async function POST(
           id: true,
           accountId: true,
           primaryContactId: true,
-          account: { select: { name: true } },
+          title: true,
         },
       }),
       prisma.cpqQuote.findFirst({
@@ -81,6 +81,32 @@ export async function POST(
       );
     }
 
+    const safeAccount = await prisma.crmAccount.findFirst({
+      where: { id: deal.accountId, tenantId: ctx.tenantId },
+      select: { id: true, name: true },
+    });
+    if (!safeAccount) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "El negocio tiene una cuenta fuera del tenant. Corrige el negocio antes de vincular.",
+        },
+        { status: 409 }
+      );
+    }
+
+    let safePrimaryContactId: string | undefined;
+    if (deal.primaryContactId) {
+      const safePrimaryContact = await prisma.crmContact.findFirst({
+        where: { id: deal.primaryContactId, tenantId: ctx.tenantId },
+        select: { id: true, accountId: true },
+      });
+      if (safePrimaryContact && safePrimaryContact.accountId === safeAccount.id) {
+        safePrimaryContactId = safePrimaryContact.id;
+      }
+    }
+
     const quotePatch: {
       dealId: string;
       accountId: string;
@@ -88,13 +114,13 @@ export async function POST(
       clientName?: string;
     } = {
       dealId: deal.id,
-      accountId: deal.accountId,
+      accountId: safeAccount.id,
     };
-    if (!quote.contactId && deal.primaryContactId) {
-      quotePatch.contactId = deal.primaryContactId;
+    if (!quote.contactId && safePrimaryContactId) {
+      quotePatch.contactId = safePrimaryContactId;
     }
-    if (!quote.clientName && deal.account?.name) {
-      quotePatch.clientName = deal.account.name;
+    if (!quote.clientName && safeAccount.name) {
+      quotePatch.clientName = safeAccount.name;
     }
 
     const link = await prisma.$transaction(async (tx) => {
