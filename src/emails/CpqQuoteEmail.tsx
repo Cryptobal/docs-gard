@@ -27,6 +27,7 @@ interface CpqQuoteEmailProps {
   senderName?: string;
   validUntil?: string;
   aiDescription?: string;
+  serviceDetail?: string;
 }
 
 export const CpqQuoteEmail = ({
@@ -39,6 +40,7 @@ export const CpqQuoteEmail = ({
   senderName = "Equipo Comercial",
   validUntil = "",
   aiDescription = "",
+  serviceDetail = "",
 }: CpqQuoteEmailProps) => {
   const previewText = `Propuesta económica ${quoteCode} - Gard Security`;
 
@@ -110,6 +112,13 @@ export const CpqQuoteEmail = ({
               </table>
             </Section>
 
+            {serviceDetail && (
+              <Section style={serviceDetailBox}>
+                <Text style={serviceDetailTitle}>Detalle del servicio</Text>
+                <Text style={serviceDetailText}>{serviceDetail}</Text>
+              </Section>
+            )}
+
             <Text style={text}>
               El PDF detallado con el desglose completo se encuentra adjunto a
               este correo.
@@ -175,6 +184,27 @@ const infoTable = { width: "100%", borderCollapse: "collapse" as const };
 const infoLabel = { color: "#888888", fontSize: "13px", padding: "6px 0" };
 const infoValue = { color: "#ffffff", fontSize: "13px", padding: "6px 0", textAlign: "right" as const };
 const signature = { color: "#888888", fontSize: "13px", lineHeight: "1.6", margin: "24px 0 0" };
+const serviceDetailBox = {
+  backgroundColor: "#1a1a1a",
+  borderRadius: "8px",
+  padding: "16px 20px",
+  margin: "16px 0",
+  border: "1px solid #333333",
+  borderLeft: "3px solid #14b8a6",
+};
+const serviceDetailTitle = {
+  color: "#14b8a6",
+  fontSize: "13px",
+  fontWeight: "bold" as const,
+  margin: "0 0 8px",
+};
+const serviceDetailText = {
+  color: "#d4d4d4",
+  fontSize: "12px",
+  lineHeight: "1.6",
+  margin: "0",
+  whiteSpace: "pre-line" as const,
+};
 const footer = {
   padding: "16px 32px",
   textAlign: "center" as const,

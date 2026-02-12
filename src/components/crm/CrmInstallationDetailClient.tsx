@@ -64,6 +64,17 @@ export type InstallationDetail = {
     totalGuards: number;
     updatedAt: string;
   }>;
+  puestosHistorial?: Array<{
+    id: string;
+    name: string;
+    shiftStart: string;
+    shiftEnd: string;
+    requiredGuards: number;
+    activeFrom?: string | null;
+    activeUntil?: string | null;
+    cargo?: { name: string } | null;
+    rol?: { name: string } | null;
+  }>;
   asignacionGuardias?: Array<{
     id: string;
     guardiaId: string;
@@ -457,6 +468,39 @@ function StaffingSection({
         </div>
       ) : (
         <EmptyState icon={<StaffingIcon className="h-8 w-8" />} title="Sin dotación activa" description="Aún no hay puestos activos. Usa el botón para agregar uno." compact />
+      )}
+
+      {/* Historial de puestos inactivos */}
+      {installation.puestosHistorial && installation.puestosHistorial.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Historial de puestos</p>
+          <div className="overflow-x-auto rounded-lg border border-border/50">
+            <table className="min-w-full text-xs">
+              <thead className="bg-muted/20">
+                <tr>
+                  <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Puesto</th>
+                  <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Cargo / Rol</th>
+                  <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Horario</th>
+                  <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">Período</th>
+                </tr>
+              </thead>
+              <tbody>
+                {installation.puestosHistorial.map((item) => {
+                  const from = item.activeFrom ? (() => { const d = new Date(item.activeFrom); return `${String(d.getUTCDate()).padStart(2,"0")}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${d.getUTCFullYear()}`; })() : "—";
+                  const until = item.activeUntil ? (() => { const d = new Date(item.activeUntil); return `${String(d.getUTCDate()).padStart(2,"0")}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${d.getUTCFullYear()}`; })() : "—";
+                  return (
+                    <tr key={item.id} className="border-t border-border/30">
+                      <td className="px-3 py-1.5 text-muted-foreground">{item.name}</td>
+                      <td className="px-3 py-1.5 text-muted-foreground">{item.cargo?.name ?? "—"} / {item.rol?.name ?? "—"}</td>
+                      <td className="px-3 py-1.5 text-muted-foreground">{item.shiftStart} - {item.shiftEnd}</td>
+                      <td className="px-3 py-1.5 text-muted-foreground">{from} → {until}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
       {installation.quotesInstalacion && installation.quotesInstalacion.length > 0 ? (

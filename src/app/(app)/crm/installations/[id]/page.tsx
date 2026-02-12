@@ -27,7 +27,7 @@ export default async function CrmInstallationDetailPage({
   }
 
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
-  const [installation, puestosActivos, quotesInstalacion, asignacionGuardias] = await Promise.all([
+  const [installation, puestosActivos, puestosHistorial, quotesInstalacion, asignacionGuardias] = await Promise.all([
     prisma.crmInstallation.findFirst({
       where: { id, tenantId },
       include: { account: { select: { id: true, name: true, type: true, isActive: true } } },
@@ -50,6 +50,21 @@ export default async function CrmInstallationDetailPage({
         puestoTrabajo: { select: { id: true, name: true } },
         cargo: { select: { id: true, name: true } },
         rol: { select: { id: true, name: true } },
+      },
+    }),
+    prisma.opsPuestoOperativo.findMany({
+      where: { tenantId, installationId: id, active: false },
+      orderBy: [{ activeUntil: "desc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        name: true,
+        shiftStart: true,
+        shiftEnd: true,
+        requiredGuards: true,
+        activeFrom: true,
+        activeUntil: true,
+        cargo: { select: { name: true } },
+        rol: { select: { name: true } },
       },
     }),
     prisma.cpqQuote.findMany({
@@ -90,6 +105,7 @@ export default async function CrmInstallationDetailPage({
     JSON.stringify({
       ...installation,
       puestosActivos,
+      puestosHistorial,
       quotesInstalacion,
       asignacionGuardias,
     })

@@ -84,6 +84,7 @@ export async function PATCH(
     if (body.installationId !== undefined) updateData.installationId = body.installationId || null;
     if (body.currency !== undefined) updateData.currency = body.currency || "CLP";
     if (body.aiDescription !== undefined) updateData.aiDescription = body.aiDescription || null;
+    if (body.serviceDetail !== undefined) updateData.serviceDetail = body.serviceDetail || null;
 
     const updated = await prisma.cpqQuote.updateMany({
       where: { id, tenantId },

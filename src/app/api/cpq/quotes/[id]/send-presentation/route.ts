@@ -130,7 +130,7 @@ export async function POST(
       summary = await computeCpqQuoteCosts(id);
     } catch {}
 
-    const marginPct = Number(quote.parameters?.marginPct ?? 20);
+    const marginPct = Number(quote.parameters?.marginPct ?? 13);
     const margin = marginPct / 100;
     const financialRatePctVal = Number(quote.parameters?.financialRatePct ?? 0);
     const policyRatePctVal = Number(quote.parameters?.policyRatePct ?? 0);

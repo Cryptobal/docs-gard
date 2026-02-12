@@ -24,6 +24,19 @@ const WEEKDAY_ALIAS: Record<string, string> = {
   domingo: "domingo", Domingo: "domingo", DOMINGO: "domingo",
 };
 
+/** Grupos de costo (lead) -> tipos de catálogo CPQ */
+const COST_GROUP_TYPES: Record<string, string[]> = {
+  uniform: ["uniform"],
+  exam: ["exam"],
+  meal: ["meal"],
+  equipment: ["phone", "radio", "flashlight"],
+  transport: ["transport"],
+  vehicle: ["vehicle_rent", "vehicle_fuel", "vehicle_tag"],
+  infrastructure: ["infrastructure", "fuel"],
+  system: ["system"],
+};
+const COST_GROUP_IDS = new Set(Object.keys(COST_GROUP_TYPES));
+
 const ACCOUNT_LOGO_MARKER_PREFIX = "[[ACCOUNT_LOGO_URL:";
 const ACCOUNT_LOGO_MARKER_SUFFIX = "]]";
 
@@ -99,6 +112,11 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    const rawCostGroups = body?.selectedCostGroups;
+    const selectedCostGroups: string[] = Array.isArray(rawCostGroups)
+      ? (rawCostGroups as unknown[]).filter((g): g is string => typeof g === "string" && COST_GROUP_IDS.has(g))
+      : [];
 
     const accountName =
       body?.accountName?.trim() ||
@@ -657,6 +675,71 @@ export async function POST(
                 quoteId: quote.id,
               },
             });
+
+            // Crear ítems de costo preseleccionados según selectedCostGroups
+            if (selectedCostGroups.length > 0) {
+              const typesSet = new Set<string>();
+              for (const g of selectedCostGroups) {
+                const types = COST_GROUP_TYPES[g];
+                if (types) for (const t of types) typesSet.add(t);
+              }
+              const typesList = [...typesSet];
+              if (typesList.length > 0) {
+                const catalogItems = await tx.cpqCatalogItem.findMany({
+                  where: {
+                    OR: [{ tenantId: ctx.tenantId }, { tenantId: null }],
+                    active: true,
+                    type: { in: typesList },
+                  },
+                });
+                for (const item of catalogItems) {
+                  if (item.type === "uniform") {
+                    await tx.cpqQuoteUniformItem.create({
+                      data: {
+                        quoteId: quote.id,
+                        catalogItemId: item.id,
+                        unitPriceOverride: null,
+                        active: true,
+                      },
+                    });
+                  } else if (item.type === "exam") {
+                    await tx.cpqQuoteExamItem.create({
+                      data: {
+                        quoteId: quote.id,
+                        catalogItemId: item.id,
+                        unitPriceOverride: null,
+                        active: true,
+                      },
+                    });
+                  } else if (item.type === "meal") {
+                    await tx.cpqQuoteMeal.create({
+                      data: {
+                        quoteId: quote.id,
+                        mealType: item.name,
+                        mealsPerDay: 0,
+                        daysOfService: 0,
+                        priceOverride: null,
+                        isEnabled: true,
+                        visibility: "visible",
+                      },
+                    });
+                  } else {
+                    await tx.cpqQuoteCostItem.create({
+                      data: {
+                        quoteId: quote.id,
+                        catalogItemId: item.id,
+                        calcMode: "per_month",
+                        quantity: 1,
+                        unitPriceOverride: null,
+                        isEnabled: true,
+                        visibility: item.defaultVisibility || "visible",
+                        notes: null,
+                      },
+                    });
+                  }
+                }
+              }
+            }
           }
         }
       }

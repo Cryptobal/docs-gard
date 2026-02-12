@@ -409,6 +409,12 @@ export function OpsPuestosClient({
                                   }`}>
                                     {LIFECYCLE_LABELS[assignment.guardia.lifecycleStatus] ?? assignment.guardia.lifecycleStatus}
                                   </span>
+                                  <span className="text-[9px] text-muted-foreground">
+                                    desde {(() => {
+                                      const d = new Date(assignment.startDate);
+                                      return `${String(d.getUTCDate()).padStart(2,"0")}-${String(d.getUTCMonth()+1).padStart(2,"0")}-${d.getUTCFullYear()}`;
+                                    })()}
+                                  </span>
                                 </div>
                               ) : (
                                 <span className="text-amber-400 italic">Vacante (PPC)</span>

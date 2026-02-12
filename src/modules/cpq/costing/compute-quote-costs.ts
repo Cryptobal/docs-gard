@@ -284,7 +284,7 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
     monthlyInfrastructure +
     monthlyCostItems;
 
-  const marginPct = normalizePct(safeNumber(parameters?.marginPct ?? 20));
+  const marginPct = normalizePct(safeNumber(parameters?.marginPct ?? 13));
   const baseWithMargin = marginPct < 1 ? costsBase / (1 - marginPct) : costsBase;
 
   const financialEnabled = true;

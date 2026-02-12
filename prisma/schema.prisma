@@ -387,6 +387,7 @@ model CpqQuote {
   // Currency & AI
   currency         String        @default("CLP") // "CLP" | "UF"
   aiDescription    String?       @map("ai_description")
+  serviceDetail    String?       @map("service_detail")
   createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -540,7 +541,7 @@ model CpqQuoteParameters {
   policyContractPct      Decimal  @default(100) @map("policy_contract_pct") @db.Decimal(6, 2)
   contractMonths         Int      @default(12) @map("contract_months")
   contractAmount         Decimal  @default(0) @map("contract_amount") @db.Decimal(14, 2)
-  marginPct              Decimal  @default(20) @map("margin_pct") @db.Decimal(6, 2)
+  marginPct              Decimal  @default(13) @map("margin_pct") @db.Decimal(6, 2)
   createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 

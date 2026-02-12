@@ -44,11 +44,71 @@ export async function GET(request: NextRequest) {
           slotNumber: item.slotNumber,
           date,
           plannedGuardiaId: item.plannedGuardiaId,
-          attendanceStatus: "pendiente",
+          attendanceStatus: item.plannedGuardiaId ? "pendiente" : "ppc",
           createdBy: ctx.userId,
         })),
         skipDuplicates: true,
       });
+
+      // Sincronizar "planificado" desde la pauta: las filas de asistencia pueden haberse creado
+      // antes de pintar la serie, o pueden tener estados viejos (asistio/reemplazo) de cuando
+      // había guardia y luego se desasignó. Actualizamos plannedGuardiaId y alineamos estado.
+      for (const item of pauta) {
+        await prisma.opsAsistenciaDiaria.updateMany({
+          where: {
+            tenantId: ctx.tenantId,
+            puestoId: item.puestoId,
+            slotNumber: item.slotNumber,
+            date,
+          },
+          data: {
+            plannedGuardiaId: item.plannedGuardiaId,
+          },
+        });
+        if (item.plannedGuardiaId != null) {
+          // Hay guardia planificado: solo tocar status si la fila sigue en estado inicial
+          await prisma.opsAsistenciaDiaria.updateMany({
+            where: {
+              tenantId: ctx.tenantId,
+              puestoId: item.puestoId,
+              slotNumber: item.slotNumber,
+              date,
+              attendanceStatus: { in: ["pendiente", "ppc"] },
+            },
+            data: { attendanceStatus: "pendiente" },
+          });
+        } else {
+          // No hay guardia en pauta (slot desasignado): forzar estado PPC en filas no bloqueadas,
+          // para que no queden "asistio"/"reemplazo" huérfanos y las métricas sean coherentes.
+          const rows = await prisma.opsAsistenciaDiaria.findMany({
+            where: {
+              tenantId: ctx.tenantId,
+              puestoId: item.puestoId,
+              slotNumber: item.slotNumber,
+              date,
+              lockedAt: null,
+            },
+            select: { id: true },
+          });
+          for (const row of rows) {
+            const pendingTe = await prisma.opsTurnoExtra.findFirst({
+              where: { asistenciaId: row.id, status: "pending" },
+            });
+            if (pendingTe) {
+              await prisma.opsTurnoExtra.delete({ where: { id: pendingTe.id } });
+            }
+            await prisma.opsAsistenciaDiaria.update({
+              where: { id: row.id },
+              data: {
+                attendanceStatus: "ppc",
+                actualGuardiaId: null,
+                replacementGuardiaId: null,
+                teGenerated: false,
+              },
+            });
+          }
+        }
+      }
     }
 
     const asistencia = await prisma.opsAsistenciaDiaria.findMany({

@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
     try {
       const costs = await computeCpqQuoteCosts(quoteId);
       monthlyTotal = costs.monthlyTotal;
-      const marginPct = Number(quote.parameters?.marginPct ?? 20);
+      const marginPct = Number(quote.parameters?.marginPct ?? 13);
       const margin = marginPct / 100;
       const costsBase =
         costs.monthlyPositions +

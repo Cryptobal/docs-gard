@@ -14,7 +14,7 @@ export async function PUT(
   try {
     const { id } = await params;
     const body = await request.json();
-    const marginPct = body?.marginPct ?? 20;
+    const marginPct = body?.marginPct ?? 13;
 
     await prisma.cpqQuoteParameters.upsert({
       where: { quoteId: id },

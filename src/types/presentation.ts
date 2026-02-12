@@ -368,6 +368,8 @@ export interface Section22_TCO {
 
 export interface Section23_PropuestaEconomica {
   pricing: PricingData;
+  /** AI-generated service detail to show below pricing table */
+  serviceDetail?: string;
 }
 
 export interface Section24_TerminosCondiciones {

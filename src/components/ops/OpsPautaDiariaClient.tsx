@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { EmptyState, StatusBadge } from "@/components/opai";
-import { CalendarCheck2, RefreshCw } from "lucide-react";
+import { EmptyState } from "@/components/opai";
+import { CalendarCheck2, RefreshCw, ChevronLeft, ChevronRight, RotateCcw } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 /* ── types ─────────────────────────────────────── */
 
@@ -19,7 +20,7 @@ type ClientOption = {
 type GuardiaOption = {
   id: string;
   code?: string | null;
-  persona: { firstName: string; lastName: string };
+  persona: { firstName: string; lastName: string; rut?: string | null };
 };
 
 type AsistenciaItem = {
@@ -73,6 +74,12 @@ function toDateInput(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
+function isDayShift(shiftStart: string): boolean {
+  const match = shiftStart.match(/^(\d{1,2})/);
+  const hour = match ? parseInt(match[1], 10) : 12;
+  return hour < 12;
+}
+
 const STATUS_ICONS: Record<string, string> = {
   pendiente: "⏳",
   asistio: "✅",
@@ -94,6 +101,9 @@ export function OpsPautaDiariaClient({
   const [loading, setLoading] = useState<boolean>(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [items, setItems] = useState<AsistenciaItem[]>([]);
+  const [replacementOpenId, setReplacementOpenId] = useState<string | null>(null);
+  const [replacementSearch, setReplacementSearch] = useState("");
+  const replacementPopoverRef = useRef<HTMLDivElement>(null);
 
   // Installations from selected client
   const installations = useMemo(() => {
@@ -126,6 +136,28 @@ export function OpsPautaDiariaClient({
   useEffect(() => {
     void fetchAsistencia();
   }, [fetchAsistencia]);
+
+  useEffect(() => {
+    if (!replacementOpenId) return;
+    const close = (e: MouseEvent) => {
+      const el = replacementPopoverRef.current;
+      if (el && !el.contains(e.target as Node)) setReplacementOpenId(null);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [replacementOpenId]);
+
+  // Filtered guardias for replacement search (when popover is open)
+  const replacementGuardiasFiltered = useMemo(() => {
+    const q = replacementSearch.trim().toLowerCase();
+    if (!q) return guardias.slice(0, 20);
+    return guardias
+      .filter((g) => {
+        const hay = `${g.persona.firstName} ${g.persona.lastName} ${g.code ?? ""} ${g.persona.rut ?? ""}`.toLowerCase();
+        return hay.includes(q);
+      })
+      .slice(0, 20);
+  }, [guardias, replacementSearch]);
 
   // Group by installation
   const grouped = useMemo(() => {
@@ -221,12 +253,40 @@ export function OpsPautaDiariaClient({
             </div>
             <div className="space-y-1.5">
               <Label>Fecha</Label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              />
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  onClick={() => {
+                    const d = new Date(date);
+                    d.setUTCDate(d.getUTCDate() - 1);
+                    setDate(toDateInput(d));
+                  }}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="h-9 flex-1 min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  onClick={() => {
+                    const d = new Date(date);
+                    d.setUTCDate(d.getUTCDate() + 1);
+                    setDate(toDateInput(d));
+                  }}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             <div className="flex items-end">
               <Button variant="outline" onClick={() => void fetchAsistencia()} disabled={loading}>
@@ -282,19 +342,28 @@ export function OpsPautaDiariaClient({
                 <table className="w-full text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-border text-left">
-                      <th className="px-2 py-1.5 w-[180px]">Puesto</th>
+                      <th className="px-2 py-1.5 w-[220px]">Puesto</th>
                       <th className="px-2 py-1.5 w-[140px]">Planificado</th>
-                      <th className="px-2 py-1.5 w-[140px]">Real / Reemplazo</th>
-                      <th className="px-2 py-1.5 w-[80px] text-center">Horario</th>
+                      <th className="px-2 py-1.5 w-[160px]">Real / Reemplazo</th>
                       <th className="px-2 py-1.5 w-[80px] text-center">Check In/Out</th>
-                      <th className="px-2 py-1.5 w-[80px] text-center">Estado</th>
-                      <th className="px-2 py-1.5 w-[180px]">Acciones</th>
+                      <th className="px-2 py-1.5 w-[60px] text-center">Estado</th>
+                      <th className="px-2 py-1.5 w-[200px]">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {group.items.map((item) => {
                       const te = item.turnosExtra?.[0];
                       const isLocked = Boolean(item.lockedAt);
+                      const isPPC = !item.plannedGuardiaId;
+                      const showReplacementSearch =
+                        isPPC ||
+                        item.attendanceStatus === "no_asistio" ||
+                        (item.attendanceStatus === "reemplazo" && item.replacementGuardia);
+                      const showAsistioNoAsistio = !isPPC && item.attendanceStatus !== "asistio";
+                      const initialStatus: "pendiente" | "ppc" = item.plannedGuardiaId ? "pendiente" : "ppc";
+                      const hasChanges =
+                        item.attendanceStatus !== initialStatus || item.replacementGuardiaId != null;
+                      const isReplacementOpen = replacementOpenId === item.id;
                       return (
                         <tr
                           key={item.id}
@@ -304,7 +373,13 @@ export function OpsPautaDiariaClient({
                         >
                           <td className="px-2 py-2">
                             <div className="font-medium">{item.puesto.name}</div>
-                            <div className="text-[10px] text-muted-foreground">Slot {item.slotNumber}</div>
+                            <div className="text-[10px] text-muted-foreground">
+                              Slot {item.slotNumber} · {item.puesto.shiftStart}-{item.puesto.shiftEnd}
+                              {" "}
+                              <span className={isDayShift(item.puesto.shiftStart) ? "text-sky-400" : "text-indigo-400"}>
+                                {isDayShift(item.puesto.shiftStart) ? "Día" : "Noche"}
+                              </span>
+                            </div>
                           </td>
                           <td className="px-2 py-2">
                             {item.plannedGuardia ? (
@@ -330,34 +405,68 @@ export function OpsPautaDiariaClient({
                                   </div>
                                 )}
                               </div>
+                            ) : showReplacementSearch && (isPPC || item.attendanceStatus === "no_asistio") ? (
+                              <div className="relative" ref={isReplacementOpen ? replacementPopoverRef : undefined}>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 w-full justify-start text-[11px] font-normal"
+                                  disabled={savingId === item.id || isLocked}
+                                  onClick={() => {
+                                    setReplacementOpenId((prev) => (prev === item.id ? null : item.id));
+                                    setReplacementSearch("");
+                                  }}
+                                >
+                                  {item.replacementGuardiaId
+                                    ? guardias.find((g) => g.id === item.replacementGuardiaId)
+                                      ? `${guardias.find((g) => g.id === item.replacementGuardiaId)!.persona.firstName} ${guardias.find((g) => g.id === item.replacementGuardiaId)!.persona.lastName}`
+                                      : "Guardia seleccionado"
+                                    : "Buscar guardia…"}
+                                </Button>
+                                {isReplacementOpen && (
+                                  <div className="absolute left-0 top-full z-50 mt-1 w-64 rounded-md border border-border bg-popover shadow-md">
+                                    <Input
+                                      placeholder="Nombre, código, RUT…"
+                                      value={replacementSearch}
+                                      onChange={(e) => setReplacementSearch(e.target.value)}
+                                      className="m-2 h-8 text-xs"
+                                      autoFocus
+                                    />
+                                    <ul className="max-h-48 overflow-auto py-1">
+                                      {replacementGuardiasFiltered.map((g) => (
+                                        <li key={g.id}>
+                                          <button
+                                            type="button"
+                                            className="w-full px-3 py-1.5 text-left text-[11px] hover:bg-muted"
+                                            onClick={() => {
+                                              void patchAsistencia(
+                                                item.id,
+                                                {
+                                                  replacementGuardiaId: g.id,
+                                                  attendanceStatus: "reemplazo",
+                                                },
+                                                "Reemplazo asignado"
+                                              );
+                                              setReplacementOpenId(null);
+                                              setReplacementSearch("");
+                                            }}
+                                          >
+                                            {g.persona.firstName} {g.persona.lastName}
+                                            {g.code ? ` (${g.code})` : ""}
+                                          </button>
+                                        </li>
+                                      ))}
+                                      {replacementGuardiasFiltered.length === 0 && (
+                                        <li className="px-3 py-2 text-[10px] text-muted-foreground">Sin resultados</li>
+                                      )}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
                             ) : (
-                              <select
-                                className="h-7 w-full rounded border border-input bg-background px-1 text-[11px]"
-                                value={item.replacementGuardiaId ?? ""}
-                                onChange={(e) =>
-                                  void patchAsistencia(
-                                    item.id,
-                                    {
-                                      replacementGuardiaId: e.target.value || null,
-                                      attendanceStatus: e.target.value ? "reemplazo" : "pendiente",
-                                    },
-                                    e.target.value ? "Reemplazo asignado" : undefined
-                                  )
-                                }
-                                disabled={savingId === item.id || isLocked}
-                              >
-                                <option value="">—</option>
-                                {guardias.map((g) => (
-                                  <option key={g.id} value={g.id}>
-                                    {g.persona.firstName} {g.persona.lastName}
-                                    {g.code ? ` (${g.code})` : ""}
-                                  </option>
-                                ))}
-                              </select>
+                              <span className="text-muted-foreground">—</span>
                             )}
-                          </td>
-                          <td className="px-2 py-2 text-center text-muted-foreground">
-                            {item.puesto.shiftStart}-{item.puesto.shiftEnd}
                           </td>
                           <td className="px-2 py-2 text-center text-[10px] text-muted-foreground">
                             {item.checkInAt
@@ -374,44 +483,90 @@ export function OpsPautaDiariaClient({
                             </span>
                           </td>
                           <td className="px-2 py-2">
-                            <div className="flex flex-wrap gap-1">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-6 text-[10px] px-2"
-                                disabled={savingId === item.id || isLocked}
-                                onClick={() =>
-                                  void patchAsistencia(
-                                    item.id,
-                                    {
-                                      attendanceStatus: "asistio",
-                                      actualGuardiaId:
-                                        item.replacementGuardiaId ??
-                                        item.actualGuardiaId ??
-                                        item.plannedGuardiaId ??
-                                        null,
-                                    },
-                                    "Asistencia marcada"
-                                  )
-                                }
-                              >
-                                Asistió
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-6 text-[10px] px-2"
-                                disabled={savingId === item.id || isLocked}
-                                onClick={() =>
-                                  void patchAsistencia(
-                                    item.id,
-                                    { attendanceStatus: "no_asistio", actualGuardiaId: null },
-                                    "No asistió"
-                                  )
-                                }
-                              >
-                                No asistió
-                              </Button>
+                            <div className="flex flex-wrap gap-1 items-center">
+                              {showAsistioNoAsistio && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-6 text-[10px] px-2"
+                                    disabled={savingId === item.id || isLocked || item.attendanceStatus === "no_asistio"}
+                                    onClick={() =>
+                                      void patchAsistencia(
+                                        item.id,
+                                        {
+                                          attendanceStatus: "asistio",
+                                          actualGuardiaId:
+                                            item.replacementGuardiaId ??
+                                            item.actualGuardiaId ??
+                                            item.plannedGuardiaId ??
+                                            null,
+                                        },
+                                        "Asistencia marcada"
+                                      )
+                                    }
+                                  >
+                                    Asistió
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-6 text-[10px] px-2"
+                                    disabled={savingId === item.id || isLocked}
+                                    onClick={() =>
+                                      void patchAsistencia(
+                                        item.id,
+                                        { attendanceStatus: "no_asistio", actualGuardiaId: null },
+                                        "No asistió"
+                                      )
+                                    }
+                                  >
+                                    No asistió
+                                  </Button>
+                                </>
+                              )}
+                              {item.attendanceStatus === "reemplazo" && item.replacementGuardia && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-[10px] px-2"
+                                  disabled={savingId === item.id || isLocked}
+                                  onClick={() =>
+                                    void patchAsistencia(
+                                      item.id,
+                                      {
+                                        attendanceStatus: "asistio",
+                                        actualGuardiaId: item.replacementGuardiaId ?? null,
+                                      },
+                                      "Asistencia del reemplazo marcada"
+                                    )
+                                  }
+                                >
+                                  Asistió (reemplazo)
+                                </Button>
+                              )}
+                              {hasChanges && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 text-[10px] px-2 text-muted-foreground"
+                                  disabled={savingId === item.id || isLocked}
+                                  onClick={() =>
+                                    void patchAsistencia(
+                                      item.id,
+                                      {
+                                        attendanceStatus: initialStatus,
+                                        actualGuardiaId: null,
+                                        replacementGuardiaId: null,
+                                      },
+                                      "Estado reseteado"
+                                    )
+                                  }
+                                  title="Resetear a estado inicial"
+                                >
+                                  <RotateCcw className="h-3 w-3" />
+                                </Button>
+                              )}
                             </div>
                           </td>
                         </tr>

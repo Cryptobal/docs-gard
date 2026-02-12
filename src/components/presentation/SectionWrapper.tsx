@@ -3,6 +3,7 @@
 /**
  * SectionWrapper - Envuelve secciones con animaciones on-scroll tipo Qwilr
  * Fade-in y slide-up al hacer scroll
+ * En PDF mode: renderiza sección plana sin animaciones
  */
 
 import { ReactNode } from 'react';
@@ -10,6 +11,7 @@ import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
 import { cn } from '@/lib/utils';
 import { useThemeClasses } from './ThemeProvider';
+import { usePdfMode } from './PdfModeContext';
 
 interface SectionWrapperProps {
   children: ReactNode;
@@ -26,12 +28,30 @@ export function SectionWrapper({
   animation = 'slide',
   delay = 0 
 }: SectionWrapperProps) {
+  const pdfMode = usePdfMode();
   const theme = useThemeClasses();
   const [ref, inView] = useInView({
     triggerOnce: true,
     threshold: 0.1,
     rootMargin: '-50px 0px',
   });
+  
+  // PDF mode: sección plana sin animaciones, con estilos de slide
+  if (pdfMode) {
+    return (
+      <section
+        id={id}
+        className={cn(
+          'section-container pdf-slide',
+          'py-10 md:py-14',
+          theme.text,
+          className
+        )}
+      >
+        {children}
+      </section>
+    );
+  }
   
   // Variantes de animación (más marcadas)
   const variants = {
@@ -123,10 +143,15 @@ interface AnimatedContentProps {
 }
 
 export function AnimatedContent({ children, delay = 0, className }: AnimatedContentProps) {
+  const pdfMode = usePdfMode();
   const [ref, inView] = useInView({
     triggerOnce: true,
     threshold: 0.1,
   });
+  
+  if (pdfMode) {
+    return <div className={className}>{children}</div>;
+  }
   
   return (
     <motion.div
@@ -155,10 +180,15 @@ export function StaggerContainer({
   staggerDelay = 0.1,
   className 
 }: StaggerContainerProps) {
+  const pdfMode = usePdfMode();
   const [ref, inView] = useInView({
     triggerOnce: true,
     threshold: 0.1,
   });
+  
+  if (pdfMode) {
+    return <div className={className}>{children}</div>;
+  }
   
   return (
     <motion.div
@@ -188,6 +218,12 @@ interface StaggerItemProps {
 }
 
 export function StaggerItem({ children, className }: StaggerItemProps) {
+  const pdfMode = usePdfMode();
+  
+  if (pdfMode) {
+    return <div className={className}>{children}</div>;
+  }
+  
   return (
     <motion.div
       variants={{

@@ -66,7 +66,7 @@ export async function POST(
     }
 
     // Pricing parameters
-    const marginPct = Number(quote.parameters?.marginPct ?? 20);
+    const marginPct = Number(quote.parameters?.marginPct ?? 13);
     const margin = marginPct / 100;
     const financialRatePctVal = Number(quote.parameters?.financialRatePct ?? 0);
     const policyRatePctVal = Number(quote.parameters?.policyRatePct ?? 0);
@@ -122,6 +122,7 @@ export async function POST(
 
     const validUntilStr = quote.validUntil ? new Date(quote.validUntil).toLocaleDateString('es-CL') : '';
     const notesEscaped = quote.notes ? String(quote.notes).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>') : '';
+    const serviceDetailEscaped = quote.serviceDetail ? String(quote.serviceDetail).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>') : '';
 
     const contactLine = contactName ? `${contactName}<br>` : '';
     const installationLine = installationName ? `${installationName}<br>` : '';
@@ -166,11 +167,15 @@ export async function POST(
     </div>
   </div>
 
+  ${quote.aiDescription ? `<p style="font-size:10px;color:#555;padding:6px;background:#f8fafc;border-radius:4px;margin-bottom:10px;font-style:italic">${String(quote.aiDescription).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</p>` : ''}
+
   <h2>Puestos de trabajo · ${totalGuards} guardia(s)</h2>
   <table>
     <thead><tr><th>Puesto</th><th>Guardias</th><th>Horario</th><th>Días</th><th class="num">Precio mensual</th></tr></thead>
     <tbody>${positionsRows}<tr class="total"><td colspan="4" style="text-align:right">Precio venta mensual</td><td class="num">${totalSalePrice > 0 ? formatPrice(totalSalePrice) : 'N/A'}</td></tr></tbody>
   </table>
+
+  ${serviceDetailEscaped ? `<div style="margin-top:10px"><h2>Detalle del servicio</h2><p style="font-size:10px;color:#333;line-height:1.5">${serviceDetailEscaped}</p></div>` : ''}
 
   ${notesEscaped ? `<div class="notes">Notas: ${notesEscaped}</div>` : ''}
 

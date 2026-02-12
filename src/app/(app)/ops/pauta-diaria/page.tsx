@@ -46,7 +46,7 @@ export default async function OpsAsistenciaDiariaPage() {
         id: true,
         code: true,
         persona: {
-          select: { firstName: true, lastName: true },
+          select: { firstName: true, lastName: true, rut: true },
         },
       },
       orderBy: [{ persona: { lastName: "asc" } }],

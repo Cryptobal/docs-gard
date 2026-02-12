@@ -96,12 +96,17 @@ export async function POST(
       )
       .join("");
 
+    const serviceDetailHtml = quote.serviceDetail
+      ? `<div style="margin-top:10px"><h2 style="font-size:11px;margin-bottom:6px;color:#1a1a1a;border-bottom:1px solid #ddd;padding-bottom:4px">Detalle del servicio</h2><p style="font-size:10px;color:#333;line-height:1.5">${String(quote.serviceDetail).replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</p></div>`
+      : "";
+
     const pdfHtml = `<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${quote.code} - ${accountName}</title>
 <style>@page{size:A4;margin:10mm}*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;font-size:10px;line-height:1.3;color:#1a1a1a;padding:10px 14px;max-width:210mm}.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1db990;padding-bottom:8px;margin-bottom:10px}.brand{font-size:18px;font-weight:bold;color:#1db990}.meta{text-align:right;font-size:10px;color:#444}.meta strong{display:block;font-size:12px;color:#1a1a1a;margin-bottom:2px}h2{font-size:11px;margin-bottom:6px;color:#1a1a1a;border-bottom:1px solid #ddd;padding-bottom:4px}table{width:100%;border-collapse:collapse;font-size:10px;margin-bottom:10px}th{background:#f0f0f0;padding:5px 6px;text-align:left;font-weight:600}td{padding:4px 6px;border-bottom:1px solid #eee}td.num{text-align:right;white-space:nowrap}tr.total td{font-weight:bold;border-top:2px solid #1db990;background:#f8fcfb;padding:6px;font-size:11px}.footer{margin-top:10px;padding-top:6px;border-top:1px solid #eee;text-align:center;font-size:9px;color:#888}@media print{body{padding:0}}</style></head>
 <body><div class="header"><div class="brand">GARD SECURITY</div><div class="meta"><strong>${quote.code}</strong>${accountName}<br>${validUntilStr ? `Válida hasta: ${validUntilStr}` : ""}<br>Propuesta económica</div></div>
+${quote.aiDescription ? `<p style="font-size:9px;color:#555;padding:6px;background:#f9f9f9;border-radius:4px;margin-bottom:10px;font-style:italic">${String(quote.aiDescription).replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</p>` : ""}
 <h2>Puestos de trabajo · ${quote.totalGuards} guardia(s)</h2>
 <table><thead><tr><th>Puesto</th><th>Guardias</th><th>Horario</th><th class="num">Costo mensual</th></tr></thead><tbody>${positionsRows}<tr class="total"><td colspan="3" style="text-align:right">Total</td><td class="num">${formatCurrency(monthlyTotal, "CLP")}</td></tr></tbody></table>
-${quote.aiDescription ? `<p style="font-size:9px;color:#555;padding:6px;background:#f9f9f9;border-radius:4px;margin-bottom:10px">${quote.aiDescription}</p>` : ""}
+${serviceDetailHtml}
 <div class="footer">Generado el ${new Date().toLocaleDateString("es-CL")} · www.gard.cl · contacto@gard.cl</div>
 </body></html>`;
 
@@ -116,6 +121,7 @@ ${quote.aiDescription ? `<p style="font-size:9px;color:#555;padding:6px;backgrou
         monthlyCost: formatCurrency(monthlyTotal, "CLP"),
         validUntil: validUntilStr,
         aiDescription: quote.aiDescription || "",
+        serviceDetail: quote.serviceDetail || "",
       })
     );
 

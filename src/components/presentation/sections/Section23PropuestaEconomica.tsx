@@ -34,7 +34,7 @@ export function Section23PropuestaEconomica({
   contactPhone = '+56 98 230 7771'
 }: Section23PropuestaEconomicaProps) {
   const theme = useThemeClasses();
-  const { pricing } = data;
+  const { pricing, serviceDetail } = data;
   
   const formatPrice = (value: number) => {
     // Si showTokens está activo Y el valor es 999999, mostrar token
@@ -353,6 +353,26 @@ export function Section23PropuestaEconomica({
           </motion.div>
         )}
         
+        {/* Service Detail */}
+        {serviceDetail && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="max-w-3xl mx-auto mb-12"
+          >
+            <div className="glass-card rounded-xl p-8 border border-teal-400/20">
+              <h4 className="font-bold text-white text-lg mb-4 flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-teal-400" />
+                Detalle del servicio
+              </h4>
+              <div className="text-base text-white/80 leading-relaxed whitespace-pre-line">
+                {serviceDetail}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* CTAs */}
         <div className="text-center space-y-4">
           <p className="text-white/60">¿Preguntas sobre la propuesta?</p>

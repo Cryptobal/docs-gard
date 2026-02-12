@@ -16,6 +16,7 @@ import { prisma } from '@/lib/prisma';
 import { PresentationRenderer } from '@/components/presentation/PresentationRenderer';
 import { mapZohoDataToPresentation } from '@/lib/zoho-mapper';
 import { PublicPresentationTracker } from '@/components/presentation/PublicPresentationTracker';
+import { DownloadPresentationSection } from '@/components/presentation/DownloadPresentationSection';
 
 interface PublicPresentationPageProps {
   params: Promise<{
@@ -23,15 +24,18 @@ interface PublicPresentationPageProps {
   }>;
   searchParams: Promise<{
     preview?: string;
+    mode?: string;
   }>;
 }
 
 export default async function PublicPresentationPage({ params, searchParams }: PublicPresentationPageProps) {
   const { uniqueId } = await params;
-  const { preview } = await searchParams;
+  const { preview, mode } = await searchParams;
   
   // Detectar si es vista de admin/preview (no trackear)
   const isAdminPreview = preview === 'true';
+  // Detectar modo PDF (usado por Playwright para generar PDF)
+  const isPdfMode = mode === 'pdf';
 
   // 1. Buscar presentación
   const presentation = await prisma.presentation.findUnique({
@@ -93,6 +97,14 @@ export default async function PublicPresentationPage({ params, searchParams }: P
   const ipAddress = forwardedFor?.split(',')[0] || realIp || 'unknown';
 
   // 8. Renderizar presentación
+  
+  // Modo PDF: renderizar versión optimizada para Playwright (sin chrome, sin tracking)
+  if (isPdfMode) {
+    return (
+      <PresentationRenderer payload={presentationData} pdfMode={true} />
+    );
+  }
+  
   return (
     <div className="relative">
       {/* Banner de Admin Preview */}
@@ -118,6 +130,9 @@ export default async function PublicPresentationPage({ params, searchParams }: P
       <div className={isAdminPreview ? 'pt-10' : ''}>
         <PresentationRenderer payload={presentationData} />
       </div>
+
+      {/* Sección de descarga PDF */}
+      <DownloadPresentationSection uniqueId={uniqueId} />
 
       {/* Footer con branding */}
       <footer className="bg-slate-900 text-white py-8 border-t border-white/10">

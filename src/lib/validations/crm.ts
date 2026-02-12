@@ -19,6 +19,7 @@ export const createLeadSchema = z.object({
   city: z.string().trim().max(100).optional().nullable(),
   website: z.string().trim().max(500).optional().nullable(),
   serviceType: z.string().trim().max(100).optional().nullable(),
+  status: z.enum(["pending", "in_review", "approved", "rejected"]).optional(),
   metadata: z.any().optional().nullable(),
 });
 

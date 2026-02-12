@@ -128,7 +128,7 @@ export async function POST(
       console.warn("Error computing CPQ costs for draft, continuing:", e);
     }
 
-    const marginPct = Number(quote.parameters?.marginPct ?? 20);
+    const marginPct = Number(quote.parameters?.marginPct ?? 13);
     const margin = marginPct / 100;
     const financialRatePctVal = Number(quote.parameters?.financialRatePct ?? 0);
     const policyRatePctVal = Number(quote.parameters?.policyRatePct ?? 0);
@@ -200,6 +200,7 @@ export async function POST(
           validUntil: quote.validUntil,
           notes: quote.notes,
           aiDescription: quote.aiDescription,
+          serviceDetail: quote.serviceDetail,
           currency: quote.currency,
         },
         positions: quote.positions,

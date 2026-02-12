@@ -49,7 +49,7 @@ const DEFAULT_PARAMS: CpqQuoteParameters = {
   policyContractPct: 100,
   contractMonths: 12,
   contractAmount: 0,
-  marginPct: 20,
+  marginPct: 13,
 };
 
 const OPERATIONAL_TYPES = ["phone", "radio", "flashlight"];
@@ -59,6 +59,8 @@ const INFRA_TYPES = ["infrastructure", "fuel"];
 const FINANCIAL_TYPES = ["financial", "policy"];
 
 const toNumber = (value: string) => parseLocalizedNumber(value);
+/** Formatea un número con separador de miles (ej. 750000 → "750.000") */
+const fmtN = (v: number) => formatNumber(v || 0, { minDecimals: 0, maxDecimals: 2 });
 
 const normalizeCostItems = (items: CpqQuoteCostItem[]) =>
   items.map((item) => ({
@@ -827,9 +829,9 @@ export function CpqQuoteCosts({
                           </div>
                         </div>
                         <Input
-                          type="number"
+                          type="text" inputMode="numeric"
                           placeholder="Precio mensual (override)"
-                          value={selected?.unitPriceOverride ?? ""}
+                          value={selected?.unitPriceOverride != null ? fmtN(Number(selected.unitPriceOverride)) : ""}
                           onChange={(e) =>
                             setUniforms((prev) =>
                               prev.map((u) =>
@@ -946,9 +948,9 @@ export function CpqQuoteCosts({
                           </div>
                         </div>
                         <Input
-                          type="number"
+                          type="text" inputMode="numeric"
                           placeholder="Precio mensual (override)"
-                          value={selected?.unitPriceOverride ?? ""}
+                          value={selected?.unitPriceOverride != null ? fmtN(Number(selected.unitPriceOverride)) : ""}
                           onChange={(e) =>
                             setExams((prev) =>
                               prev.map((u) =>
@@ -1054,27 +1056,27 @@ export function CpqQuoteCosts({
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <Input
-                            type="number"
+                            type="text" inputMode="numeric"
                             placeholder="Comidas/día"
-                            value={meal?.mealsPerDay ?? 0}
+                            value={fmtN(meal?.mealsPerDay ?? 0)}
                             onChange={(e) =>
                               updateMeal(item.name, { mealsPerDay: toNumber(e.target.value) })
                             }
                             className={inputClass}
                           />
                           <Input
-                            type="number"
+                            type="text" inputMode="numeric"
                             placeholder="Días/mes"
-                            value={meal?.daysOfService ?? 0}
+                            value={fmtN(meal?.daysOfService ?? 0)}
                             onChange={(e) =>
                               updateMeal(item.name, { daysOfService: toNumber(e.target.value) })
                             }
                             className={inputClass}
                           />
                           <Input
-                            type="number"
+                            type="text" inputMode="numeric"
                             placeholder="Precio mensual (override)"
-                            value={meal?.priceOverride ?? ""}
+                            value={meal?.priceOverride != null ? fmtN(Number(meal.priceOverride)) : ""}
                             onChange={(e) =>
                               updateMeal(item.name, { priceOverride: toNumber(e.target.value) })
                             }
@@ -1160,9 +1162,9 @@ export function CpqQuoteCosts({
                           </div>
                         </div>
                         <Input
-                          type="number"
+                          type="text" inputMode="numeric"
                           placeholder="Precio mensual (override)"
-                          value={costItem?.unitPriceOverride ?? ""}
+                          value={costItem?.unitPriceOverride != null ? fmtN(Number(costItem.unitPriceOverride)) : ""}
                           onChange={(e) =>
                             upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
                           }
@@ -1247,9 +1249,9 @@ export function CpqQuoteCosts({
                           </div>
                         </div>
                         <Input
-                          type="number"
+                          type="text" inputMode="numeric"
                           placeholder="Precio mensual (override)"
-                          value={costItem?.unitPriceOverride ?? ""}
+                          value={costItem?.unitPriceOverride != null ? fmtN(Number(costItem.unitPriceOverride)) : ""}
                           onChange={(e) =>
                             upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
                           }
@@ -1318,6 +1320,91 @@ export function CpqQuoteCosts({
                   .filter((item) => findCostItem(item.id)?.isEnabled)
                   .map((item) => {
                     const costItem = findCostItem(item.id);
+                    const isVehicleFuel = item.type === "vehicle_fuel";
+
+                    if (isVehicleFuel) {
+                      let fuelParams = { kmPerDay: 0, kmPerLiter: 10, fuelPrice: 1250 };
+                      try {
+                        if (costItem?.notes) {
+                          const parsed = JSON.parse(costItem.notes);
+                          fuelParams = { ...fuelParams, ...parsed };
+                        }
+                      } catch {}
+                      const kmMes = fuelParams.kmPerDay * 30;
+                      const litrosMes = fuelParams.kmPerLiter > 0 ? kmMes / fuelParams.kmPerLiter : 0;
+                      const costoMensual = Math.round(litrosMes * fuelParams.fuelPrice);
+
+                      const updateFuelParam = (key: string, value: number) => {
+                        const updated = { ...fuelParams, [key]: value };
+                        const newKmMes = updated.kmPerDay * 30;
+                        const newLitros = updated.kmPerLiter > 0 ? newKmMes / updated.kmPerLiter : 0;
+                        const newCosto = Math.round(newLitros * updated.fuelPrice);
+                        upsertCostItem(item, {
+                          unitPriceOverride: newCosto,
+                          notes: JSON.stringify(updated),
+                        });
+                      };
+
+                      return (
+                        <div key={item.id} className={`${sectionBoxClass} space-y-2 sm:col-span-2 lg:col-span-3`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-medium">{item.name}</span>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>Cálculo por fórmula</span>
+                              <button
+                                type="button"
+                                className="rounded-md border border-border px-2 py-1 text-xs"
+                                onClick={() => upsertCostItem(item, { isEnabled: false })}
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </div>
+                          <div className="grid gap-2 sm:grid-cols-3">
+                            <div className="space-y-1">
+                              <label className="text-xs text-muted-foreground">Km recorridos/día</label>
+                              <Input
+                                type="text" inputMode="numeric"
+                                placeholder="Ej: 50"
+                                value={fuelParams.kmPerDay ? fmtN(fuelParams.kmPerDay) : ""}
+                                onChange={(e) => updateFuelParam("kmPerDay", toNumber(e.target.value))}
+                                className={inputClass}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs text-muted-foreground">Consumo auto (km/litro)</label>
+                              <Input
+                                type="text" inputMode="numeric"
+                                placeholder="10"
+                                value={fuelParams.kmPerLiter ? fmtN(fuelParams.kmPerLiter) : ""}
+                                onChange={(e) => updateFuelParam("kmPerLiter", toNumber(e.target.value))}
+                                className={inputClass}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-xs text-muted-foreground">Precio bencina ($/litro)</label>
+                              <Input
+                                type="text" inputMode="numeric"
+                                placeholder="1250"
+                                value={fuelParams.fuelPrice ? fmtN(fuelParams.fuelPrice) : ""}
+                                onChange={(e) => updateFuelParam("fuelPrice", toNumber(e.target.value))}
+                                className={inputClass}
+                              />
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4 rounded-md bg-muted/40 px-3 py-2 text-xs">
+                            <span className="text-muted-foreground">
+                              {fuelParams.kmPerDay} km/día × 30 = <strong>{kmMes.toLocaleString("es-CL")} km/mes</strong>
+                            </span>
+                            <span className="text-muted-foreground">÷ {fuelParams.kmPerLiter} km/l = <strong>{litrosMes.toLocaleString("es-CL", { maximumFractionDigits: 1 })} litros/mes</strong></span>
+                            <span className="ml-auto font-semibold text-foreground">
+                              Costo mensual: {formatCurrency(costoMensual)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    }
+
                     return (
                       <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
                         <div className="flex items-center justify-between gap-2">
@@ -1334,9 +1421,9 @@ export function CpqQuoteCosts({
                           </div>
                         </div>
                         <Input
-                          type="number"
+                          type="text" inputMode="numeric"
                           placeholder="Precio mensual (override)"
-                          value={costItem?.unitPriceOverride ?? ""}
+                          value={costItem?.unitPriceOverride != null ? fmtN(Number(costItem.unitPriceOverride)) : ""}
                           onChange={(e) =>
                             upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
                           }
@@ -1421,9 +1508,9 @@ export function CpqQuoteCosts({
                           </div>
                         </div>
                         <Input
-                          type="number"
+                          type="text" inputMode="numeric"
                           placeholder="Precio mensual (override)"
-                          value={costItem?.unitPriceOverride ?? ""}
+                          value={costItem?.unitPriceOverride != null ? fmtN(Number(costItem.unitPriceOverride)) : ""}
                           onChange={(e) =>
                             upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
                           }
@@ -1511,9 +1598,9 @@ export function CpqQuoteCosts({
                           </div>
                         </div>
                         <Input
-                          type="number"
+                          type="text" inputMode="numeric"
                           placeholder="Precio mensual (override)"
-                          value={item.unitPriceOverride ?? ""}
+                          value={item.unitPriceOverride != null ? fmtN(Number(item.unitPriceOverride)) : ""}
                           onChange={(e) =>
                             setCostItems((prev) =>
                               prev.map((c) =>
@@ -1633,8 +1720,8 @@ export function CpqQuoteCosts({
                           <div className="space-y-1.5">
                             <Label className="text-xs">Meses a considerar</Label>
                             <Input
-                              type="number"
-                              value={parameters.policyContractMonths}
+                              type="text" inputMode="numeric"
+                              value={fmtN(parameters.policyContractMonths)}
                               onChange={(e) =>
                                 setParameters((prev) => ({
                                   ...prev,
@@ -1703,8 +1790,8 @@ export function CpqQuoteCosts({
             <div className="space-y-1.5">
               <Label className="text-xs">Meses contrato</Label>
               <Input
-                type="number"
-                value={parameters.contractMonths}
+                type="text" inputMode="numeric"
+                value={fmtN(parameters.contractMonths)}
                 onChange={(e) =>
                   setParameters((prev) => ({
                     ...prev,
@@ -1871,9 +1958,9 @@ export function CpqQuoteCosts({
                                 </div>
                               </div>
                               <Input
-                                type="number"
+                                type="text" inputMode="numeric"
                                 placeholder="Precio mensual (override)"
-                                value={selected?.unitPriceOverride ?? ""}
+                                value={selected?.unitPriceOverride != null ? fmtN(Number(selected.unitPriceOverride)) : ""}
                                 onChange={(e) =>
                                   setUniforms((prev) =>
                                     prev.map((u) =>
@@ -1970,9 +2057,9 @@ export function CpqQuoteCosts({
                                 </div>
                               </div>
                               <Input
-                                type="number"
+                                type="text" inputMode="numeric"
                                 placeholder="Precio mensual (override)"
-                                value={selected?.unitPriceOverride ?? ""}
+                                value={selected?.unitPriceOverride != null ? fmtN(Number(selected.unitPriceOverride)) : ""}
                                 onChange={(e) =>
                                   setExams((prev) =>
                                     prev.map((u) =>
@@ -2057,27 +2144,27 @@ export function CpqQuoteCosts({
                               </div>
                               <div className="grid grid-cols-2 gap-2">
                                 <Input
-                                  type="number"
+                                  type="text" inputMode="numeric"
                                   placeholder="Comidas/día"
-                                  value={meal?.mealsPerDay ?? 0}
+                                  value={fmtN(meal?.mealsPerDay ?? 0)}
                                   onChange={(e) =>
                                     updateMeal(item.name, { mealsPerDay: toNumber(e.target.value) })
                                   }
                                   className={inputClass}
                                 />
                                 <Input
-                                  type="number"
+                                  type="text" inputMode="numeric"
                                   placeholder="Días/mes"
-                                  value={meal?.daysOfService ?? 0}
+                                  value={fmtN(meal?.daysOfService ?? 0)}
                                   onChange={(e) =>
                                     updateMeal(item.name, { daysOfService: toNumber(e.target.value) })
                                   }
                                   className={inputClass}
                                 />
                                 <Input
-                                  type="number"
+                                  type="text" inputMode="numeric"
                                   placeholder="Precio mensual (override)"
-                                  value={meal?.priceOverride ?? ""}
+                                  value={meal?.priceOverride != null ? fmtN(Number(meal.priceOverride)) : ""}
                                   onChange={(e) =>
                                     updateMeal(item.name, { priceOverride: toNumber(e.target.value) })
                                   }
@@ -2142,9 +2229,9 @@ export function CpqQuoteCosts({
                                 </div>
                               </div>
                               <Input
-                                type="number"
+                                type="text" inputMode="numeric"
                                 placeholder="Precio mensual (override)"
-                                value={costItem?.unitPriceOverride ?? ""}
+                                value={costItem?.unitPriceOverride != null ? fmtN(Number(costItem.unitPriceOverride)) : ""}
                                 onChange={(e) =>
                                   upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
                                 }
@@ -2208,9 +2295,9 @@ export function CpqQuoteCosts({
                                 </div>
                               </div>
                               <Input
-                                type="number"
+                                type="text" inputMode="numeric"
                                 placeholder="Precio mensual (override)"
-                                value={costItem?.unitPriceOverride ?? ""}
+                                value={costItem?.unitPriceOverride != null ? fmtN(Number(costItem.unitPriceOverride)) : ""}
                                 onChange={(e) =>
                                   upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
                                 }
@@ -2258,6 +2345,92 @@ export function CpqQuoteCosts({
                         .filter((item) => findCostItem(item.id)?.isEnabled)
                         .map((item) => {
                           const costItem = findCostItem(item.id);
+                          const isVehicleFuel = item.type === "vehicle_fuel";
+
+                          if (isVehicleFuel) {
+                            // Parse formula params from notes
+                            let fuelParams = { kmPerDay: 0, kmPerLiter: 10, fuelPrice: 1250 };
+                            try {
+                              if (costItem?.notes) {
+                                const parsed = JSON.parse(costItem.notes);
+                                fuelParams = { ...fuelParams, ...parsed };
+                              }
+                            } catch {}
+                            const kmMes = fuelParams.kmPerDay * 30;
+                            const litrosMes = fuelParams.kmPerLiter > 0 ? kmMes / fuelParams.kmPerLiter : 0;
+                            const costoMensual = Math.round(litrosMes * fuelParams.fuelPrice);
+
+                            const updateFuelParam = (key: string, value: number) => {
+                              const updated = { ...fuelParams, [key]: value };
+                              const newKmMes = updated.kmPerDay * 30;
+                              const newLitros = updated.kmPerLiter > 0 ? newKmMes / updated.kmPerLiter : 0;
+                              const newCosto = Math.round(newLitros * updated.fuelPrice);
+                              upsertCostItem(item, {
+                                unitPriceOverride: newCosto,
+                                notes: JSON.stringify(updated),
+                              });
+                            };
+
+                            return (
+                              <div key={item.id} className={`${sectionBoxClass} space-y-2 sm:col-span-2 lg:col-span-3`}>
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-sm font-medium">{item.name}</span>
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <span>Cálculo por fórmula</span>
+                                    <button
+                                      type="button"
+                                      className="rounded-md border border-border px-2 py-1 text-xs"
+                                      onClick={() => upsertCostItem(item, { isEnabled: false })}
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                </div>
+                                <div className="grid gap-2 sm:grid-cols-3">
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-muted-foreground">Km recorridos/día</label>
+                                    <Input
+                                      type="text" inputMode="numeric"
+                                      placeholder="Ej: 50"
+                                      value={fuelParams.kmPerDay ? fmtN(fuelParams.kmPerDay) : ""}
+                                      onChange={(e) => updateFuelParam("kmPerDay", toNumber(e.target.value))}
+                                      className={inputClass}
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-muted-foreground">Consumo auto (km/litro)</label>
+                                    <Input
+                                      type="text" inputMode="numeric"
+                                      placeholder="10"
+                                      value={fuelParams.kmPerLiter ? fmtN(fuelParams.kmPerLiter) : ""}
+                                      onChange={(e) => updateFuelParam("kmPerLiter", toNumber(e.target.value))}
+                                      className={inputClass}
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-xs text-muted-foreground">Precio bencina ($/litro)</label>
+                                    <Input
+                                      type="text" inputMode="numeric"
+                                      placeholder="1250"
+                                      value={fuelParams.fuelPrice ? fmtN(fuelParams.fuelPrice) : ""}
+                                      onChange={(e) => updateFuelParam("fuelPrice", toNumber(e.target.value))}
+                                      className={inputClass}
+                                    />
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-4 rounded-md bg-muted/40 px-3 py-2 text-xs">
+                                  <span className="text-muted-foreground">
+                                    {fuelParams.kmPerDay} km/día × 30 = <strong>{kmMes.toLocaleString("es-CL")} km/mes</strong>
+                                  </span>
+                                  <span className="text-muted-foreground">÷ {fuelParams.kmPerLiter} km/l = <strong>{litrosMes.toLocaleString("es-CL", { maximumFractionDigits: 1 })} litros/mes</strong></span>
+                                  <span className="ml-auto font-semibold text-foreground">
+                                    Costo mensual: {formatCurrency(costoMensual)}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          }
+
                           return (
                             <div key={item.id} className={`${sectionBoxClass} space-y-2`}>
                               <div className="flex items-center justify-between gap-2">
@@ -2274,9 +2447,9 @@ export function CpqQuoteCosts({
                                 </div>
                               </div>
                               <Input
-                                type="number"
+                                type="text" inputMode="numeric"
                                 placeholder="Precio mensual (override)"
-                                value={costItem?.unitPriceOverride ?? ""}
+                                value={costItem?.unitPriceOverride != null ? fmtN(Number(costItem.unitPriceOverride)) : ""}
                                 onChange={(e) =>
                                   upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
                                 }
@@ -2340,9 +2513,9 @@ export function CpqQuoteCosts({
                                 </div>
                               </div>
                               <Input
-                                type="number"
+                                type="text" inputMode="numeric"
                                 placeholder="Precio mensual (override)"
-                                value={costItem?.unitPriceOverride ?? ""}
+                                value={costItem?.unitPriceOverride != null ? fmtN(Number(costItem.unitPriceOverride)) : ""}
                                 onChange={(e) =>
                                   upsertCostItem(item, { unitPriceOverride: toNumber(e.target.value) })
                                 }
@@ -2409,9 +2582,9 @@ export function CpqQuoteCosts({
                                 </div>
                               </div>
                               <Input
-                                type="number"
+                                type="text" inputMode="numeric"
                                 placeholder="Precio mensual (override)"
-                                value={item.unitPriceOverride ?? ""}
+                                value={item.unitPriceOverride != null ? fmtN(Number(item.unitPriceOverride)) : ""}
                                 onChange={(e) =>
                                   setCostItems((prev) =>
                                     prev.map((c) =>
@@ -2526,8 +2699,8 @@ export function CpqQuoteCosts({
                                     <div className="space-y-1.5">
                                       <Label className="text-xs">Meses a considerar</Label>
                                       <Input
-                                        type="number"
-                                        value={parameters.policyContractMonths}
+                                        type="text" inputMode="numeric"
+                                        value={fmtN(parameters.policyContractMonths)}
                                         onChange={(e) =>
                                           setParameters((prev) => ({
                                             ...prev,
@@ -2591,8 +2764,8 @@ export function CpqQuoteCosts({
                       <div className="space-y-1.5">
                         <Label className="text-xs">Meses contrato</Label>
                         <Input
-                          type="number"
-                          value={parameters.contractMonths}
+                          type="text" inputMode="numeric"
+                          value={fmtN(parameters.contractMonths)}
                           onChange={(e) =>
                             setParameters((prev) => ({
                               ...prev,

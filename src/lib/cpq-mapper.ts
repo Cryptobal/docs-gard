@@ -21,6 +21,7 @@ interface CpqMapperInput {
     validUntil?: Date | string | null;
     notes?: string | null;
     aiDescription?: string | null;
+    serviceDetail?: string | null;
     currency?: string;
   };
   positions: Array<{
@@ -205,6 +206,7 @@ export function mapCpqDataToPresentation(
 
       // S23 - Propuesta Económica (datos reales del CPQ)
       s23_propuesta_economica: {
+        serviceDetail: (quote.serviceDetail as string) || undefined,
         pricing: {
           items: positions.map((pos) => {
             const salePriceClp =

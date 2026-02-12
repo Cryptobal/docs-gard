@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
-type Status = 'draft' | 'sent' | 'approved' | 'rejected' | 'viewed' | 'open' | 'won' | 'lost' | 'active' | 'inactive' | 'pending' | 'postulante' | 'seleccionado' | 'contratado_activo' | 'desvinculado';
+type Status = 'draft' | 'sent' | 'approved' | 'rejected' | 'viewed' | 'open' | 'won' | 'lost' | 'active' | 'inactive' | 'pending' | 'in_review' | 'postulante' | 'seleccionado' | 'contratado_activo' | 'desvinculado';
 
 interface StatusBadgeProps {
   status: Status | string;
@@ -20,6 +20,7 @@ const STATUS_MAP: Record<Status, { label: string; variant: 'default' | 'secondar
   active: { label: 'Activo', variant: 'success' },
   inactive: { label: 'Inactivo', variant: 'secondary' },
   pending: { label: 'Pendiente', variant: 'warning' },
+  in_review: { label: 'En revisión', variant: 'default' },
   postulante: { label: 'Postulante', variant: 'outline' },
   seleccionado: { label: 'Seleccionado', variant: 'default' },
   contratado_activo: { label: 'Contratado activo', variant: 'success' },

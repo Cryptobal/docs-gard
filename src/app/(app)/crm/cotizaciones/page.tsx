@@ -71,7 +71,7 @@ export default async function CrmCotizacionesPage() {
   const enrichedQuotes = await Promise.all(
     quotes.map(async (q) => {
       let salePriceMonthly = Number(q.parameters?.salePriceMonthly ?? 0);
-      const marginPct = Number(q.parameters?.marginPct ?? 20);
+      const marginPct = Number(q.parameters?.marginPct ?? 13);
       if (salePriceMonthly <= 0) {
         try {
           const summary = await computeCpqQuoteCosts(q.id);

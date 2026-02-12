@@ -64,7 +64,7 @@ const DEFAULT_PARAMS: CpqQuoteParameters = {
   policyContractPct: 20,
   contractMonths: 12,
   contractAmount: 0,
-  marginPct: 20,
+  marginPct: 13,
 };
 
 function roundUpToNice(value: number): number {
@@ -85,7 +85,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
   const [meals, setMeals] = useState<CpqQuoteMeal[]>([]);
   const [vehicles, setVehicles] = useState<CpqQuoteVehicle[]>([]);
   const [infrastructure, setInfrastructure] = useState<CpqQuoteInfrastructure[]>([]);
-  const [marginPct, setMarginPct] = useState(20);
+  const [marginPct, setMarginPct] = useState(13);
   const [cloning, setCloning] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -121,8 +121,10 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
     currency: "CLP" as string,
   });
   const [generatingAi, setGeneratingAi] = useState(false);
+  const [generatingServiceDetail, setGeneratingServiceDetail] = useState(false);
   const [ufValue, setUfValue] = useState<number | null>(null);
   const [aiCustomInstruction, setAiCustomInstruction] = useState("");
+  const [serviceDetailInstruction, setServiceDetailInstruction] = useState("");
 
   // Inline creation modals
   const [inlineCreateType, setInlineCreateType] = useState<"account" | "installation" | "contact" | "deal" | null>(null);
@@ -287,7 +289,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
             ? { ...costsData.data.parameters, financialEnabled: true }
             : null
         );
-        setMarginPct(costsData.data.parameters?.marginPct ?? 20);
+        setMarginPct(costsData.data.parameters?.marginPct ?? 13);
         setCostItems(costsData.data.costItems || []);
         setUniforms(costsData.data.uniforms || []);
         setExams(costsData.data.exams || []);
@@ -305,6 +307,13 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
   useEffect(() => {
     refresh();
   }, [quoteId]);
+
+  // Refresh data when navigating to Resumen or Documento steps
+  useEffect(() => {
+    if (activeStep >= 3) {
+      refresh();
+    }
+  }, [activeStep]);
 
   useEffect(() => {
     if (activeStep !== 3 || !costSummary || !costParams) return;
@@ -433,6 +442,31 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
       toast.error("No se pudo generar la descripción AI");
     } finally {
       setGeneratingAi(false);
+    }
+  };
+
+  const generateServiceDetail = async () => {
+    setGeneratingServiceDetail(true);
+    try {
+      const res = await fetch("/api/ai/quote-service-detail", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          quoteId,
+          customInstruction: serviceDetailInstruction.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      if (quote) {
+        setQuote({ ...quote, serviceDetail: data.data.serviceDetail });
+      }
+      toast.success(serviceDetailInstruction.trim() ? "Detalle refinado con AI" : "Detalle de servicio generado con AI");
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo generar el detalle de servicio");
+    } finally {
+      setGeneratingServiceDetail(false);
     }
   };
 
@@ -661,6 +695,63 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
   const policyEnabled = costParams?.policyEnabled ?? false;
   const salePriceBase = Number(costParams?.salePriceBase ?? 0);
   const monthlyTotal = costSummary?.monthlyTotal ?? stats.monthly + additionalCostsTotal;
+
+  // Per-category cost breakdown for the Resumen step (breaks down monthlyCostItems by type)
+  const costCategoryBreakdown = useMemo(() => {
+    const totalGuards = costSummary?.totalGuards ?? 0;
+    const normalizeUnit = (value: number, unit?: string | null) => {
+      if (!unit) return value;
+      const n = unit.toLowerCase();
+      if (n.includes("año") || n.includes("year")) return value / 12;
+      if (n.includes("semestre") || n.includes("semester")) return value / 6;
+      return value;
+    };
+    const sumByType = (types: string[]) =>
+      costItems.reduce((sum, item) => {
+        if (!item.isEnabled) return sum;
+        const cat = item.catalogItem;
+        if (!cat || !types.includes(cat.type)) return sum;
+        const base = Number(cat.basePrice || 0);
+        const override = item.unitPriceOverride != null ? Number(item.unitPriceOverride) : null;
+        const unitPrice = normalizeUnit(override ?? base, cat.unit);
+        const quantity = Number(item.quantity ?? 1);
+        if (item.calcMode === "per_guard") return sum + unitPrice * quantity * totalGuards;
+        return sum + unitPrice * quantity;
+      }, 0);
+
+    const dedicatedVehicles = vehicles.reduce((sum, v) => {
+      if (!v.isEnabled) return sum;
+      const kmPerDay = Number(v.kmPerDay || 0);
+      const daysPerMonth = Number(v.daysPerMonth || 0);
+      const kmPerLiter = Number(v.kmPerLiter || 0);
+      const liters = kmPerLiter > 0 ? (kmPerDay * daysPerMonth) / kmPerLiter : 0;
+      const fuelCost = liters * Number(v.fuelPrice || 0);
+      const monthly = Number(v.rentMonthly || 0) + Number(v.maintenanceMonthly || 0) + fuelCost;
+      return sum + monthly * v.vehiclesCount;
+    }, 0);
+
+    const dedicatedInfra = infrastructure.reduce((sum, inf) => {
+      if (!inf.isEnabled) return sum;
+      const base = Number(inf.rentMonthly || 0);
+      let fuelCost = 0;
+      if (inf.hasFuel) {
+        const liters =
+          Number(inf.fuelLitersPerHour || 0) *
+          Number(inf.fuelHoursPerDay || 0) *
+          Number(inf.fuelDaysPerMonth || 0);
+        fuelCost = liters * Number(inf.fuelPrice || 0);
+      }
+      return sum + (base + fuelCost) * inf.quantity;
+    }, 0);
+
+    return {
+      equipment: sumByType(["phone", "radio", "flashlight"]),
+      transport: sumByType(["transport"]),
+      vehicle: sumByType(["vehicle_rent", "vehicle_fuel", "vehicle_tag"]) + dedicatedVehicles,
+      infra: sumByType(["infrastructure", "fuel"]) + dedicatedInfra,
+      system: sumByType(["system"]),
+    };
+  }, [costItems, vehicles, infrastructure, costSummary?.totalGuards]);
 
   // Sale price calculation (same formula as CpqPricingCalc)
   const salePriceMonthly = useMemo(() => {
@@ -1309,11 +1400,11 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
             uniformTotal={costSummary?.monthlyUniforms ?? 0}
             examTotal={costSummary?.monthlyExams ?? 0}
             mealTotal={costSummary?.monthlyMeals ?? 0}
-            operationalTotal={costSummary ? (costSummary.monthlyCostItems || 0) : 0}
-            transportTotal={0}
-            vehicleTotal={0}
-            infraTotal={0}
-            systemTotal={0}
+            operationalTotal={costCategoryBreakdown.equipment}
+            transportTotal={costCategoryBreakdown.transport}
+            vehicleTotal={costCategoryBreakdown.vehicle}
+            infraTotal={costCategoryBreakdown.infra}
+            systemTotal={costCategoryBreakdown.system}
             financialRatePct={financialRatePct}
             policyRatePct={policyRatePct}
             policyContractMonths={policyContractMonths}
@@ -1565,6 +1656,50 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
               />
             </div>
 
+            {/* Service Detail */}
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Detalle del servicio</Label>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 text-xs"
+                  onClick={generateServiceDetail}
+                  disabled={generatingServiceDetail}
+                >
+                  {generatingServiceDetail ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5" />
+                  )}
+                  {generatingServiceDetail ? "Generando..." : serviceDetailInstruction.trim() ? "Refinar con AI" : "Generar con AI"}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Genera un resumen de lo que incluye el servicio (uniformes, exámenes, alimentación, equipos, etc.). Aparecerá en la propuesta.
+              </p>
+              <Input
+                value={serviceDetailInstruction}
+                onChange={(e) => setServiceDetailInstruction(e.target.value)}
+                placeholder="Instrucción para ajustar el detalle (ej: «más detallado», «mencionar turnos 4x4») — opcional"
+                className="h-9 text-sm"
+              />
+              <textarea
+                value={quote.serviceDetail ?? ""}
+                onChange={(e) => {
+                  setQuote({ ...quote, serviceDetail: e.target.value });
+                  fetch(`/api/cpq/quotes/${quoteId}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ serviceDetail: e.target.value }),
+                  }).catch(() => {});
+                }}
+                placeholder="Haz clic en 'Generar con AI' para crear un detalle profesional de lo que incluye el servicio..."
+                className="w-full min-h-[120px] rounded-md border border-input bg-background px-3 py-2 text-sm resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                rows={5}
+              />
+            </div>
+
             {/* Document Preview */}
             <div className="rounded-md border border-border overflow-hidden">
               <div className="bg-muted/30 px-4 py-3 border-b">
@@ -1634,6 +1769,17 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
                     </tbody>
                   </table>
                 </div>
+
+                {quote.serviceDetail && (
+                  <div className="mt-2">
+                    <p className="text-xs font-semibold border-b pb-1 mb-2" style={{ color: "#1e3a5f" }}>
+                      Detalle del servicio
+                    </p>
+                    <div className="text-xs text-gray-700 whitespace-pre-line leading-relaxed">
+                      {quote.serviceDetail}
+                    </div>
+                  </div>
+                )}
 
                 <div className="text-center text-[10px] text-gray-400 border-t pt-2">
                   Generado el {new Date().toLocaleDateString("es-CL")} · www.gard.cl

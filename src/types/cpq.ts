@@ -84,6 +84,8 @@ export interface CpqQuote {
   currency?: string;
   /** AI-generated description */
   aiDescription?: string | null;
+  /** AI-generated service detail for proposal */
+  serviceDetail?: string | null;
 }
 
 export interface CpqCatalogItem {

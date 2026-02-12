@@ -3,15 +3,18 @@
 /**
  * PresentationRenderer - Componente orquestador principal
  * Renderiza una presentación completa con las 29 secciones
+ * Soporta pdfMode para generar versión optimizada para PDF (sin animaciones, layout slide)
  */
 
 import { PresentationPayload } from '@/types/presentation';
 import { ThemeProvider } from './ThemeProvider';
+import { PdfModeProvider } from './PdfModeContext';
 import { PresentationHeader } from '../layout/PresentationHeader';
 import { PresentationFooter } from '../layout/PresentationFooter';
 import { StickyCTA } from './StickyCTA';
 import { NavigationDots } from './NavigationDots';
 import { ScrollProgress } from './ScrollProgress';
+import { cn } from '@/lib/utils';
 
 // Import secciones implementadas
 import { Section01Hero } from './sections/Section01Hero';
@@ -45,31 +48,73 @@ import { Section27Implementacion } from './sections/Section27Implementacion';
 import { Section28Cierre } from './sections/Section28Cierre';
 import { PlaceholderSection } from './sections/PlaceholderSection';
 
+// CSS para modo PDF: cada sección ocupa una página landscape completa
+const PDF_MODE_STYLES = `
+  @page {
+    size: A4 landscape;
+    margin: 0;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+  }
+  .pdf-mode {
+    background: #0f172a;
+  }
+  .pdf-mode .pdf-slide {
+    width: 100%;
+    height: 100vh;
+    max-height: 100vh;
+    overflow: hidden;
+    page-break-after: always;
+    page-break-inside: avoid;
+    break-after: page;
+    break-inside: avoid;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .pdf-mode .pdf-slide:last-of-type {
+    page-break-after: auto;
+    break-after: auto;
+  }
+`;
+
 interface PresentationRendererProps {
   payload: PresentationPayload;
   showTokens?: boolean;
+  pdfMode?: boolean;
 }
 
-export function PresentationRenderer({ payload, showTokens = false }: PresentationRendererProps) {
+export function PresentationRenderer({ payload, showTokens = false, pdfMode = false }: PresentationRendererProps) {
   const { theme, sections, assets, cta, contact } = payload;
   
   return (
-    <ThemeProvider variant={theme}>
-      <div className="presentation-container min-h-screen">
-        {/* Progress Bar Superior */}
-        <ScrollProgress />
+    <PdfModeProvider value={pdfMode}>
+      <ThemeProvider variant={theme}>
+        {/* Estilos PDF inyectados cuando pdfMode=true */}
+        {pdfMode && (
+          <style dangerouslySetInnerHTML={{ __html: PDF_MODE_STYLES }} />
+        )}
         
-        {/* Header persistente */}
-        <PresentationHeader 
-          logo={assets.logo}
-          clientLogoUrl={payload.client.company_logo_url}
-          cta={cta}
-          contactName={`${payload.client.contact_first_name || ''} ${payload.client.contact_last_name || ''}`.trim() || payload.client.contact_name}
-          companyName={payload.client.company_name}
-          quoteName={payload.quote.subject || ''}
-          quoteNumber={payload.quote.number}
-          showTokens={showTokens}
-        />
+        <div className={cn('presentation-container min-h-screen', pdfMode && 'pdf-mode')}>
+        {/* Progress Bar Superior - oculto en PDF */}
+        {!pdfMode && <ScrollProgress />}
+        
+        {/* Header persistente - oculto en PDF */}
+        {!pdfMode && (
+          <PresentationHeader 
+            logo={assets.logo}
+            clientLogoUrl={payload.client.company_logo_url}
+            cta={cta}
+            contactName={`${payload.client.contact_first_name || ''} ${payload.client.contact_last_name || ''}`.trim() || payload.client.contact_name}
+            companyName={payload.client.company_name}
+            quoteName={payload.quote.subject || ''}
+            quoteNumber={payload.quote.number}
+            showTokens={showTokens}
+          />
+        )}
         
         {/* Secciones S01-S29 */}
         <main>
@@ -191,26 +236,29 @@ export function PresentationRenderer({ payload, showTokens = false }: Presentati
           {/* S29 - Contacto ELIMINADO (redundante con Footer) */}
         </main>
         
-        {/* Footer */}
-        <PresentationFooter 
-          logo={assets.logo}
-          contact={{
-            name: 'Equipo Comercial',
-            email: 'comercial@gard.cl',
-            phone: '+56 9 8230 7771',
-            position: 'Gerente Comercial'
-          }}
-          address={sections.s29_contacto.address}
-          website={sections.s29_contacto.website}
-          social_media={sections.s29_contacto.social_media}
-        />
+        {/* Footer - oculto en PDF */}
+        {!pdfMode && (
+          <PresentationFooter 
+            logo={assets.logo}
+            contact={{
+              name: 'Equipo Comercial',
+              email: 'comercial@gard.cl',
+              phone: '+56 9 8230 7771',
+              position: 'Gerente Comercial'
+            }}
+            address={sections.s29_contacto.address}
+            website={sections.s29_contacto.website}
+            social_media={sections.s29_contacto.social_media}
+          />
+        )}
         
-        {/* CTA Sticky (Mobile) */}
-        <StickyCTA cta={cta} />
+        {/* CTA Sticky (Mobile) - oculto en PDF */}
+        {!pdfMode && <StickyCTA cta={cta} />}
         
-        {/* Índice de Navegación Lateral */}
-        <NavigationDots />
+        {/* Índice de Navegación Lateral - oculto en PDF */}
+        {!pdfMode && <NavigationDots />}
       </div>
-    </ThemeProvider>
+      </ThemeProvider>
+    </PdfModeProvider>
   );
 }

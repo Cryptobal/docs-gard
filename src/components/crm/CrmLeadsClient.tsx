@@ -16,7 +16,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { CrmLead } from "@/types";
-import { Plus, Loader2, AlertTriangle, Trash2, ChevronRight, UserPlus, Phone, Mail, MessageSquare, Clock, Users, Calendar, Briefcase, MapPin, X, Copy, ExternalLink, Mailbox } from "lucide-react";
+import { Plus, Loader2, AlertTriangle, Trash2, ChevronRight, UserPlus, Phone, Mail, MessageSquare, Clock, Users, Calendar, Briefcase, MapPin, X, Copy, ExternalLink, Mailbox, Sparkles } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { StatusBadge } from "@/components/opai/StatusBadge";
 import { EmptyState } from "@/components/opai/EmptyState";
@@ -60,6 +60,20 @@ const WEEKDAYS = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado",
 const WEEKDAYS_SHORT: Record<string, string> = {
   lunes: "Lu", martes: "Ma", miercoles: "Mi", jueves: "Ju", viernes: "Vi", sabado: "Sa", domingo: "Do",
 };
+
+/** Grupos de costos para preselección en modal de aprobación (alineado con CpqCatalogConfig) */
+const COST_GROUPS_DIRECTOS = [
+  { id: "uniform", label: "Uniformes" },
+  { id: "exam", label: "Exámenes" },
+  { id: "meal", label: "Alimentación" },
+] as const;
+const COST_GROUPS_INDIRECTOS = [
+  { id: "equipment", label: "Equipos operativos" },
+  { id: "transport", label: "Costos de transporte" },
+  { id: "vehicle", label: "Vehículos" },
+  { id: "infrastructure", label: "Infraestructura" },
+  { id: "system", label: "Sistemas" },
+] as const;
 const DAY_START_OPTIONS = ["07:00", "07:30", "08:00", "08:30", "09:00", "09:30"] as const;
 
 type CpqCatalogOption = { id: string; name: string };
@@ -235,7 +249,7 @@ type ExistingContact = { id: string; firstName: string | null; lastName: string 
 type InstallationConflict = { name: string; id: string };
 type DocTemplateForReject = { id: string; name: string; content: unknown; module: string };
 
-type LeadStatusFilter = "all" | "pending" | "approved" | "rejected";
+type LeadStatusFilter = "all" | "pending" | "in_review" | "approved" | "rejected";
 type LeadRejectReason =
   | "spot_service"
   | "out_of_scope"
@@ -297,6 +311,7 @@ function getLeadRejectionInfo(metadata: unknown): {
 
 function getLeadFilterLabel(filter: LeadStatusFilter): string | null {
   if (filter === "pending") return "Mostrando leads pendientes";
+  if (filter === "in_review") return "Mostrando leads en revisión";
   if (filter === "approved") return "Mostrando leads aprobados";
   if (filter === "rejected") return "Mostrando leads rechazados";
   return null;
@@ -322,6 +337,7 @@ export function CrmLeadsClient({
   const [approveOpen, setApproveOpen] = useState(false);
   const [approveLeadId, setApproveLeadId] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
+  const [savingLead, setSavingLead] = useState(false);
   const [duplicates, setDuplicates] = useState<DuplicateAccount[]>([]);
   const [existingContact, setExistingContact] = useState<ExistingContact | null>(null);
   const [installationConflicts, setInstallationConflicts] = useState<InstallationConflict[]>([]);
@@ -347,6 +363,8 @@ export function CrmLeadsClient({
     companyInfo: "",
     notes: "",
   });
+  const [selectedCostGroups, setSelectedCostGroups] = useState<string[]>([]);
+  const [inferringCosts, setInferringCosts] = useState(false);
   const [installations, setInstallations] = useState<InstallationDraft[]>([]);
 
   const [industries, setIndustries] = useState<{ id: string; name: string }[]>([]);
@@ -463,6 +481,7 @@ export function CrmLeadsClient({
   const counts = useMemo(() => ({
     total: leads.filter((l) => l.status !== "approved").length,
     pending: leads.filter((l) => l.status === "pending").length,
+    in_review: leads.filter((l) => l.status === "in_review").length,
     approved: leads.filter((l) => l.status === "approved").length,
     rejected: leads.filter((l) => l.status === "rejected").length,
   }), [leads]);
@@ -644,31 +663,43 @@ export function CrmLeadsClient({
     const str = (source: Record<string, unknown> | null, key: string): string =>
       source && typeof source[key] === "string" ? (source[key] as string) : "";
 
+    // Restore draft fields if lead was previously saved in review
+    const draft =
+      meta?.approveFormDraft && typeof meta.approveFormDraft === "object" && !Array.isArray(meta.approveFormDraft)
+        ? (meta.approveFormDraft as Record<string, unknown>)
+        : null;
+
     setApproveForm({
       accountName: lead.companyName || "",
-      legalName: str(companyEnrichment, "legalName") || str(emailExtracted, "legalName") || "",
+      legalName: str(draft, "legalName") || str(companyEnrichment, "legalName") || str(emailExtracted, "legalName") || "",
       legalRepresentativeName:
-        str(companyEnrichment, "legalRepresentativeName") || str(emailExtracted, "legalRepresentativeName") || "",
+        str(draft, "legalRepresentativeName") || str(companyEnrichment, "legalRepresentativeName") || str(emailExtracted, "legalRepresentativeName") || "",
       legalRepresentativeRut:
-        str(companyEnrichment, "legalRepresentativeRut") || "",
+        str(draft, "legalRepresentativeRut") || str(companyEnrichment, "legalRepresentativeRut") || "",
       contactFirstName: lead.firstName || "",
       contactLastName: lead.lastName || "",
       email: lead.email || "",
       phone: lead.phone || "",
-      dealTitle: `Oportunidad ${lead.companyName || fullName || ""}`.trim(),
+      dealTitle: str(draft, "dealTitle") || `Oportunidad ${lead.companyName || fullName || ""}`.trim(),
       rut:
-        str(companyEnrichment, "accountRut") || str(emailExtracted, "rut") || "",
+        str(draft, "rut") || str(companyEnrichment, "accountRut") || str(emailExtracted, "rut") || "",
       industry:
-        str(companyEnrichment, "industry") ||
+        str(draft, "industry") || str(companyEnrichment, "industry") ||
         lead.industry ||
         "",
       segment:
-        str(companyEnrichment, "segment") || "",
-      roleTitle: str(emailExtracted, "contactRole") || "",
+        str(draft, "segment") || str(companyEnrichment, "segment") || "",
+      roleTitle: str(draft, "roleTitle") || str(emailExtracted, "contactRole") || "",
       website: (lead as any).website || extractWebsiteFromEmail(lead.email || ""),
-      companyInfo: "",
+      companyInfo: str(draft, "companyInfo") || "",
       notes: lead.notes || "",
     });
+    const draftCostGroups = draft?.selectedCostGroups;
+    const restoredCostGroups =
+      Array.isArray(draftCostGroups) && draftCostGroups.every((x) => typeof x === "string")
+        ? (draftCostGroups as string[])
+        : [];
+    setSelectedCostGroups(restoredCostGroups);
     setDetectedCompanyLogoUrl(null);
 
     // Pre-crear una instalación con la dirección, coordenadas y dotación del lead
@@ -861,6 +892,56 @@ export function CrmLeadsClient({
       .catch(() => setInstallationConflicts([]));
   }, [approveOpen, approveLeadId, useExistingAccountId, approveForm.accountName, installationNamesKey]);
 
+  // ── Guardar cambios del lead sin aprobar (estado → in_review) ──
+  const saveLeadDraft = async () => {
+    if (!approveLeadId) return;
+    setSavingLead(true);
+    try {
+      const payload: Record<string, unknown> = {
+        companyName: approveForm.accountName.trim() || null,
+        firstName: approveForm.contactFirstName.trim() || null,
+        lastName: approveForm.contactLastName.trim() || null,
+        email: approveForm.email.trim() || null,
+        phone: approveForm.phone.trim() || null,
+        notes: approveForm.notes.trim() || null,
+        industry: approveForm.industry.trim() || null,
+        website: approveForm.website.trim() || null,
+        status: "in_review",
+        metadata: {
+          ...(approvingLead?.metadata && typeof approvingLead.metadata === "object" ? approvingLead.metadata : {}),
+          approveFormDraft: {
+            rut: approveForm.rut,
+            legalName: approveForm.legalName,
+            legalRepresentativeName: approveForm.legalRepresentativeName,
+            legalRepresentativeRut: approveForm.legalRepresentativeRut,
+            segment: approveForm.segment,
+            roleTitle: approveForm.roleTitle,
+            dealTitle: approveForm.dealTitle,
+            companyInfo: approveForm.companyInfo,
+            selectedCostGroups,
+          },
+        },
+      };
+      const res = await fetch(`/api/crm/leads/${approveLeadId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Error al guardar");
+      setLeads((prev) =>
+        prev.map((l) => (l.id === approveLeadId ? { ...l, ...data.data } : l))
+      );
+      setApproveOpen(false);
+      toast.success("Lead guardado en revisión");
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "No se pudo guardar el lead");
+    } finally {
+      setSavingLead(false);
+    }
+  };
+
   const approveLead = async () => {
     if (!approveLeadId) return;
     const accountNameToUse = useExistingAccountId ? "" : approveForm.accountName.trim();
@@ -890,6 +971,7 @@ export function CrmLeadsClient({
         contactResolution: existingContact ? contactResolution : undefined,
         contactId: (existingContact && (contactResolution === "overwrite" || contactResolution === "use_existing")) ? existingContact.id : undefined,
         installations: instPayload,
+        selectedCostGroups,
       };
 
       if (!duplicateChecked) {
@@ -1105,6 +1187,7 @@ export function CrmLeadsClient({
   const statusFilters = [
     { key: "all", label: "Todos", count: counts.total },
     { key: "pending", label: "Pendientes", count: counts.pending },
+    { key: "in_review", label: "En revisión", count: counts.in_review },
     { key: "approved", label: "Aprobados", count: counts.approved },
     { key: "rejected", label: "Rechazados", count: counts.rejected },
   ];
@@ -1986,16 +2069,119 @@ export function CrmLeadsClient({
               <p className="text-[10px] text-muted-foreground">
                 Solo se crearán instalaciones con nombre. La dotación se guarda como referencia para el negocio.
               </p>
+
+              {/* Costos incluidos - preselección para la cotización */}
+              <div className="space-y-3 pt-4 border-t border-border/60">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Costos incluidos
+                    </span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                    disabled={!approveLeadId || inferringCosts}
+                    onClick={async () => {
+                      if (!approveLeadId) return;
+                      setInferringCosts(true);
+                      try {
+                        const res = await fetch("/api/ai/lead-cost-inference", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ leadId: approveLeadId }),
+                        });
+                        const data = await res.json();
+                        if (data.success && Array.isArray(data.groupIds)) {
+                          setSelectedCostGroups(data.groupIds);
+                          toast.success("Sugerencia aplicada. Puedes ajustar los checkboxes.");
+                        } else {
+                          toast.error(data?.error || "No se pudo obtener la sugerencia");
+                        }
+                      } catch {
+                        toast.error("Error al sugerir costos");
+                      } finally {
+                        setInferringCosts(false);
+                      }
+                    }}
+                  >
+                    {inferringCosts ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    Sugerir con IA
+                  </Button>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Marca qué ítems de costo incluir en la cotización. Los montos se configuran después en el cotizador.
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2 rounded-md border border-border/60 bg-muted/10 p-3">
+                    <span className="text-[10px] font-medium uppercase text-muted-foreground">Directos</span>
+                    <div className="flex flex-wrap gap-3">
+                      {COST_GROUPS_DIRECTOS.map((g) => (
+                        <label key={g.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                          <input
+                            type="checkbox"
+                            checked={selectedCostGroups.includes(g.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedCostGroups((prev) => [...prev, g.id]);
+                              } else {
+                                setSelectedCostGroups((prev) => prev.filter((id) => id !== g.id));
+                              }
+                            }}
+                            className="rounded border-border"
+                          />
+                          {g.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2 rounded-md border border-border/60 bg-muted/10 p-3">
+                    <span className="text-[10px] font-medium uppercase text-muted-foreground">Indirectos</span>
+                    <div className="flex flex-wrap gap-3">
+                      {COST_GROUPS_INDIRECTOS.map((g) => (
+                        <label key={g.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                          <input
+                            type="checkbox"
+                            checked={selectedCostGroups.includes(g.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedCostGroups((prev) => [...prev, g.id]);
+                              } else {
+                                setSelectedCostGroups((prev) => prev.filter((id) => id !== g.id));
+                              }
+                            }}
+                            className="rounded border-border"
+                          />
+                          {g.label}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-          <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setApproveOpen(false)} disabled={approving}>
+          <DialogFooter className="mt-4 flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setApproveOpen(false)} disabled={approving || savingLead}>
               Cancelar
             </Button>
-            <Button onClick={approveLead} disabled={approving}>
-              {approving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {duplicates.length > 0 ? "Crear de todos modos" : "Confirmar aprobación"}
-            </Button>
+            <div className="flex gap-2 sm:ml-auto">
+              <Button variant="secondary" onClick={saveLeadDraft} disabled={approving || savingLead}>
+                {savingLead && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Guardar en revisión
+              </Button>
+              <Button onClick={approveLead} disabled={approving || savingLead}>
+                {approving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {duplicates.length > 0 ? "Crear de todos modos" : "Confirmar aprobación"}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2185,10 +2371,10 @@ export function CrmLeadsClient({
                     <div className="flex items-center justify-between pt-1">
                       <CrmDates createdAt={lead.createdAt} />
                       <div className="flex items-center gap-1">
-                        {lead.status === "pending" && (
+                        {(lead.status === "pending" || lead.status === "in_review") && (
                           <>
                             <Button onClick={() => openApproveModal(lead)} size="sm" className="h-7 text-xs">
-                              Aprobar
+                              {lead.status === "in_review" ? "Revisar" : "Aprobar"}
                             </Button>
                             <Button
                               onClick={() => openRejectModal(lead)}
@@ -2349,13 +2535,13 @@ export function CrmLeadsClient({
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        {lead.status === "pending" && (
+                        {(lead.status === "pending" || lead.status === "in_review") && (
                           <>
                             <Button
                               onClick={() => openApproveModal(lead)}
                               size="sm"
                             >
-                              Revisar y aprobar
+                              {lead.status === "in_review" ? "Revisar" : "Revisar y aprobar"}
                             </Button>
                             <Button
                               onClick={() => openRejectModal(lead)}
