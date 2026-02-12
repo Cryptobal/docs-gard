@@ -54,8 +54,26 @@ export default async function CrmCotizacionesPage() {
     }),
   ]);
 
+  const quoteIds = quotes.map((q) => q.id);
+  const quoteDealLinks =
+    quoteIds.length > 0
+      ? await prisma.crmDealQuote.findMany({
+          where: { tenantId, quoteId: { in: quoteIds } },
+          orderBy: { createdAt: "desc" },
+          select: { quoteId: true, dealId: true },
+        })
+      : [];
+  const fallbackDealByQuoteId = new Map<string, string>();
+  for (const link of quoteDealLinks) {
+    if (!fallbackDealByQuoteId.has(link.quoteId)) {
+      fallbackDealByQuoteId.set(link.quoteId, link.dealId);
+    }
+  }
+
   // Resolver nombres de negocio y cuenta
-  const dealIds = quotes.map((q) => q.dealId).filter((id): id is string => Boolean(id));
+  const dealIds = quotes
+    .map((q) => q.dealId || fallbackDealByQuoteId.get(q.id))
+    .filter((id): id is string => Boolean(id));
   const accountIds = quotes.map((q) => q.accountId).filter((id): id is string => Boolean(id));
   const [dealsMap, accountsMap] = await Promise.all([
     dealIds.length > 0
@@ -69,6 +87,7 @@ export default async function CrmCotizacionesPage() {
   // Enriquecer con salePriceMonthly calculado si está en 0
   const enrichedQuotes = await Promise.all(
     quotes.map(async (q) => {
+      const effectiveDealId = q.dealId || fallbackDealByQuoteId.get(q.id) || null;
       let salePriceMonthly = Number(q.parameters?.salePriceMonthly ?? 0);
       const marginPct = Number(q.parameters?.marginPct ?? 20);
       if (salePriceMonthly <= 0) {
@@ -102,7 +121,7 @@ export default async function CrmCotizacionesPage() {
         totalGuards: q.totalGuards,
         createdAt: q.createdAt,
         updatedAt: q.updatedAt,
-        dealTitle: (q.dealId && dealsMap.get(q.dealId)) || null,
+        dealTitle: (effectiveDealId && dealsMap.get(effectiveDealId)) || null,
         accountName: (q.accountId && accountsMap.get(q.accountId)) || null,
       };
     })

@@ -9,7 +9,9 @@
     "lint": "next lint",
     "postinstall": "prisma generate",
     "generate-icons": "node scripts/generate-gard-icons.mjs",
-    "migrate:soho": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/migrate-soho-crm.ts"
+    "migrate:soho": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/migrate-soho-crm.ts",
+    "audit:tenant-quadrature": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/audit-tenant-quadrature.ts",
+    "repair:tenant-quadrature": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/audit-tenant-quadrature.ts --apply"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"

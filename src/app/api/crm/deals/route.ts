@@ -9,29 +9,83 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { createDealSchema } from "@/lib/validations/crm";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const accountId = request.nextUrl.searchParams.get("accountId") || undefined;
 
     const deals = await prisma.crmDeal.findMany({
-      where: { tenantId: ctx.tenantId },
-      include: {
-        account: {
-          select: {
-            id: true,
-            name: true,
-            type: true,
-            status: true,
-          },
-        },
-        stage: true,
-        primaryContact: true,
+      where: {
+        tenantId: ctx.tenantId,
+        ...(accountId ? { accountId } : {}),
       },
+      include: { stage: true },
       orderBy: { createdAt: "desc" },
     });
 
-    return NextResponse.json({ success: true, data: deals });
+    const accountIds = Array.from(new Set(deals.map((deal) => deal.accountId)));
+    const primaryContactIds = Array.from(
+      new Set(
+        deals
+          .map((deal) => deal.primaryContactId)
+          .filter((id): id is string => Boolean(id))
+      )
+    );
+
+    const [accounts, contacts] = await Promise.all([
+      accountIds.length
+        ? prisma.crmAccount.findMany({
+            where: { tenantId: ctx.tenantId, id: { in: accountIds } },
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              status: true,
+            },
+          })
+        : Promise.resolve([]),
+      primaryContactIds.length
+        ? prisma.crmContact.findMany({
+            where: { tenantId: ctx.tenantId, id: { in: primaryContactIds } },
+            select: {
+              id: true,
+              accountId: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              roleTitle: true,
+              isPrimary: true,
+            },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const accountMap = new Map(accounts.map((account) => [account.id, account]));
+    const contactMap = new Map(contacts.map((contact) => [contact.id, contact]));
+
+    const sanitizedDeals = deals.map((deal) => {
+      const safeAccount = accountMap.get(deal.accountId) ?? null;
+      const safePrimaryContact = deal.primaryContactId
+        ? contactMap.get(deal.primaryContactId) ?? null
+        : null;
+      const primaryContactBelongsToAccount =
+        safePrimaryContact && safeAccount
+          ? safePrimaryContact.accountId === safeAccount.id
+          : true;
+
+      return {
+        ...deal,
+        account: safeAccount,
+        primaryContact:
+          primaryContactBelongsToAccount && safePrimaryContact
+            ? safePrimaryContact
+            : null,
+      };
+    });
+
+    return NextResponse.json({ success: true, data: sanitizedDeals });
   } catch (error) {
     console.error("Error fetching CRM deals:", error);
     return NextResponse.json(
@@ -63,6 +117,33 @@ export async function POST(request: NextRequest) {
         { success: false, error: "No hay etapas de pipeline configuradas" },
         { status: 400 }
       );
+    }
+
+    const account = await prisma.crmAccount.findFirst({
+      where: { id: body.accountId, tenantId: ctx.tenantId },
+      select: { id: true, name: true, type: true, status: true },
+    });
+    if (!account) {
+      return NextResponse.json(
+        { success: false, error: "Cuenta inválida para este tenant" },
+        { status: 400 }
+      );
+    }
+
+    if (body.primaryContactId) {
+      const contact = await prisma.crmContact.findFirst({
+        where: { id: body.primaryContactId, tenantId: ctx.tenantId },
+        select: { id: true, accountId: true },
+      });
+      if (!contact || contact.accountId !== account.id) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Contacto inválido o no pertenece a la cuenta seleccionada",
+          },
+          { status: 400 }
+        );
+      }
     }
 
     const deal = await prisma.crmDeal.create({

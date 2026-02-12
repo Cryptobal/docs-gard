@@ -57,12 +57,12 @@ const DialogContent = React.forwardRef<
       }}
       className={cn(
         // Mobile: bottom sheet style
-        "fixed inset-x-0 bottom-0 z-50 grid w-full gap-4 border-t border-border bg-card p-6 shadow-xl duration-300 rounded-t-2xl max-h-[90vh] overflow-y-auto",
+        "fixed inset-x-0 bottom-0 z-50 grid w-full gap-4 border-t border-border bg-card p-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl duration-300 rounded-t-2xl max-h-[90dvh] overflow-y-auto",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
         // Desktop: centered modal
-        "sm:inset-auto sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] sm:max-w-lg sm:rounded-lg sm:border sm:max-h-[85vh]",
+        "sm:inset-auto sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] sm:max-w-lg sm:rounded-lg sm:border sm:max-h-[85dvh]",
         "sm:data-[state=closed]:slide-out-to-left-1/2 sm:data-[state=closed]:slide-out-to-top-[48%]",
         "sm:data-[state=open]:slide-in-from-left-1/2 sm:data-[state=open]:slide-in-from-top-[48%]",
         className

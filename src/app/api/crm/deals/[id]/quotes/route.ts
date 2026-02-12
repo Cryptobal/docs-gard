@@ -47,23 +47,108 @@ export async function POST(
     if (parsed.error) return parsed.error;
     const body = parsed.data;
 
-    const link = await prisma.crmDealQuote.create({
-      data: {
-        tenantId: ctx.tenantId,
-        dealId: id,
-        quoteId: body.quoteId,
-      },
-    });
+    const [deal, quote] = await Promise.all([
+      prisma.crmDeal.findFirst({
+        where: { id, tenantId: ctx.tenantId },
+        select: {
+          id: true,
+          accountId: true,
+          primaryContactId: true,
+          title: true,
+        },
+      }),
+      prisma.cpqQuote.findFirst({
+        where: { id: body.quoteId, tenantId: ctx.tenantId },
+        select: {
+          id: true,
+          contactId: true,
+          clientName: true,
+        },
+      }),
+    ]);
 
-    await prisma.crmHistoryLog.create({
-      data: {
-        tenantId: ctx.tenantId,
-        entityType: "deal",
-        entityId: id,
-        action: "deal_quote_linked",
-        details: { quoteId: body.quoteId },
-        createdBy: ctx.userId,
-      },
+    if (!deal) {
+      return NextResponse.json(
+        { success: false, error: "Negocio no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    if (!quote) {
+      return NextResponse.json(
+        { success: false, error: "Cotización no encontrada" },
+        { status: 404 }
+      );
+    }
+
+    const safeAccount = await prisma.crmAccount.findFirst({
+      where: { id: deal.accountId, tenantId: ctx.tenantId },
+      select: { id: true, name: true },
+    });
+    if (!safeAccount) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "El negocio tiene una cuenta fuera del tenant. Corrige el negocio antes de vincular.",
+        },
+        { status: 409 }
+      );
+    }
+
+    let safePrimaryContactId: string | undefined;
+    if (deal.primaryContactId) {
+      const safePrimaryContact = await prisma.crmContact.findFirst({
+        where: { id: deal.primaryContactId, tenantId: ctx.tenantId },
+        select: { id: true, accountId: true },
+      });
+      if (safePrimaryContact && safePrimaryContact.accountId === safeAccount.id) {
+        safePrimaryContactId = safePrimaryContact.id;
+      }
+    }
+
+    const quotePatch: {
+      dealId: string;
+      accountId: string;
+      contactId?: string;
+      clientName?: string;
+    } = {
+      dealId: deal.id,
+      accountId: safeAccount.id,
+    };
+    if (!quote.contactId && safePrimaryContactId) {
+      quotePatch.contactId = safePrimaryContactId;
+    }
+    if (!quote.clientName && safeAccount.name) {
+      quotePatch.clientName = safeAccount.name;
+    }
+
+    const link = await prisma.$transaction(async (tx) => {
+      const createdLink = await tx.crmDealQuote.create({
+        data: {
+          tenantId: ctx.tenantId,
+          dealId: id,
+          quoteId: body.quoteId,
+        },
+      });
+
+      await tx.cpqQuote.update({
+        where: { id: quote.id },
+        data: quotePatch,
+      });
+
+      await tx.crmHistoryLog.create({
+        data: {
+          tenantId: ctx.tenantId,
+          entityType: "deal",
+          entityId: id,
+          action: "deal_quote_linked",
+          details: { quoteId: body.quoteId },
+          createdBy: ctx.userId,
+        },
+      });
+
+      return createdLink;
     });
 
     return NextResponse.json({ success: true, data: link }, { status: 201 });
