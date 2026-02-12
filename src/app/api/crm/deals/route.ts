@@ -33,7 +33,8 @@ export async function GET(request: NextRequest) {
       )
     );
 
-    const [accounts, contacts] = await Promise.all([
+    const stageIds = Array.from(new Set(deals.map((deal) => deal.stageId)));
+    const [accounts, contacts, stages] = await Promise.all([
       accountIds.length
         ? prisma.crmAccount.findMany({
             where: { tenantId: ctx.tenantId, id: { in: accountIds } },
@@ -60,16 +61,23 @@ export async function GET(request: NextRequest) {
             },
           })
         : Promise.resolve([]),
+      stageIds.length
+        ? prisma.crmPipelineStage.findMany({
+            where: { tenantId: ctx.tenantId, id: { in: stageIds } },
+          })
+        : Promise.resolve([]),
     ]);
 
     const accountMap = new Map(accounts.map((account) => [account.id, account]));
     const contactMap = new Map(contacts.map((contact) => [contact.id, contact]));
+    const stageMap = new Map(stages.map((stage) => [stage.id, stage]));
 
     const sanitizedDeals = deals.map((deal) => {
       const safeAccount = accountMap.get(deal.accountId) ?? null;
       const safePrimaryContact = deal.primaryContactId
         ? contactMap.get(deal.primaryContactId) ?? null
         : null;
+      const safeStage = stageMap.get(deal.stageId) ?? deal.stage;
       const primaryContactBelongsToAccount =
         safePrimaryContact && safeAccount
           ? safePrimaryContact.accountId === safeAccount.id
@@ -77,6 +85,7 @@ export async function GET(request: NextRequest) {
 
       return {
         ...deal,
+        stage: safeStage,
         account: safeAccount,
         primaryContact:
           primaryContactBelongsToAccount && safePrimaryContact

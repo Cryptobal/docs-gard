@@ -57,16 +57,7 @@ export default async function CrmDealsPage({
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
   const includeRelations = {
-    account: {
-      select: {
-        id: true,
-        name: true,
-        type: true,
-        status: true,
-      },
-    },
     stage: true,
-    primaryContact: true,
     quotes: true,
     followUpLogs: {
       where: { status: "pending" },
@@ -145,6 +136,67 @@ export default async function CrmDealsPage({
     });
   }
 
+  const accountIds = Array.from(new Set(deals.map((deal) => deal.accountId)));
+  const primaryContactIds = Array.from(
+    new Set(
+      deals
+        .map((deal) => deal.primaryContactId)
+        .filter((id): id is string => Boolean(id))
+    )
+  );
+  const stageIds = Array.from(new Set(deals.map((deal) => deal.stageId)));
+  const [safeAccounts, safeContacts, safeStages] = await Promise.all([
+    accountIds.length
+      ? prisma.crmAccount.findMany({
+          where: { tenantId, id: { in: accountIds } },
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            status: true,
+          },
+        })
+      : Promise.resolve([]),
+    primaryContactIds.length
+      ? prisma.crmContact.findMany({
+          where: { tenantId, id: { in: primaryContactIds } },
+          select: {
+            id: true,
+            accountId: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            roleTitle: true,
+            isPrimary: true,
+          },
+        })
+      : Promise.resolve([]),
+    stageIds.length
+      ? prisma.crmPipelineStage.findMany({
+          where: { tenantId, id: { in: stageIds } },
+        })
+      : Promise.resolve([]),
+  ]);
+  const accountMap = new Map(safeAccounts.map((account) => [account.id, account]));
+  const contactMap = new Map(safeContacts.map((contact) => [contact.id, contact]));
+  const stageMap = new Map(safeStages.map((stage) => [stage.id, stage]));
+  const sanitizedDeals = deals.map((deal) => {
+    const account = accountMap.get(deal.accountId) ?? null;
+    const primaryContact = deal.primaryContactId
+      ? contactMap.get(deal.primaryContactId) ?? null
+      : null;
+    return {
+      ...deal,
+      stage: stageMap.get(deal.stageId) ?? deal.stage,
+      account,
+      primaryContact:
+        primaryContact && account && primaryContact.accountId === account.id
+          ? primaryContact
+          : null,
+    };
+  });
+
   const [accounts, stages, quotes] = await Promise.all([
     prisma.crmAccount.findMany({
       where: { tenantId },
@@ -167,7 +219,7 @@ export default async function CrmDealsPage({
     }),
   ]);
 
-  const initialDeals = JSON.parse(JSON.stringify(deals));
+  const initialDeals = JSON.parse(JSON.stringify(sanitizedDeals));
   const initialAccounts = JSON.parse(JSON.stringify(accounts));
   const initialStages = JSON.parse(JSON.stringify(stages));
   const initialQuotes = JSON.parse(JSON.stringify(quotes));

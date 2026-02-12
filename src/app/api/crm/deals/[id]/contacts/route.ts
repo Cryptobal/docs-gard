@@ -20,10 +20,32 @@ export async function GET(
 
     const { id: dealId } = await params;
 
-    const dealContacts = await prisma.crmDealContact.findMany({
+    const deal = await prisma.crmDeal.findFirst({
+      where: { id: dealId, tenantId: ctx.tenantId },
+      select: { id: true },
+    });
+    if (!deal) {
+      return NextResponse.json(
+        { success: false, error: "Negocio no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    const links = await prisma.crmDealContact.findMany({
       where: { dealId, tenantId: ctx.tenantId },
-      include: {
-        contact: {
+      select: {
+        id: true,
+        dealId: true,
+        contactId: true,
+        role: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "asc" },
+    });
+    const contactIds = links.map((item) => item.contactId);
+    const contacts = contactIds.length
+      ? await prisma.crmContact.findMany({
+          where: { tenantId: ctx.tenantId, id: { in: contactIds } },
           select: {
             id: true,
             firstName: true,
@@ -33,10 +55,16 @@ export async function GET(
             roleTitle: true,
             isPrimary: true,
           },
-        },
-      },
-      orderBy: { createdAt: "asc" },
-    });
+        })
+      : [];
+    const contactMap = new Map(contacts.map((contact) => [contact.id, contact]));
+    const dealContacts = links
+      .map((link) => {
+        const contact = contactMap.get(link.contactId);
+        if (!contact) return null;
+        return { ...link, contact };
+      })
+      .filter((item): item is NonNullable<typeof item> => Boolean(item));
 
     return NextResponse.json({ success: true, data: dealContacts });
   } catch (error) {
@@ -67,6 +95,36 @@ export async function POST(
       );
     }
 
+    const deal = await prisma.crmDeal.findFirst({
+      where: { id: dealId, tenantId: ctx.tenantId },
+      select: { id: true, accountId: true },
+    });
+    if (!deal) {
+      return NextResponse.json(
+        { success: false, error: "Negocio no encontrado" },
+        { status: 404 }
+      );
+    }
+    const contact = await prisma.crmContact.findFirst({
+      where: { id: contactId, tenantId: ctx.tenantId },
+      select: { id: true, accountId: true },
+    });
+    if (!contact) {
+      return NextResponse.json(
+        { success: false, error: "Contacto inválido para este tenant" },
+        { status: 400 }
+      );
+    }
+    if (contact.accountId !== deal.accountId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "El contacto no pertenece a la cuenta del negocio",
+        },
+        { status: 400 }
+      );
+    }
+
     // If marking as primary, demote the current primary
     if (role === "primary") {
       await prisma.crmDealContact.updateMany({
@@ -75,9 +133,9 @@ export async function POST(
       });
 
       // Also update the deal's primaryContactId
-      await prisma.crmDeal.update({
-        where: { id: dealId },
-        data: { primaryContactId: contactId },
+      await prisma.crmDeal.updateMany({
+        where: { id: dealId, tenantId: ctx.tenantId },
+        data: { primaryContactId: contact.id },
       });
     }
 
@@ -85,7 +143,7 @@ export async function POST(
       data: {
         tenantId: ctx.tenantId,
         dealId,
-        contactId,
+        contactId: contact.id,
         role,
       },
       include: {
@@ -138,9 +196,26 @@ export async function DELETE(
       );
     }
 
+    const deal = await prisma.crmDeal.findFirst({
+      where: { id: dealId, tenantId: ctx.tenantId },
+      select: { id: true, primaryContactId: true },
+    });
+    if (!deal) {
+      return NextResponse.json(
+        { success: false, error: "Negocio no encontrado" },
+        { status: 404 }
+      );
+    }
+
     await prisma.crmDealContact.deleteMany({
       where: { dealId, contactId, tenantId: ctx.tenantId },
     });
+    if (deal.primaryContactId === contactId) {
+      await prisma.crmDeal.updateMany({
+        where: { id: dealId, tenantId: ctx.tenantId },
+        data: { primaryContactId: null },
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -171,6 +246,36 @@ export async function PATCH(
       );
     }
 
+    const deal = await prisma.crmDeal.findFirst({
+      where: { id: dealId, tenantId: ctx.tenantId },
+      select: { id: true, accountId: true },
+    });
+    if (!deal) {
+      return NextResponse.json(
+        { success: false, error: "Negocio no encontrado" },
+        { status: 404 }
+      );
+    }
+    const contact = await prisma.crmContact.findFirst({
+      where: { id: contactId, tenantId: ctx.tenantId },
+      select: { id: true, accountId: true },
+    });
+    if (!contact) {
+      return NextResponse.json(
+        { success: false, error: "Contacto inválido para este tenant" },
+        { status: 400 }
+      );
+    }
+    if (contact.accountId !== deal.accountId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "El contacto no pertenece a la cuenta del negocio",
+        },
+        { status: 400 }
+      );
+    }
+
     // If setting as primary, demote others
     if (role === "primary") {
       await prisma.crmDealContact.updateMany({
@@ -178,9 +283,9 @@ export async function PATCH(
         data: { role: "participant" },
       });
 
-      await prisma.crmDeal.update({
-        where: { id: dealId },
-        data: { primaryContactId: contactId },
+      await prisma.crmDeal.updateMany({
+        where: { id: dealId, tenantId: ctx.tenantId },
+        data: { primaryContactId: contact.id },
       });
     }
 

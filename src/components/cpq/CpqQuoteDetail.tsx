@@ -580,12 +580,15 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
     };
   }, [crmContext.accountId, hasUsableAccount]);
 
-  const saveCrmContext = async (patch: Partial<typeof crmContext>) => {
+  const saveCrmContext = async (
+    patch: Partial<typeof crmContext>,
+    options?: { silent?: boolean }
+  ) => {
     const updated = { ...crmContext, ...patch };
     setCrmContext(updated);
     setQuoteDirty(true);
     try {
-      await fetch(`/api/cpq/quotes/${quoteId}`, {
+      const response = await fetch(`/api/cpq/quotes/${quoteId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -596,7 +599,18 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
           currency: updated.currency,
         }),
       });
-    } catch {}
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || "No se pudo guardar el contexto CRM");
+      }
+    } catch (error) {
+      console.error("Error saving CRM context:", error);
+      if (!options?.silent) {
+        const message =
+          error instanceof Error ? error.message : "No se pudo guardar el contexto CRM";
+        toast.error(message);
+      }
+    }
   };
   const applyAccountToClientName = (accountId: string) => {
     if (!accountId) return;
@@ -643,7 +657,7 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
   const handleDealSelect = (dealId: string) => {
     // Keep deal selection lightweight; authoritative account/contact sync
     // is resolved by /api/crm/deals/[id] to avoid propagating stale tenant data.
-    saveCrmContext({ dealId });
+    saveCrmContext({ dealId }, { silent: true });
     setCrmSearch((prev) => ({ ...prev, deal: "" }));
   };
   useEffect(() => {
@@ -666,15 +680,16 @@ export function CpqQuoteDetail({ quoteId }: CpqQuoteDetailProps) {
         if (shouldSyncAccount) {
           patch.accountId = dealAccountId;
           if (crmContext.installationId) patch.installationId = "";
+          patch.contactId = "";
         }
 
         const dealPrimaryContactId = deal.primaryContact?.id ?? "";
-        if (dealPrimaryContactId && !crmContext.contactId) {
+        if (dealPrimaryContactId && (!crmContext.contactId || shouldSyncAccount)) {
           patch.contactId = dealPrimaryContactId;
         }
 
         if (Object.keys(patch).length > 0) {
-          void saveCrmContext(patch);
+          void saveCrmContext(patch, { silent: true });
         }
 
         if (deal.account?.name && (!quoteForm.clientName || shouldSyncAccount)) {

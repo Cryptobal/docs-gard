@@ -79,6 +79,21 @@ async function buildTenantSafeDeal(
   });
   if (!deal) return null;
 
+  let resolvedStage = deal.stage;
+  if (deal.stage.tenantId !== tenantId) {
+    const fallbackStage = await prisma.crmPipelineStage.findFirst({
+      where: { tenantId, isActive: true },
+      orderBy: { order: "asc" },
+    });
+    if (fallbackStage) {
+      await prisma.crmDeal.update({
+        where: { id: deal.id },
+        data: { stageId: fallbackStage.id },
+      });
+      resolvedStage = fallbackStage;
+    }
+  }
+
   let resolvedAccountId = deal.accountId;
   let resolvedPrimaryContactId = deal.primaryContactId;
 
@@ -95,7 +110,7 @@ async function buildTenantSafeDeal(
   if (!account) {
     const foreignAccount = await prisma.crmAccount.findUnique({
       where: { id: deal.accountId },
-      select: { name: true },
+      select: { name: true, type: true, status: true, isActive: true },
     });
     if (foreignAccount?.name) {
       const matches = await prisma.crmAccount.findMany({
@@ -109,12 +124,50 @@ async function buildTenantSafeDeal(
           type: true,
           status: true,
         },
+        orderBy: { createdAt: "asc" },
         take: 2,
       });
-      if (matches.length === 1) {
+      if (matches.length >= 1) {
         account = matches[0];
         resolvedAccountId = matches[0].id;
+      } else {
+        account = await prisma.crmAccount.create({
+          data: {
+            tenantId,
+            name: foreignAccount.name,
+            type: foreignAccount.type || "prospect",
+            status: foreignAccount.status || "active",
+            isActive: foreignAccount.isActive ?? true,
+          },
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            status: true,
+          },
+        });
+        resolvedAccountId = account.id;
       }
+    } else {
+      const fallbackName = deal.title?.trim()
+        ? `${deal.title.trim().slice(0, 90)} (recuperada)`
+        : `Cuenta recuperada ${deal.id.slice(0, 8)}`;
+      account = await prisma.crmAccount.create({
+        data: {
+          tenantId,
+          name: fallbackName,
+          type: "prospect",
+          status: "active",
+          isActive: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          status: true,
+        },
+      });
+      resolvedAccountId = account.id;
     }
   }
 
@@ -137,30 +190,65 @@ async function buildTenantSafeDeal(
   if (!primaryContact && resolvedPrimaryContactId) {
     const foreignContact = await prisma.crmContact.findUnique({
       where: { id: resolvedPrimaryContactId },
-      select: { email: true },
+      select: {
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        roleTitle: true,
+      },
     });
-    if (foreignContact?.email) {
-      const matches = await prisma.crmContact.findMany({
-        where: {
-          tenantId,
-          email: { equals: foreignContact.email, mode: "insensitive" },
-          ...(account ? { accountId: account.id } : {}),
-        },
-        select: {
-          id: true,
-          accountId: true,
-          firstName: true,
-          lastName: true,
-          email: true,
-          phone: true,
-          roleTitle: true,
-          isPrimary: true,
-        },
-        take: 2,
-      });
-      if (matches.length === 1) {
-        primaryContact = matches[0];
-        resolvedPrimaryContactId = matches[0].id;
+    if (foreignContact && account) {
+      if (foreignContact.email) {
+        const matches = await prisma.crmContact.findMany({
+          where: {
+            tenantId,
+            email: { equals: foreignContact.email, mode: "insensitive" },
+            accountId: account.id,
+          },
+          select: {
+            id: true,
+            accountId: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            roleTitle: true,
+            isPrimary: true,
+          },
+          orderBy: { createdAt: "asc" },
+          take: 2,
+        });
+        if (matches.length >= 1) {
+          primaryContact = matches[0];
+          resolvedPrimaryContactId = matches[0].id;
+        }
+      }
+      if (!primaryContact) {
+        const created = await prisma.crmContact.create({
+          data: {
+            tenantId,
+            accountId: account.id,
+            firstName: foreignContact.firstName || "Contacto",
+            lastName: foreignContact.lastName || "Recuperado",
+            email: foreignContact.email || null,
+            phone: foreignContact.phone || null,
+            roleTitle: foreignContact.roleTitle || null,
+            isPrimary: true,
+          },
+          select: {
+            id: true,
+            accountId: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            roleTitle: true,
+            isPrimary: true,
+          },
+        });
+        primaryContact = created;
+        resolvedPrimaryContactId = created.id;
       }
     }
   }
@@ -236,6 +324,7 @@ async function buildTenantSafeDeal(
 
   return {
     ...deal,
+    stage: resolvedStage,
     accountId: patch.accountId ?? deal.accountId,
     primaryContactId:
       patch.primaryContactId !== undefined

@@ -22,7 +22,7 @@ async function reconcileQuoteCrmContext(
   quote: Awaited<ReturnType<typeof prisma.cpqQuote.findFirst>>
 ) {
   if (!quote) return quote;
-  const findUniqueAccountByName = async (name: string) => {
+  const findAccountByName = async (name: string) => {
     const normalized = name.trim();
     if (!normalized) return null;
     const matches = await prisma.crmAccount.findMany({
@@ -33,7 +33,23 @@ async function reconcileQuoteCrmContext(
       select: { id: true, name: true },
       take: 2,
     });
-    return matches.length === 1 ? matches[0] : null;
+    return matches.length >= 1 ? matches[0] : null;
+  };
+  const ensureAccountByName = async (name: string) => {
+    const existing = await findAccountByName(name);
+    if (existing) return existing;
+    const normalized = name.trim();
+    if (!normalized) return null;
+    return prisma.crmAccount.create({
+      data: {
+        tenantId,
+        name: normalized,
+        type: "prospect",
+        status: "active",
+        isActive: true,
+      },
+      select: { id: true, name: true },
+    });
   };
 
   const patch: {
@@ -158,7 +174,7 @@ async function reconcileQuoteCrmContext(
         effectiveResolvedAccountId = dealAccountRecord.id;
       }
     } else if (!effectiveResolvedAccountId && quote.clientName) {
-      const mappedByName = await findUniqueAccountByName(quote.clientName);
+      const mappedByName = await ensureAccountByName(quote.clientName);
       if (mappedByName) {
         patch.accountId = mappedByName.id;
         effectiveResolvedAccountId = mappedByName.id;
@@ -181,7 +197,7 @@ async function reconcileQuoteCrmContext(
   }
 
   if (!effectiveResolvedAccountId && quote.clientName) {
-    const mappedByName = await findUniqueAccountByName(quote.clientName);
+    const mappedByName = await ensureAccountByName(quote.clientName);
     if (mappedByName) {
       patch.accountId = mappedByName.id;
       effectiveResolvedAccountId = mappedByName.id;

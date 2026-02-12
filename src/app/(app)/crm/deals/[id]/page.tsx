@@ -28,26 +28,53 @@ export default async function CrmDealDetailPage({
   const canConfigureCrm = hasConfigSubmoduleAccess(role, "crm");
 
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
-  const deal = await prisma.crmDeal.findFirst({
+  const dealBase = await prisma.crmDeal.findFirst({
     where: { id, tenantId },
     include: {
-      account: {
-        select: {
-          id: true,
-          name: true,
-          type: true,
-          status: true,
-        },
-      },
       stage: true,
-      primaryContact: true,
       quotes: true,
     },
   });
 
-  if (!deal) {
+  if (!dealBase) {
     redirect("/crm/deals");
   }
+
+  const [safeAccount, safePrimaryContact] = await Promise.all([
+    prisma.crmAccount.findFirst({
+      where: { id: dealBase.accountId, tenantId },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        status: true,
+      },
+    }),
+    dealBase.primaryContactId
+      ? prisma.crmContact.findFirst({
+          where: {
+            id: dealBase.primaryContactId,
+            tenantId,
+            accountId: dealBase.accountId,
+          },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            roleTitle: true,
+            isPrimary: true,
+          },
+        })
+      : Promise.resolve(null),
+  ]);
+  const deal = {
+    ...dealBase,
+    account: safeAccount,
+    primaryContact: safePrimaryContact,
+    primaryContactId: safePrimaryContact?.id ?? null,
+  };
 
   const [
     quotes,
@@ -89,20 +116,21 @@ export default async function CrmDealDetailPage({
     }),
     prisma.crmDealContact.findMany({
       where: { dealId: id, tenantId },
-      include: {
-        contact: {
-          select: {
-            id: true, firstName: true, lastName: true,
-            email: true, phone: true, roleTitle: true, isPrimary: true,
-          },
-        },
+      select: {
+        id: true,
+        dealId: true,
+        contactId: true,
+        role: true,
+        createdAt: true,
       },
       orderBy: { createdAt: "asc" },
     }),
-    prisma.crmContact.findMany({
-      where: { tenantId, accountId: deal.accountId },
-      orderBy: { createdAt: "desc" },
-    }),
+    safeAccount
+      ? prisma.crmContact.findMany({
+          where: { tenantId, accountId: safeAccount.id },
+          orderBy: { createdAt: "desc" },
+        })
+      : Promise.resolve([]),
     prisma.crmFollowUpConfig.findUnique({
       where: { tenantId },
       select: {
@@ -128,6 +156,31 @@ export default async function CrmDealDetailPage({
       },
     }),
   ]);
+  const dealContactIds = dealContacts.map((item) => item.contactId);
+  const safeDealContactsData = dealContactIds.length
+    ? await prisma.crmContact.findMany({
+        where: { tenantId, id: { in: dealContactIds } },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          roleTitle: true,
+          isPrimary: true,
+        },
+      })
+    : [];
+  const safeDealContactMap = new Map(
+    safeDealContactsData.map((contact) => [contact.id, contact])
+  );
+  const safeDealContacts = dealContacts
+    .map((item) => {
+      const contact = safeDealContactMap.get(item.contactId);
+      if (!contact) return null;
+      return { ...item, contact };
+    })
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
 
   const followUpLogIds = followUpLogsRaw.map((log: { id: string }) => log.id);
   const followUpMessages = followUpLogIds.length > 0
@@ -201,7 +254,7 @@ export default async function CrmDealDetailPage({
   initialDeal.status = deal.status;
   const initialQuotes = JSON.parse(JSON.stringify(quotes));
   const initialPipelineStages = JSON.parse(JSON.stringify(pipelineStages));
-  const initialDealContacts = JSON.parse(JSON.stringify(dealContacts));
+  const initialDealContacts = JSON.parse(JSON.stringify(safeDealContacts));
   const initialAccountContacts = JSON.parse(JSON.stringify(accountContacts));
   const initialDocTemplatesMail = JSON.parse(JSON.stringify(docTemplatesMail));
   const initialDocTemplatesWhatsApp = JSON.parse(JSON.stringify(docTemplatesWhatsApp));

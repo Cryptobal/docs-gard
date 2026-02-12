@@ -51,18 +51,38 @@ export async function POST(
           status: nextStatus,
         },
         include: {
-          account: {
-            select: {
-              id: true,
-              name: true,
-              type: true,
-              status: true,
-            },
-          },
           stage: true,
-          primaryContact: true,
         },
       });
+      const [safeAccount, safePrimaryContact] = await Promise.all([
+        tx.crmAccount.findFirst({
+          where: { id: updated.accountId, tenantId: ctx.tenantId },
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            status: true,
+          },
+        }),
+        updated.primaryContactId
+          ? tx.crmContact.findFirst({
+              where: {
+                id: updated.primaryContactId,
+                tenantId: ctx.tenantId,
+                accountId: updated.accountId,
+              },
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                phone: true,
+                roleTitle: true,
+                isPrimary: true,
+              },
+            })
+          : Promise.resolve(null),
+      ]);
 
       await tx.crmDealStageHistory.create({
         data: {
@@ -90,16 +110,17 @@ export async function POST(
 
       // Si el negocio fue ganado, crear notificación de contrato pendiente
       if (nextStatus === "won") {
+        const accountName = safeAccount?.name || "Cuenta pendiente";
         await tx.notification.create({
           data: {
             tenantId: ctx.tenantId,
             type: "contract_required",
-            title: `Contrato pendiente: ${updated.account.name}`,
+            title: `Contrato pendiente: ${accountName}`,
             message: `El negocio "${updated.title}" fue ganado. Se requiere generar un contrato.`,
             data: {
               dealId: deal.id,
               accountId: updated.accountId,
-              accountName: updated.account.name,
+              accountName,
               dealTitle: updated.title,
             },
             link: `/opai/documentos/nuevo?accountId=${updated.accountId}&dealId=${deal.id}`,
@@ -107,7 +128,11 @@ export async function POST(
         });
       }
 
-      return updated;
+      return {
+        ...updated,
+        account: safeAccount,
+        primaryContact: safePrimaryContact,
+      };
     });
 
     return NextResponse.json({ success: true, data: updatedDeal });
