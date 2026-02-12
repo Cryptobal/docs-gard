@@ -1489,6 +1489,8 @@ model OpsPuestoOperativo {
   baseSalary      Decimal? @map("base_salary") @db.Decimal(12, 2)
   teMontoClp      Decimal? @map("te_monto_clp") @db.Decimal(12, 2)
   active          Boolean  @default(true)
+  activeFrom      DateTime? @map("active_from") @db.Date
+  activeUntil     DateTime? @map("active_until") @db.Date
   createdBy       String?  @map("created_by")
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)

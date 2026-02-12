@@ -62,6 +62,7 @@ export const createPuestoSchema = z.object({
   requiredGuards: z.number().int().min(1).max(20).default(1),
   baseSalary: z.number().min(0).optional().nullable(),
   teMontoClp: z.number().min(0).optional().nullable(),
+  activeFrom: z.string().regex(dateRegex, "activeFrom debe tener formato YYYY-MM-DD").optional().nullable(),
   active: z.boolean().optional(),
 });
 
@@ -76,6 +77,8 @@ export const updatePuestoSchema = z.object({
   requiredGuards: z.number().int().min(1).max(20).optional(),
   baseSalary: z.number().min(0).optional().nullable(),
   teMontoClp: z.number().min(0).optional().nullable(),
+  activeFrom: z.string().regex(dateRegex).optional().nullable(),
+  activeUntil: z.string().regex(dateRegex).optional().nullable(),
   active: z.boolean().optional(),
 });
 

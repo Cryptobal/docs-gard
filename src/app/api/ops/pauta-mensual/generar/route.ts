@@ -43,6 +43,8 @@ export async function POST(request: NextRequest) {
         id: true,
         weekdays: true,
         requiredGuards: true,
+        activeFrom: true,
+        activeUntil: true,
       },
       orderBy: { createdAt: "asc" },
     });
@@ -58,10 +60,18 @@ export async function POST(request: NextRequest) {
     const monthDates = listDatesBetween(start, end);
 
     // Generate rows: for each puesto × slot × day
+    // Only for dates within the puesto's active range
     const data = monthDates.flatMap((date) => {
       const weekday = getWeekdayKey(date);
       return puestos
-        .filter((puesto) => weekdayMatches(puesto.weekdays, weekday))
+        .filter((puesto) => {
+          if (!weekdayMatches(puesto.weekdays, weekday)) return false;
+          // Check activeFrom: don't generate before puesto start date
+          if (puesto.activeFrom && date < puesto.activeFrom) return false;
+          // Check activeUntil: don't generate after puesto end date
+          if (puesto.activeUntil && date >= puesto.activeUntil) return false;
+          return true;
+        })
         .flatMap((puesto) => {
           const slots: {
             tenantId: string;

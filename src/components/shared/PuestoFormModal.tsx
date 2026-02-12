@@ -39,6 +39,7 @@ export type PuestoFormData = {
   weekdays: string[];
   numGuards: number;
   baseSalary: number;
+  activeFrom: string;
 };
 
 export interface PuestoFormModalProps {
@@ -62,6 +63,7 @@ const DEFAULT_FORM: PuestoFormData = {
   weekdays: [],
   numGuards: 1,
   baseSalary: 550000,
+  activeFrom: new Date().toISOString().slice(0, 10),
 };
 
 function getShiftHours(startTime: string, endTime: string): number | null {
@@ -240,6 +242,24 @@ export function PuestoFormModal({
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* Active from date */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Fecha de inicio
+            </Label>
+            <input
+              type="date"
+              value={form.activeFrom}
+              onChange={(e) =>
+                setForm((p) => ({ ...p, activeFrom: e.target.value }))
+              }
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Desde cuándo está activo este puesto. La pauta solo se genera desde esta fecha.
+            </p>
           </div>
 
           <div className="border-t border-border" />

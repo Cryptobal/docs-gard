@@ -1240,7 +1240,7 @@ export function CrmLeadsClient({
 
       {/* ── Approve Modal ── */}
       <Dialog open={approveOpen} onOpenChange={setApproveOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-xl md:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+        <DialogContent className="w-[95vw] sm:max-w-[90vw] lg:max-w-[1100px] xl:max-w-[1300px] max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Aprobar lead</DialogTitle>
             <DialogDescription>
@@ -1372,7 +1372,7 @@ export function CrmLeadsClient({
           )}
 
           {approvingLead?.source === "email_forward" && approvingLead?.metadata && typeof approvingLead.metadata === "object" && !Array.isArray(approvingLead.metadata) && (
-            <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+            <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3 min-w-0 overflow-hidden">
               <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                 <Mailbox className="h-3.5 w-3.5" />
                 Correo original
@@ -1382,11 +1382,11 @@ export function CrmLeadsClient({
                 const email = meta?.inboundEmail;
                 if (!email) return null;
                 return (
-                  <div className="space-y-2 text-sm">
-                    {email.subject && <p><span className="text-muted-foreground">Asunto:</span> {email.subject}</p>}
-                    {email.from && <p><span className="text-muted-foreground">De:</span> {email.from}</p>}
+                  <div className="space-y-2 text-sm min-w-0 overflow-hidden">
+                    {email.subject && <p className="break-words"><span className="text-muted-foreground">Asunto:</span> {email.subject}</p>}
+                    {email.from && <p className="break-words"><span className="text-muted-foreground">De:</span> {email.from}</p>}
                     {email.receivedAt && <p className="text-muted-foreground text-xs">{new Date(email.receivedAt).toLocaleString()}</p>}
-                    <div className="rounded border border-border bg-background/80 p-3 max-h-48 overflow-y-auto text-xs whitespace-pre-wrap break-words">
+                    <div className="rounded border border-border bg-background/80 p-3 max-h-48 overflow-y-auto overflow-x-hidden text-xs whitespace-pre-wrap break-all [overflow-wrap:anywhere]">
                       {email.text ? email.text : email.html ? email.html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 2000) : "Sin contenido"}
                     </div>
                   </div>

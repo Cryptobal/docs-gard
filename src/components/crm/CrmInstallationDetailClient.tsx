@@ -234,6 +234,7 @@ function StaffingSection({
   // Delete/deactivate states
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; id: string; name: string }>({ open: false, id: "", name: "" });
   const [deactivateConfirm, setDeactivateConfirm] = useState<{ open: boolean; id: string; name: string }>({ open: false, id: "", name: "" });
+  const [deactivateDate, setDeactivateDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [actionLoading, setActionLoading] = useState(false);
 
   const hasPuestos = installation.puestosActivos && installation.puestosActivos.length > 0;
@@ -276,6 +277,7 @@ function StaffingSection({
       weekdays: data.weekdays,
       requiredGuards: data.numGuards,
       baseSalary: data.baseSalary || null,
+      activeFrom: data.activeFrom || null,
     };
 
     if (editingPuestoId) {
@@ -328,7 +330,7 @@ function StaffingSection({
       const res = await fetch(`/api/ops/puestos/${deactivateConfirm.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active: false }),
+        body: JSON.stringify({ active: false, activeUntil: deactivateDate }),
       });
       const payload = await res.json();
       if (!res.ok || !payload.success) throw new Error(payload.error || "No se pudo desactivar");
@@ -490,18 +492,39 @@ function StaffingSection({
         onConfirm={handleDelete}
       />
 
-      {/* Deactivate confirmation */}
-      <ConfirmDialog
-        open={deactivateConfirm.open}
-        onOpenChange={(open) => setDeactivateConfirm((prev) => ({ ...prev, open }))}
-        title="Desactivar puesto"
-        description={`El puesto "${deactivateConfirm.name}" se desactivará y no aparecerá en la pauta mensual ni en OPS.`}
-        confirmLabel="Desactivar"
-        variant="default"
-        loading={actionLoading}
-        loadingLabel="Desactivando..."
-        onConfirm={handleDeactivate}
-      />
+      {/* Deactivate with date */}
+      <Dialog open={deactivateConfirm.open} onOpenChange={(open) => {
+        if (open) setDeactivateDate(new Date().toISOString().slice(0, 10));
+        setDeactivateConfirm((prev) => ({ ...prev, open }));
+      }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Desactivar puesto</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <p className="text-sm text-muted-foreground">
+              El puesto &quot;{deactivateConfirm.name}&quot; se desactivará. Se cerrarán las asignaciones de guardias y se limpiará la pauta desde la fecha indicada.
+            </p>
+            <div className="space-y-1.5">
+              <Label>Fecha de desactivación</Label>
+              <input
+                type="date"
+                value={deactivateDate}
+                onChange={(e) => setDeactivateDate(e.target.value)}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeactivateConfirm((prev) => ({ ...prev, open: false }))} disabled={actionLoading}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDeactivate} disabled={actionLoading}>
+              {actionLoading ? "Desactivando..." : "Desactivar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
