@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
         tenantId: ctx.tenantId,
         ...(accountId ? { accountId } : {}),
       },
-      include: { account: { select: { id: true, name: true, type: true, isActive: true } } },
+      include: { account: { select: { id: true, name: true, type: true, status: true, isActive: true } } },
       orderBy: { createdAt: "desc" },
     });
 
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
         teMontoClp: body.teMontoClp ?? 0,
         notes: body.notes || null,
       },
-      include: { account: { select: { id: true, name: true, type: true, isActive: true } } },
+      include: { account: { select: { id: true, name: true, type: true, status: true, isActive: true } } },
     });
 
     return NextResponse.json({ success: true, data: installation }, { status: 201 });

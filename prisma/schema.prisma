@@ -752,9 +752,9 @@ model CrmAccount {
   size                    String?
   segment                 String?
   ownerId                 String?  @map("owner_id")
-  type                    String   @default("prospect") // "prospect" | "client"
-  status                  String   @default("active")
-  isActive                Boolean  @default(true) @map("is_active")
+  type                    String   @default("prospect") // legacy compat: "prospect" | "client"
+  status                  String   @default("prospect") // canonical lifecycle: prospect | client_active | client_inactive
+  isActive                Boolean  @default(false) @map("is_active") // legacy compat, derived from status
   website                 String?
   address                 String?
   notes                   String?

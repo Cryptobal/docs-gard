@@ -11,6 +11,7 @@ import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { createAccountSchema } from "@/lib/validations/crm";
 
 const OWNER_OVERRIDE_EMAILS = new Set(["carlos.irigoyen@gard.cl", "carlos@gard.cl"]);
+type AccountLifecycle = "prospect" | "client_active" | "client_inactive";
 
 function normalizeIdentity(value: string | null | undefined) {
   return (value || "")
@@ -18,6 +19,30 @@ function normalizeIdentity(value: string | null | undefined) {
     .toLowerCase()
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "");
+}
+
+function normalizeLifecycle(input?: string | null): AccountLifecycle | null {
+  if (input === "prospect" || input === "client_active" || input === "client_inactive") {
+    return input;
+  }
+  return null;
+}
+
+function deriveLifecycle(account: { status?: string | null; type?: string | null; isActive?: boolean | null }): AccountLifecycle {
+  const fromStatus = normalizeLifecycle(account.status);
+  if (fromStatus) return fromStatus;
+  if (account.type === "prospect") return "prospect";
+  return account.isActive ? "client_active" : "client_inactive";
+}
+
+function lifecycleToLegacyFields(lifecycle: AccountLifecycle) {
+  if (lifecycle === "prospect") {
+    return { type: "prospect" as const, isActive: false, status: "prospect" };
+  }
+  if (lifecycle === "client_inactive") {
+    return { type: "client" as const, isActive: false, status: "client_inactive" };
+  }
+  return { type: "client" as const, isActive: true, status: "client_active" };
 }
 
 export async function GET(
@@ -77,25 +102,41 @@ export async function PATCH(
     const parsed = await parseBody(request, createAccountSchema.partial());
     if (parsed.error) return parsed.error;
 
+    const existingLifecycle = deriveLifecycle(existing);
     const requestingDowngradeToProspect =
-      existing.type === "client" && parsed.data.type === "prospect";
-    const nextType = parsed.data.type ?? existing.type;
+      existingLifecycle !== "prospect" &&
+      (parsed.data.status === "prospect" || parsed.data.type === "prospect");
 
-    if (nextType === "prospect" && parsed.data.isActive === true) {
+    if ((parsed.data.status === "prospect" || parsed.data.type === "prospect") && parsed.data.isActive === true) {
       throw new Error("PROSPECT_CANNOT_BE_ACTIVE");
     }
 
+    let nextLifecycle: AccountLifecycle = existingLifecycle;
+    const normalizedStatus = normalizeLifecycle(parsed.data.status);
+    if (normalizedStatus) {
+      nextLifecycle = normalizedStatus;
+    } else if (parsed.data.type === "prospect") {
+      nextLifecycle = "prospect";
+    } else if (parsed.data.type === "client") {
+      if (existingLifecycle === "prospect") nextLifecycle = "client_inactive";
+      else if (parsed.data.isActive === true) nextLifecycle = "client_active";
+      else if (parsed.data.isActive === false) nextLifecycle = "client_inactive";
+    } else if (parsed.data.isActive !== undefined) {
+      if (existingLifecycle === "prospect" && parsed.data.isActive === true) {
+        throw new Error("PROSPECT_CANNOT_BE_ACTIVE");
+      }
+      if (existingLifecycle !== "prospect") {
+        nextLifecycle = parsed.data.isActive ? "client_active" : "client_inactive";
+      }
+    }
+
+    const legacy = lifecycleToLegacyFields(nextLifecycle);
     const updateData: Record<string, unknown> = {
       ...parsed.data,
-      ...(parsed.data.isActive === true ? { status: "active" } : {}),
-      ...(parsed.data.isActive === false ? { status: "inactive" } : {}),
+      type: legacy.type,
+      isActive: legacy.isActive,
+      status: legacy.status,
     };
-
-    if (parsed.data.type === "prospect") {
-      // Prospectos siempre quedan inactivos en operación.
-      updateData.isActive = false;
-      updateData.status = "inactive";
-    }
 
     const account = await prisma.$transaction(async (tx) => {
       if (requestingDowngradeToProspect) {
@@ -120,8 +161,8 @@ export async function PATCH(
         data: updateData,
       });
 
-      // Invariant: no inactive account can have active installations.
-      if (parsed.data.isActive === false || parsed.data.type === "prospect") {
+      // Invariant: no account out of operation can keep active installations.
+      if (legacy.isActive === false) {
         await tx.crmInstallation.updateMany({
           where: { tenantId: ctx.tenantId, accountId: id, isActive: true },
           data: { isActive: false },

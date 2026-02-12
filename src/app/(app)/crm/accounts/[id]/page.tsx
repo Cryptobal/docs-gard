@@ -11,16 +11,6 @@ import { PageHeader, Breadcrumb } from "@/components/opai";
 import { CrmAccountDetailClient } from "@/components/crm/CrmAccountDetailClient";
 import { CrmSubnav } from "@/components/crm/CrmSubnav";
 
-const OWNER_OVERRIDE_EMAILS = new Set(["carlos.irigoyen@gard.cl", "carlos@gard.cl"]);
-
-function normalizeIdentity(value: string | null | undefined) {
-  return (value || "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "");
-}
-
 export default async function CrmAccountDetailPage({
   params,
 }: {
@@ -32,10 +22,6 @@ export default async function CrmAccountDetailPage({
     redirect(`/opai/login?callbackUrl=/crm/accounts/${id}`);
   }
   const role = session.user.role;
-  const canRevertClientToProspect =
-    role === "owner" &&
-    (OWNER_OVERRIDE_EMAILS.has(normalizeIdentity(session.user.email)) ||
-      normalizeIdentity(session.user.name) === "carlos irigoyen");
 
   if (!hasCrmSubmoduleAccess(role, "accounts")) {
     redirect("/crm");
@@ -69,6 +55,15 @@ export default async function CrmAccountDetailPage({
 
   const data = JSON.parse(JSON.stringify({ ...account, quotes }));
 
+  const lifecycle =
+    account.status === "prospect" || account.status === "client_active" || account.status === "client_inactive"
+      ? account.status
+      : account.type === "prospect"
+      ? "prospect"
+      : account.isActive
+      ? "client_active"
+      : "client_inactive";
+
   return (
     <>
       <Breadcrumb
@@ -81,14 +76,19 @@ export default async function CrmAccountDetailPage({
       />
       <PageHeader
         title={account.name}
-        description={`${account.type === "client" ? "Cliente" : "Prospecto"} · ${account.industry || "Sin industria"}`}
+        description={`${
+          lifecycle === "prospect"
+            ? "Prospecto"
+            : lifecycle === "client_active"
+            ? "Cliente activo"
+            : "Ex cliente"
+        } · ${account.industry || "Sin industria"}`}
       />
       <CrmSubnav role={role} />
       <CrmAccountDetailClient
         account={data}
         quotes={data.quotes || []}
         currentUserId={session.user.id}
-        canRevertClientToProspect={canRevertClientToProspect}
       />
     </>
   );

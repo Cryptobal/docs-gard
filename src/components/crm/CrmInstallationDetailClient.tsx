@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MapPin, Building2, ExternalLink, Trash2, ArrowLeft, Info, FileText } from "lucide-react";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/opai/EmptyState";
 import { CollapsibleSection } from "./CollapsibleSection";
 import { RecordActions } from "./RecordActions";
@@ -41,7 +42,7 @@ export type InstallationDetail = {
     totalGuards: number;
     updatedAt: string;
   }>;
-  account?: { id: string; name: string; type?: "prospect" | "client"; isActive?: boolean } | null;
+  account?: { id: string; name: string; type?: "prospect" | "client"; status?: string; isActive?: boolean } | null;
 };
 
 export function CrmInstallationDetailClient({
@@ -53,6 +54,9 @@ export function CrmInstallationDetailClient({
   const hasCoords = installation.lat != null && installation.lng != null;
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
+  const [statusConfirmOpen, setStatusConfirmOpen] = useState(false);
+  const [statusNextValue, setStatusNextValue] = useState(false);
+  const [statusActivateAccount, setStatusActivateAccount] = useState(false);
   const isActive = useMemo(() => installation.isActive === true, [installation.isActive]);
 
   const dotacionDesdeCotizacion = (
@@ -93,29 +97,29 @@ export function CrmInstallationDetailClient({
     }
   };
 
-  const toggleInstallationStatus = async () => {
+  const openToggleInstallationStatus = () => {
     const next = !isActive;
-    const shouldActivateAccount =
-      next &&
-      installation.account?.isActive === false &&
-      window.confirm(
-        "Esta instalación quedará ACTIVA.\n\nLa cuenta está inactiva. ¿También quieres activarla?"
-      );
+    setStatusNextValue(next);
+    setStatusActivateAccount(next && installation.account?.isActive === false);
+    setStatusConfirmOpen(true);
+  };
 
+  const toggleInstallationStatus = async () => {
     setStatusUpdating(true);
     try {
       const res = await fetch(`/api/crm/installations/${installation.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          isActive: next,
-          activateAccount: Boolean(shouldActivateAccount),
+          isActive: statusNextValue,
+          activateAccount: Boolean(statusActivateAccount),
         }),
       });
       const payload = await res.json();
       if (!res.ok || !payload.success) throw new Error(payload.error || "No se pudo actualizar estado");
 
-      toast.success(next ? "Instalación activada" : "Instalación desactivada");
+      setStatusConfirmOpen(false);
+      toast.success(statusNextValue ? "Instalación activada" : "Instalación desactivada");
       router.refresh();
     } catch (error) {
       console.error(error);
@@ -146,14 +150,16 @@ export function CrmInstallationDetailClient({
           >
             {isActive ? "Activa" : "Inactiva"}
           </span>
-          <button
+          <Button
             type="button"
-            onClick={() => void toggleInstallationStatus()}
+            size="sm"
+            variant={isActive ? "outline" : "secondary"}
+            onClick={openToggleInstallationStatus}
             disabled={statusUpdating}
-            className="rounded-md border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-accent/40 disabled:opacity-60"
+            className="h-8"
           >
             {statusUpdating ? "Guardando..." : isActive ? "Desactivar" : "Activar"}
-          </button>
+          </Button>
           <RecordActions
             actions={[
               { label: "Eliminar instalación", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
@@ -364,7 +370,25 @@ export function CrmInstallationDetailClient({
         onOpenChange={setDeleteConfirm}
         title="Eliminar instalación"
         description="La instalación será eliminada permanentemente. Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
         onConfirm={deleteInstallation}
+      />
+      <ConfirmDialog
+        open={statusConfirmOpen}
+        onOpenChange={setStatusConfirmOpen}
+        title={statusNextValue ? "Activar instalación" : "Desactivar instalación"}
+        description={
+          statusNextValue
+            ? statusActivateAccount
+              ? "La instalación quedará activa y también se activará la cuenta asociada para mantener consistencia."
+              : "La instalación quedará activa."
+            : "La instalación quedará inactiva."
+        }
+        confirmLabel={statusNextValue ? "Activar" : "Desactivar"}
+        variant="default"
+        loading={statusUpdating}
+        loadingLabel="Guardando..."
+        onConfirm={toggleInstallationStatus}
       />
     </div>
   );

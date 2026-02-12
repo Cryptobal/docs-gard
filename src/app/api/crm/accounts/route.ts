@@ -9,6 +9,38 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
 import { createAccountSchema } from "@/lib/validations/crm";
 
+type AccountLifecycle = "prospect" | "client_active" | "client_inactive";
+
+function normalizeLifecycle(input?: string | null): AccountLifecycle | null {
+  if (input === "prospect" || input === "client_active" || input === "client_inactive") {
+    return input;
+  }
+  return null;
+}
+
+function resolveLifecycleFromInput(input: {
+  status?: string | null;
+  type?: "prospect" | "client" | null;
+  isActive?: boolean | null;
+}): AccountLifecycle {
+  const normalized = normalizeLifecycle(input.status);
+  if (normalized) return normalized;
+  if (input.type === "prospect") return "prospect";
+  if (input.type === "client" && input.isActive === false) return "client_inactive";
+  if (input.status === "inactive") return "client_inactive";
+  return "client_active";
+}
+
+function lifecycleToLegacyFields(lifecycle: AccountLifecycle) {
+  if (lifecycle === "prospect") {
+    return { type: "prospect" as const, isActive: false, status: "prospect" };
+  }
+  if (lifecycle === "client_inactive") {
+    return { type: "client" as const, isActive: false, status: "client_inactive" };
+  }
+  return { type: "client" as const, isActive: true, status: "client_active" };
+}
+
 export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
@@ -46,6 +78,13 @@ export async function POST(request: NextRequest) {
     if (parsed.error) return parsed.error;
     const body = parsed.data;
 
+    const lifecycle = resolveLifecycleFromInput({
+      status: body.status,
+      type: body.type,
+      isActive: body.isActive,
+    });
+    const legacy = lifecycleToLegacyFields(lifecycle);
+
     const account = await prisma.crmAccount.create({
       data: {
         tenantId: ctx.tenantId,
@@ -57,14 +96,9 @@ export async function POST(request: NextRequest) {
         industry: body.industry || null,
         segment: body.segment || null,
         ownerId: ctx.userId,
-        type: body.type,
-        status:
-          body.type === "prospect"
-            ? "inactive"
-            : body.isActive === false
-            ? "inactive"
-            : body.status,
-        isActive: body.type === "prospect" ? false : (body.isActive ?? true),
+        type: legacy.type,
+        status: legacy.status,
+        isActive: legacy.isActive,
         website: body.website || null,
         address: body.address || null,
         notes: body.notes || null,

@@ -24,7 +24,7 @@ export async function GET(
 
     const installation = await prisma.crmInstallation.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      include: { account: { select: { id: true, name: true, type: true, isActive: true } } },
+      include: { account: { select: { id: true, name: true, type: true, status: true, isActive: true } } },
     });
 
     if (!installation) {
@@ -78,7 +78,7 @@ export async function PATCH(
       const updatedInstallation = await tx.crmInstallation.update({
         where: { id },
         data: normalizedData,
-        include: { account: { select: { id: true, name: true, type: true, isActive: true } } },
+        include: { account: { select: { id: true, name: true, type: true, status: true, isActive: true } } },
       });
 
       if (
@@ -89,7 +89,7 @@ export async function PATCH(
       ) {
         await tx.crmAccount.update({
           where: { id: updatedInstallation.accountId },
-          data: { isActive: true, status: "active" },
+          data: { isActive: true, type: "client", status: "client_active" },
         });
         return {
           ...updatedInstallation,

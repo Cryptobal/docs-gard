@@ -16,6 +16,7 @@ interface ConfirmDialogProps {
   onConfirm: () => void | Promise<void>;
   variant?: "destructive" | "default";
   loading?: boolean;
+  loadingLabel?: string;
 }
 
 export function ConfirmDialog({
@@ -28,7 +29,10 @@ export function ConfirmDialog({
   onConfirm,
   variant = "destructive",
   loading = false,
+  loadingLabel,
 }: ConfirmDialogProps) {
+  const resolvedLoadingLabel =
+    loadingLabel ?? (variant === "destructive" ? "Eliminando..." : "Guardando...");
   return (
     <AlertDialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
       <AlertDialogPrimitive.Portal>
@@ -88,7 +92,7 @@ export function ConfirmDialog({
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
-                    Eliminando...
+                    {resolvedLoadingLabel}
                   </span>
                 ) : (
                   confirmLabel

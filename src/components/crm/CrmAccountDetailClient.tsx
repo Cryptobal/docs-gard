@@ -115,7 +115,7 @@ type AccountDetail = {
   name: string;
   type: "prospect" | "client";
   isActive: boolean;
-  status: string;
+  status: "prospect" | "client_active" | "client_inactive" | string;
   rut?: string | null;
   legalName?: string | null;
   legalRepresentativeName?: string | null;
@@ -136,16 +136,22 @@ function formatCLP(value: number | string): string {
   return new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", minimumFractionDigits: 0 }).format(n || 0);
 }
 
+function getAccountLifecycle(account: Pick<AccountDetail, "status" | "type" | "isActive">) {
+  if (account.status === "prospect") return "prospect";
+  if (account.status === "client_active") return "client_active";
+  if (account.status === "client_inactive") return "client_inactive";
+  if (account.type === "prospect") return "prospect";
+  return account.isActive ? "client_active" : "client_inactive";
+}
+
 export function CrmAccountDetailClient({
   account: initialAccount,
   quotes = [],
   currentUserId,
-  canRevertClientToProspect = false,
 }: {
   account: AccountDetail;
   quotes?: QuoteRow[];
   currentUserId: string;
-  canRevertClientToProspect?: boolean;
 }) {
   const router = useRouter();
   const [account, setAccount] = useState(initialAccount);
@@ -188,6 +194,7 @@ export function CrmAccountDetailClient({
   // ── Delete state ──
   const [deleteAccountConfirm, setDeleteAccountConfirm] = useState(false);
   const [deleteContactConfirm, setDeleteContactConfirm] = useState<{ open: boolean; id: string }>({ open: false, id: "" });
+  const lifecycle = getAccountLifecycle(account);
 
   const inputCn = "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
 
@@ -283,7 +290,7 @@ export function CrmAccountDetailClient({
       toast.success(
         accountTypeNextValue === "client"
           ? "Cuenta convertida a cliente"
-          : "Cuenta revertida a prospecto"
+          : "Cuenta convertida a prospecto"
       );
       router.refresh();
     } catch (error) {
@@ -308,6 +315,7 @@ export function CrmAccountDetailClient({
       setAccount((prev) => ({
         ...prev,
         isActive: data.data.isActive,
+        status: data.data.status,
         installations: prev.installations.map((inst) => ({
           ...inst,
           isActive: data.data.isActive ? inst.isActive : false,
@@ -417,62 +425,70 @@ export function CrmAccountDetailClient({
           <ArrowLeft className="h-4 w-4" />
           Volver a cuentas
         </Link>
-        <RecordActions
-          actions={[
-            { label: "Editar cuenta", icon: Pencil, onClick: openAccountEdit },
-            { label: "Eliminar cuenta", icon: Trash2, onClick: () => setDeleteAccountConfirm(true), variant: "destructive" },
-          ]}
-        />
+        <div className="flex items-center gap-2">
+          <Badge
+            variant="outline"
+            className={
+              lifecycle === "prospect"
+                ? "border-amber-500/30 text-amber-400"
+                : "border-emerald-500/30 text-emerald-400"
+            }
+          >
+            {lifecycle === "prospect" ? "Prospecto" : "Cliente"}
+          </Badge>
+          <Badge
+            variant="outline"
+            className={
+              lifecycle === "client_active"
+                ? "border-emerald-500/30 text-emerald-400"
+                : "border-rose-500/30 text-rose-400"
+            }
+          >
+            {lifecycle === "client_active"
+              ? "Activa"
+              : lifecycle === "client_inactive"
+              ? "Ex cliente"
+              : "Inactiva"}
+          </Badge>
+          {lifecycle === "prospect" && (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-8"
+              onClick={() => openToggleAccountType("client")}
+              disabled={updatingAccountType}
+            >
+              {updatingAccountType ? "Guardando..." : "Convertir a cliente"}
+            </Button>
+          )}
+          {lifecycle !== "prospect" && (
+            <Button
+              size="sm"
+              variant={account.isActive ? "outline" : "secondary"}
+              className="h-8"
+              onClick={openToggleAccountStatus}
+              disabled={updatingAccountStatus}
+            >
+              {updatingAccountStatus
+                ? "Guardando..."
+                : account.isActive
+                ? "Desactivar"
+                : "Activar"}
+            </Button>
+          )}
+          <RecordActions
+            actions={[
+              { label: "Editar cuenta", icon: Pencil, onClick: openAccountEdit },
+              { label: "Eliminar cuenta", icon: Trash2, onClick: () => setDeleteAccountConfirm(true), variant: "destructive" },
+            ]}
+          />
+        </div>
       </div>
 
       {/* ── Section 1: Datos generales ── */}
       <CollapsibleSection
         icon={<Building2 className="h-4 w-4" />}
         title="Datos generales"
-        action={
-          <div className="flex items-center gap-2">
-            {account.type === "prospect" ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                className="h-7 text-xs"
-                onClick={() => openToggleAccountType("client")}
-                disabled={updatingAccountType}
-              >
-                {updatingAccountType ? "Guardando..." : "Convertir a cliente"}
-              </Button>
-            ) : canRevertClientToProspect ? (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs"
-                onClick={() => openToggleAccountType("prospect")}
-                disabled={updatingAccountType}
-              >
-                {updatingAccountType ? "Guardando..." : "Volver a prospecto"}
-              </Button>
-            ) : null}
-            {account.type === "client" ? (
-              <Button
-                size="sm"
-                variant={account.isActive ? "outline" : "secondary"}
-                className="h-7 text-xs"
-                onClick={openToggleAccountStatus}
-                disabled={updatingAccountStatus}
-              >
-                {updatingAccountStatus
-                  ? "Guardando..."
-                  : account.isActive
-                  ? "Desactivar cuenta"
-                  : "Activar cuenta"}
-              </Button>
-            ) : null}
-            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={openAccountEdit}>
-              <Pencil className="h-3 w-3 mr-1" />
-              Editar
-            </Button>
-          </div>
-        }
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-3 text-sm">
@@ -480,12 +496,12 @@ export function CrmAccountDetailClient({
               <Badge
                 variant="outline"
                 className={
-                  account.type === "client"
+                  lifecycle !== "prospect"
                     ? "border-emerald-500/30 text-emerald-400"
                     : "border-amber-500/30 text-amber-400"
                 }
               >
-                {account.type === "client" ? "Cliente" : "Prospecto"}
+                {lifecycle === "prospect" ? "Prospecto" : "Cliente"}
               </Badge>
             </InfoRow>
             <InfoRow label="RUT">{account.rut || "—"}</InfoRow>
@@ -498,12 +514,16 @@ export function CrmAccountDetailClient({
               <Badge
                 variant="outline"
                 className={
-                  account.isActive
+                  lifecycle === "client_active"
                     ? "border-emerald-500/30 text-emerald-400"
                     : "border-rose-500/30 text-rose-400"
                 }
               >
-                {account.isActive ? "Activa" : "Inactiva"}
+                {lifecycle === "client_active"
+                  ? "Activa"
+                  : lifecycle === "client_inactive"
+                  ? "Ex cliente"
+                  : "Inactiva"}
               </Badge>
             </InfoRow>
           </div>
@@ -881,20 +901,24 @@ export function CrmAccountDetailClient({
         title={accountStatusNextValue ? "Activar cuenta" : "Desactivar cuenta"}
         description={
           accountStatusNextValue
-            ? "La cuenta quedará activa. Podrás activar instalaciones para operación."
-            : "La cuenta quedará inactiva y se desactivarán todas sus instalaciones activas para evitar inconsistencias."
+            ? "La cuenta quedará como cliente activo y podrás operar instalaciones."
+            : "La cuenta quedará como cliente inactivo (ex cliente) y se desactivarán sus instalaciones activas."
         }
+        confirmLabel={accountStatusNextValue ? "Activar" : "Desactivar"}
+        variant="default"
         onConfirm={confirmToggleAccountStatus}
       />
       <ConfirmDialog
         open={accountTypeConfirmOpen}
         onOpenChange={setAccountTypeConfirmOpen}
-        title={accountTypeNextValue === "client" ? "Convertir a cliente" : "Volver a prospecto"}
+        title={accountTypeNextValue === "client" ? "Convertir a cliente" : "Convertir a prospecto"}
         description={
           accountTypeNextValue === "client"
-            ? "Esta cuenta quedará marcada como cliente. Podrás operar instalaciones activas."
-            : "Esta cuenta volverá a prospecto, quedará inactiva y se desactivarán sus instalaciones activas."
+            ? "La cuenta quedará marcada como cliente inactivo. Luego puedes activarla cuando corresponda."
+            : "La cuenta quedará como prospecto inactivo y se desactivarán sus instalaciones activas."
         }
+        confirmLabel={accountTypeNextValue === "client" ? "Convertir" : "Confirmar"}
+        variant="default"
         onConfirm={confirmToggleAccountType}
       />
       <ConfirmDialog

@@ -65,8 +65,10 @@ export const createAccountSchema = z.object({
   legalRepresentativeRut: z.string().trim().max(20).optional().nullable(),
   industry: z.string().trim().max(100).optional().nullable(),
   segment: z.string().trim().max(100).optional().nullable(),
-  status: z.string().trim().max(50).default("active"),
-  isActive: z.boolean().default(true),
+  status: z
+    .enum(["prospect", "client_active", "client_inactive", "active", "inactive"])
+    .default("prospect"),
+  isActive: z.boolean().default(false),
   website: z.string().trim().url("URL inválida").max(500).optional().nullable().or(z.literal("")),
   address: z.string().trim().max(500).optional().nullable(),
   notes: z.string().trim().max(2000).optional().nullable(),

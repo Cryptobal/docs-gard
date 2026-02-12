@@ -23,7 +23,7 @@ export type InstallationRow = {
   createdAt?: string | null;
   updatedAt?: string | null;
   isActive?: boolean;
-  account?: { id: string; name: string; type?: "prospect" | "client"; isActive?: boolean } | null;
+  account?: { id: string; name: string; type?: "prospect" | "client"; status?: string; isActive?: boolean } | null;
 };
 
 export function CrmInstallationsListClient({
@@ -40,6 +40,12 @@ export function CrmInstallationsListClient({
   const [view, setView] = useState<ViewMode>("cards");
   const [accountFilter, setAccountFilter] = useState<string>("all");
   const [statusUpdatingIds, setStatusUpdatingIds] = useState<Set<string>>(new Set());
+  const [statusConfirm, setStatusConfirm] = useState<{ open: boolean; id: string; next: boolean; activateAccount: boolean }>({
+    open: false,
+    id: "",
+    next: false,
+    activateAccount: false,
+  });
 
   const toggleSelection = (id: string) => {
     setSelectedIds((prev) => {
@@ -96,24 +102,28 @@ export function CrmInstallationsListClient({
     }
   };
 
-  const toggleInstallationStatus = async (inst: InstallationRow) => {
+  const openToggleInstallationStatus = (inst: InstallationRow) => {
     const current = inst.isActive === true;
     const next = !current;
-    const shouldActivateAccount =
-      next &&
-      inst.account?.isActive === false &&
-      window.confirm(
-        "Esta instalación quedará ACTIVA.\n\nLa cuenta está inactiva. ¿También quieres activar la cuenta?"
-      );
+    setStatusConfirm({
+      open: true,
+      id: inst.id,
+      next,
+      activateAccount: next && inst.account?.isActive === false,
+    });
+  };
 
+  const toggleInstallationStatus = async () => {
+    const inst = installations.find((row) => row.id === statusConfirm.id);
+    if (!inst) return;
     setStatusUpdatingIds((prev) => new Set(prev).add(inst.id));
     try {
       const res = await fetch(`/api/crm/installations/${inst.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          isActive: next,
-          activateAccount: Boolean(shouldActivateAccount),
+          isActive: statusConfirm.next,
+          activateAccount: Boolean(statusConfirm.activateAccount),
         }),
       });
       const payload = await res.json();
@@ -122,7 +132,8 @@ export function CrmInstallationsListClient({
       setInstallations((prev) =>
         prev.map((row) => (row.id === inst.id ? payload.data : row))
       );
-      toast.success(next ? "Instalación activada" : "Instalación desactivada");
+      setStatusConfirm({ open: false, id: "", next: false, activateAccount: false });
+      toast.success(statusConfirm.next ? "Instalación activada" : "Instalación desactivada");
     } catch (error) {
       console.error(error);
       toast.error("No se pudo cambiar el estado de la instalación");
@@ -278,7 +289,7 @@ export function CrmInstallationsListClient({
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        void toggleInstallationStatus(inst);
+                        openToggleInstallationStatus(inst);
                       }}
                       disabled={statusUpdatingIds.has(inst.id)}
                     >
@@ -287,6 +298,19 @@ export function CrmInstallationsListClient({
                         : inst.isActive
                         ? "Desactivar"
                         : "Activar"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 shrink-0 text-destructive"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setDeleteConfirm({ open: true, id: inst.id });
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 );
@@ -299,9 +323,9 @@ export function CrmInstallationsListClient({
                 return (
                   <div
                     key={inst.id}
-                    className={`rounded-lg border p-4 transition-colors hover:border-primary/30 group space-y-2.5 ${selected ? "border-primary/50 bg-primary/5" : "hover:bg-accent/30"}`}
+                    className={`rounded-lg border transition-colors hover:border-primary/30 group ${selected ? "border-primary/50 bg-primary/5" : "hover:bg-accent/30"}`}
                   >
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start justify-between gap-2 p-4">
                       <button
                         type="button"
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleSelection(inst.id); }}
@@ -343,27 +367,40 @@ export function CrmInstallationsListClient({
                           </p>
                         )}
                       </Link>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={inst.isActive ? "outline" : "secondary"}
-                          className="h-8"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            void toggleInstallationStatus(inst);
-                          }}
-                          disabled={statusUpdatingIds.has(inst.id)}
-                        >
-                          {statusUpdatingIds.has(inst.id)
-                            ? "..."
-                            : inst.isActive
-                            ? "Desactivar"
-                            : "Activar"}
-                        </Button>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
-                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+                    </div>
+                    <div className="flex items-center justify-end gap-2 border-t px-4 py-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={inst.isActive ? "outline" : "secondary"}
+                        className="h-8"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          openToggleInstallationStatus(inst);
+                        }}
+                        disabled={statusUpdatingIds.has(inst.id)}
+                      >
+                        {statusUpdatingIds.has(inst.id)
+                          ? "Guardando..."
+                          : inst.isActive
+                          ? "Desactivar"
+                          : "Activar"}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 text-destructive"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setDeleteConfirm({ open: true, id: inst.id });
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 );
@@ -405,7 +442,23 @@ export function CrmInstallationsListClient({
         onOpenChange={(v) => setDeleteConfirm({ ...deleteConfirm, open: v })}
         title="Eliminar instalación"
         description="La instalación será eliminada permanentemente. Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
         onConfirm={() => deleteInstallation(deleteConfirm.id)}
+      />
+      <ConfirmDialog
+        open={statusConfirm.open}
+        onOpenChange={(open) => setStatusConfirm((prev) => ({ ...prev, open }))}
+        title={statusConfirm.next ? "Activar instalación" : "Desactivar instalación"}
+        description={
+          statusConfirm.next
+            ? statusConfirm.activateAccount
+              ? "La instalación quedará activa y también se activará la cuenta asociada."
+              : "La instalación quedará activa."
+            : "La instalación quedará inactiva."
+        }
+        confirmLabel={statusConfirm.next ? "Activar" : "Desactivar"}
+        variant="default"
+        onConfirm={toggleInstallationStatus}
       />
     </div>
   );

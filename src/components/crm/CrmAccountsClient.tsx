@@ -48,7 +48,7 @@ type AccountRow = {
   industry?: string | null;
   website?: string | null;
   type: "prospect" | "client";
-  status: string;
+  status: "prospect" | "client_active" | "client_inactive" | string;
   isActive: boolean;
   createdAt: string;
   updatedAt?: string | null;
@@ -57,6 +57,14 @@ type AccountRow = {
     deals: number;
   };
 };
+
+function getLifecycle(account: Pick<AccountRow, "status" | "type" | "isActive">) {
+  if (account.status === "prospect") return "prospect";
+  if (account.status === "client_active") return "client_active";
+  if (account.status === "client_inactive") return "client_inactive";
+  if (account.type === "prospect") return "prospect";
+  return account.isActive ? "client_active" : "client_inactive";
+}
 
 const DEFAULT_FORM: AccountFormState = {
   name: "",
@@ -96,7 +104,9 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
   const filteredAccounts = useMemo(() => {
     const q = search.trim().toLowerCase();
     let result = accounts.filter((a) => {
-      if (typeFilter !== "all" && a.type !== typeFilter) return false;
+      const lifecycle = getLifecycle(a);
+      if (typeFilter === "prospect" && lifecycle !== "prospect") return false;
+      if (typeFilter === "client" && lifecycle === "prospect") return false;
       if (q && !`${a.name} ${a.rut || ""} ${a.industry || ""}`.toLowerCase().includes(q)) return false;
       return true;
     });
@@ -119,8 +129,8 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
   }, [accounts, typeFilter, search, sort]);
 
   const counts = useMemo(() => {
-    const prospects = accounts.filter((a) => a.type === "prospect").length;
-    const clients = accounts.filter((a) => a.type === "client").length;
+    const prospects = accounts.filter((a) => getLifecycle(a) === "prospect").length;
+    const clients = accounts.filter((a) => getLifecycle(a) !== "prospect").length;
     return { prospects, clients, total: accounts.length };
   }, [accounts]);
 
@@ -137,6 +147,10 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
     open: false,
     id: "",
     next: false,
+  });
+  const [typeConfirm, setTypeConfirm] = useState<{ open: boolean; id: string }>({
+    open: false,
+    id: "",
   });
 
   const toggleSelection = (id: string) => {
@@ -212,7 +226,7 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
       toast.success(
         form.type === "prospect"
           ? "Prospecto creado exitosamente"
-          : "Cliente creado exitosamente"
+          : "Cliente creado como inactivo"
       );
     } catch (error) {
       console.error(error);
@@ -223,6 +237,7 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
   };
 
   const openToggleAccountStatus = (account: AccountRow) => {
+    if (getLifecycle(account) === "prospect") return;
     setStatusConfirm({ open: true, id: account.id, next: !account.isActive });
   };
 
@@ -242,7 +257,7 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
       setAccounts((prev) =>
         prev.map((row) =>
           row.id === id
-            ? { ...row, isActive: payload.data.isActive, status: payload.data.isActive ? "active" : "inactive" }
+            ? { ...row, isActive: payload.data.isActive, status: payload.data.status }
             : row
         )
       );
@@ -257,6 +272,25 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
         next.delete(id);
         return next;
       });
+    }
+  };
+
+  const convertAccountToClient = async () => {
+    const id = typeConfirm.id;
+    if (!id) return;
+    try {
+      const res = await fetch(`/api/crm/accounts/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "client" }),
+      });
+      const payload = await res.json();
+      if (!res.ok || !payload.success) throw new Error(payload?.error || "No se pudo convertir");
+      setAccounts((prev) => prev.map((row) => (row.id === id ? { ...row, ...payload.data } : row)));
+      setTypeConfirm({ open: false, id: "" });
+      toast.success("Cuenta convertida a cliente");
+    } catch {
+      toast.error("No se pudo convertir la cuenta.");
     }
   };
 
@@ -421,86 +455,108 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
             <div className="space-y-2">
               {filteredAccounts.map((account) => {
                 const selected = selectedIds.has(account.id);
+                const lifecycle = getLifecycle(account);
                 return (
                   <div
                     key={account.id}
-                    className={`flex items-center gap-2 rounded-lg border p-3 sm:p-4 transition-colors sm:items-center sm:justify-between group ${selected ? "border-primary/50 bg-primary/5" : "hover:bg-accent/30"}`}
+                    className={`rounded-lg border transition-colors group ${selected ? "border-primary/50 bg-primary/5" : "hover:bg-accent/30"}`}
                   >
-                    <button
-                      type="button"
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleSelection(account.id); }}
-                      className="shrink-0 p-1 rounded text-muted-foreground hover:text-foreground"
-                      aria-label={selected ? "Quitar de selección" : "Seleccionar"}
-                    >
-                      {selected ? <CheckSquare className="h-5 w-5 text-primary" /> : <Square className="h-5 w-5" />}
-                    </button>
-                    <Link
-                      href={`/crm/accounts/${account.id}`}
-                      className="flex flex-1 flex-col gap-2 min-w-0 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div className="flex flex-1 items-start gap-3 min-w-0">
-                        <div
-                          className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                            account.type === "client"
-                              ? "bg-emerald-500/10 text-emerald-400"
-                              : "bg-amber-500/10 text-amber-400"
-                          }`}
-                        >
-                          {account.type === "client" ? <Building2 className="h-4 w-4" /> : <Users className="h-4 w-4" />}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm">{account.name}</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            {account.rut || "Sin RUT"} · {account.industry || "Sin industria"}
-                          </p>
-                          {account.legalRepresentativeName && (
+                    <div className="flex items-center gap-2 p-3 sm:p-4">
+                      <button
+                        type="button"
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleSelection(account.id); }}
+                        className="shrink-0 p-1 rounded text-muted-foreground hover:text-foreground"
+                        aria-label={selected ? "Quitar de selección" : "Seleccionar"}
+                      >
+                        {selected ? <CheckSquare className="h-5 w-5 text-primary" /> : <Square className="h-5 w-5" />}
+                      </button>
+                      <Link
+                        href={`/crm/accounts/${account.id}`}
+                        className="flex flex-1 flex-col gap-2 min-w-0 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="flex flex-1 items-start gap-3 min-w-0">
+                          <div
+                            className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                              lifecycle === "prospect"
+                                ? "bg-amber-500/10 text-amber-400"
+                                : "bg-emerald-500/10 text-emerald-400"
+                            }`}
+                          >
+                            {lifecycle === "prospect" ? <Users className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm">{account.name}</p>
                             <p className="mt-0.5 text-xs text-muted-foreground">
-                              Rep. legal: {account.legalRepresentativeName}
-                              {account.legalRepresentativeRut ? ` (${account.legalRepresentativeRut})` : ""}
+                              {account.rut || "Sin RUT"} · {account.industry || "Sin industria"}
                             </p>
-                          )}
-                          {account.website && (
-                            <a href={account.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 mt-1 text-xs text-primary hover:underline truncate max-w-[200px]" onClick={(e) => e.stopPropagation()}>
-                              <Globe className="h-3 w-3 shrink-0" />
-                              {account.website}
-                            </a>
-                          )}
-                          <CrmDates createdAt={account.createdAt} updatedAt={account.updatedAt} className="mt-0.5" />
+                            {account.legalRepresentativeName && (
+                              <p className="mt-0.5 text-xs text-muted-foreground">
+                                Rep. legal: {account.legalRepresentativeName}
+                                {account.legalRepresentativeRut ? ` (${account.legalRepresentativeRut})` : ""}
+                              </p>
+                            )}
+                            {account.website && (
+                              <a href={account.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 mt-1 text-xs text-primary hover:underline truncate max-w-[200px]" onClick={(e) => e.stopPropagation()}>
+                                <Globe className="h-3 w-3 shrink-0" />
+                                {account.website}
+                              </a>
+                            )}
+                            <CrmDates createdAt={account.createdAt} updatedAt={account.updatedAt} className="mt-0.5" />
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Badge variant="outline" className={account.type === "client" ? "border-emerald-500/30 text-emerald-400" : "border-amber-500/30 text-amber-400"}>
-                          {account.type === "client" ? "Cliente" : "Prospecto"}
-                        </Badge>
-                        <Badge
-                          variant="outline"
-                          className={account.isActive ? "border-emerald-500/30 text-emerald-400" : "border-rose-500/30 text-rose-400"}
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge variant="outline" className={lifecycle === "prospect" ? "border-amber-500/30 text-amber-400" : "border-emerald-500/30 text-emerald-400"}>
+                            {lifecycle === "prospect" ? "Prospecto" : "Cliente"}
+                          </Badge>
+                          <Badge
+                            variant="outline"
+                            className={lifecycle === "client_active" ? "border-emerald-500/30 text-emerald-400" : "border-rose-500/30 text-rose-400"}
+                          >
+                            {lifecycle === "client_active" ? "Activa" : lifecycle === "client_inactive" ? "Ex cliente" : "Inactiva"}
+                          </Badge>
+                          <Badge variant="outline">{account._count?.contacts ?? 0} contactos</Badge>
+                          <Badge variant="outline">{account._count?.deals ?? 0} negocios</Badge>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 hidden sm:block" />
+                        </div>
+                      </Link>
+                    </div>
+                    <div className="flex items-center justify-end gap-2 border-t px-3 py-2 sm:px-4">
+                      {lifecycle === "prospect" && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          className="h-8"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setTypeConfirm({ open: true, id: account.id });
+                          }}
                         >
-                          {account.isActive ? "Activa" : "Inactiva"}
-                        </Badge>
-                        <Badge variant="outline">{account._count?.contacts ?? 0} contactos</Badge>
-                        <Badge variant="outline">{account._count?.deals ?? 0} negocios</Badge>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 hidden sm:block" />
-                      </div>
-                    </Link>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={account.isActive ? "outline" : "secondary"}
-                      className="h-8 shrink-0"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        openToggleAccountStatus(account);
-                      }}
-                      disabled={statusUpdatingIds.has(account.id)}
-                    >
-                      {statusUpdatingIds.has(account.id)
-                        ? "Guardando..."
-                        : account.isActive
-                        ? "Desactivar"
-                        : "Activar"}
-                    </Button>
+                          Convertir a cliente
+                        </Button>
+                      )}
+                      {lifecycle !== "prospect" && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={account.isActive ? "outline" : "secondary"}
+                          className="h-8"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            openToggleAccountStatus(account);
+                          }}
+                          disabled={statusUpdatingIds.has(account.id)}
+                        >
+                          {statusUpdatingIds.has(account.id)
+                            ? "Guardando..."
+                            : account.isActive
+                            ? "Desactivar"
+                            : "Activar"}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -509,12 +565,13 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {filteredAccounts.map((account) => {
                 const selected = selectedIds.has(account.id);
+                const lifecycle = getLifecycle(account);
                 return (
                   <div
                     key={account.id}
-                    className={`rounded-lg border p-4 transition-colors hover:border-primary/30 group space-y-3 ${selected ? "border-primary/50 bg-primary/5" : "hover:bg-accent/30"}`}
+                    className={`rounded-lg border transition-colors hover:border-primary/30 group ${selected ? "border-primary/50 bg-primary/5" : "hover:bg-accent/30"}`}
                   >
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start justify-between gap-2 p-4">
                       <button
                         type="button"
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleSelection(account.id); }}
@@ -525,8 +582,8 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                       </button>
                       <Link href={`/crm/accounts/${account.id}`} className="flex-1 min-w-0">
                         <div className="flex items-center gap-2.5">
-                          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${account.type === "client" ? "bg-emerald-500/10 text-emerald-400" : "bg-amber-500/10 text-amber-400"}`}>
-                            {account.type === "client" ? <Building2 className="h-4 w-4" /> : <Users className="h-4 w-4" />}
+                          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${lifecycle === "prospect" ? "bg-amber-500/10 text-amber-400" : "bg-emerald-500/10 text-emerald-400"}`}>
+                            {lifecycle === "prospect" ? <Users className="h-4 w-4" /> : <Building2 className="h-4 w-4" />}
                           </div>
                           <div className="min-w-0">
                             <p className="font-medium text-sm group-hover:text-primary transition-colors">{account.name}</p>
@@ -534,14 +591,14 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                           </div>
                         </div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap mt-2">
-                          <Badge variant="outline" className={`text-[10px] ${account.type === "client" ? "border-emerald-500/30 text-emerald-400" : "border-amber-500/30 text-amber-400"}`}>
-                            {account.type === "client" ? "Cliente" : "Prospecto"}
+                          <Badge variant="outline" className={`text-[10px] ${lifecycle === "prospect" ? "border-amber-500/30 text-amber-400" : "border-emerald-500/30 text-emerald-400"}`}>
+                            {lifecycle === "prospect" ? "Prospecto" : "Cliente"}
                           </Badge>
                           <Badge
                             variant="outline"
-                            className={`text-[10px] ${account.isActive ? "border-emerald-500/30 text-emerald-400" : "border-rose-500/30 text-rose-400"}`}
+                            className={`text-[10px] ${lifecycle === "client_active" ? "border-emerald-500/30 text-emerald-400" : "border-rose-500/30 text-rose-400"}`}
                           >
-                            {account.isActive ? "Activa" : "Inactiva"}
+                            {lifecycle === "client_active" ? "Activa" : lifecycle === "client_inactive" ? "Ex cliente" : "Inactiva"}
                           </Badge>
                           <span className="flex items-center gap-1"><Users className="h-3 w-3" />{account._count?.contacts ?? 0}</span>
                           <span className="flex items-center gap-1"><TrendingUp className="h-3 w-3" />{account._count?.deals ?? 0}</span>
@@ -556,24 +613,43 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                       </Link>
                       <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
                     </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={account.isActive ? "outline" : "secondary"}
-                      className="h-8"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        openToggleAccountStatus(account);
-                      }}
-                      disabled={statusUpdatingIds.has(account.id)}
-                    >
-                      {statusUpdatingIds.has(account.id)
-                        ? "..."
-                        : account.isActive
-                        ? "Desactivar"
-                        : "Activar"}
-                    </Button>
+                    <div className="flex items-center justify-end gap-2 border-t px-4 py-2">
+                      {lifecycle === "prospect" && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          className="h-8"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setTypeConfirm({ open: true, id: account.id });
+                          }}
+                        >
+                          Convertir a cliente
+                        </Button>
+                      )}
+                      {lifecycle !== "prospect" && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={account.isActive ? "outline" : "secondary"}
+                          className="h-8"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            openToggleAccountStatus(account);
+                          }}
+                          disabled={statusUpdatingIds.has(account.id)}
+                        >
+                          {statusUpdatingIds.has(account.id)
+                            ? "Guardando..."
+                            : account.isActive
+                            ? "Desactivar"
+                            : "Activar"}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -625,10 +701,21 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
         title={statusConfirm.next ? "Activar cuenta" : "Desactivar cuenta"}
         description={
           statusConfirm.next
-            ? "La cuenta quedará activa."
-            : "La cuenta quedará inactiva y sus instalaciones activas se desactivarán automáticamente."
+            ? "La cuenta quedará como cliente activo."
+            : "La cuenta quedará como cliente inactivo (ex cliente) y sus instalaciones activas se desactivarán automáticamente."
         }
+        confirmLabel={statusConfirm.next ? "Activar" : "Desactivar"}
+        variant="default"
         onConfirm={toggleAccountStatus}
+      />
+      <ConfirmDialog
+        open={typeConfirm.open}
+        onOpenChange={(open) => setTypeConfirm((prev) => ({ ...prev, open }))}
+        title="Convertir a cliente"
+        description="La cuenta dejará de ser prospecto y quedará como cliente inactivo. Podrás activarla cuando corresponda."
+        confirmLabel="Convertir"
+        variant="default"
+        onConfirm={convertAccountToClient}
       />
     </div>
   );
