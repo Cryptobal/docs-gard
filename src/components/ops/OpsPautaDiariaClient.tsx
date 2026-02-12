@@ -360,371 +360,288 @@ export function OpsPautaDiariaClient({
                 {group.name}
               </h3>
 
-              <div className="overflow-x-auto -mx-4 px-4 sm:-mx-6 sm:px-6">
-                <table className="w-full text-xs sm:text-xs border-collapse min-w-[700px]">
-                  <thead>
-                    <tr className="border-b border-border text-left">
-                      <th className="px-2 py-1.5 min-w-[160px] sm:w-[220px]">Puesto</th>
-                      <th className="px-2 py-1.5 min-w-[120px] sm:w-[140px]">Planificado</th>
-                      <th className="px-2 py-1.5 min-w-[140px] sm:w-[160px]">Real / Reemplazo</th>
-                      <th className="px-2 py-1.5 w-[80px] text-center">Check In/Out</th>
-                      <th className="px-2 py-1.5 w-[60px] text-center">Estado</th>
-                      <th className="px-2 py-1.5 w-[200px]">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {group.items.map((item) => {
-                      const te = item.turnosExtra?.[0];
-                      const isLocked = Boolean(item.lockedAt);
-                      const isPPC = !item.plannedGuardiaId;
-                      const showReplacementSearch =
-                        isPPC ||
-                        item.attendanceStatus === "no_asistio" ||
-                        (item.attendanceStatus === "reemplazo" && item.replacementGuardia);
-                      const showAsistioNoAsistio = !isPPC && item.attendanceStatus !== "asistio";
-                      const initialStatus: "pendiente" | "ppc" = item.plannedGuardiaId ? "pendiente" : "ppc";
-                      const hasChanges =
-                        item.attendanceStatus !== initialStatus || item.replacementGuardiaId != null;
-                      const isReplacementOpen = replacementOpenId === item.id;
-                      // Asistencia previa: hay actualGuardiaId (asistio/reemplazo) pero el planificado es distinto o vacío
-                      const showAsistenciaPreviaWarning =
-                        item.actualGuardiaId != null &&
-                        (item.attendanceStatus === "asistio" || item.attendanceStatus === "reemplazo") &&
-                        (item.plannedGuardiaId !== item.actualGuardiaId || item.plannedGuardiaId == null);
-                      const asistenciaPreviaGuardiaName =
-                        item.actualGuardia
-                          ? `${item.actualGuardia.persona.firstName} ${item.actualGuardia.persona.lastName}`
-                          : "Guardia";
-                      return (
-                        <tr
-                          key={item.id}
-                          className={`border-b border-border/50 hover:bg-muted/10 ${
-                            isLocked ? "opacity-60" : ""
-                          }`}
-                        >
-                          <td className="px-2 py-2">
-                            <div className="font-medium">{item.puesto.name}</div>
-                            <div className="text-[10px] text-muted-foreground">
-                              Slot {item.slotNumber} · {item.puesto.shiftStart}-{item.puesto.shiftEnd}
-                              {" "}
-                              <span className={isDayShift(item.puesto.shiftStart) ? "text-sky-400" : "text-indigo-400"}>
-                                {isDayShift(item.puesto.shiftStart) ? "Día" : "Noche"}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-2 py-2">
-                            {item.plannedGuardia ? (
-                              <div>
-                                <div>{item.plannedGuardia.persona.firstName} {item.plannedGuardia.persona.lastName}</div>
-                                {item.plannedGuardia.code && (
-                                  <div className="text-[10px] text-muted-foreground">{item.plannedGuardia.code}</div>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-amber-400">Sin asignar (PPC)</span>
-                            )}
-                          </td>
-                          <td className="px-2 py-2">
-                            {item.attendanceStatus === "reemplazo" && item.replacementGuardia ? (
-                              <div>
-                                <div className="text-rose-300">
-                                  {item.replacementGuardia.persona.firstName} {item.replacementGuardia.persona.lastName}
-                                </div>
-                                {te && (
-                                  <div className="text-[10px] text-amber-400">
-                                    TE {te.status} (${Number(te.amountClp).toLocaleString("es-CL")})
-                                  </div>
-                                )}
-                              </div>
-                            ) : showReplacementSearch && (isPPC || item.attendanceStatus === "no_asistio") ? (
-                              <div className="relative" ref={isReplacementOpen ? replacementPopoverRef : undefined}>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 w-full justify-start text-[11px] font-normal"
-                                  disabled={savingId === item.id || isLocked}
-                                  onClick={() => {
-                                    setReplacementOpenId((prev) => (prev === item.id ? null : item.id));
-                                    setReplacementSearch("");
-                                  }}
-                                >
-                                  {item.replacementGuardiaId
-                                    ? guardias.find((g) => g.id === item.replacementGuardiaId)
-                                      ? `${guardias.find((g) => g.id === item.replacementGuardiaId)!.persona.firstName} ${guardias.find((g) => g.id === item.replacementGuardiaId)!.persona.lastName}`
-                                      : "Guardia seleccionado"
-                                    : "Buscar guardia…"}
-                                </Button>
-                                {isReplacementOpen && (
-                                  <div className="absolute left-0 top-full z-50 mt-1 w-64 rounded-md border border-border bg-popover shadow-md">
-                                    <Input
-                                      placeholder="Nombre, código, RUT…"
-                                      value={replacementSearch}
-                                      onChange={(e) => setReplacementSearch(e.target.value)}
-                                      className="m-2 h-8 text-xs"
-                                      autoFocus
-                                    />
-                                    <ul className="max-h-48 overflow-auto py-1">
-                                      {replacementGuardiasFiltered.map((g) => (
-                                        <li key={g.id}>
-                                          <button
-                                            type="button"
-                                            className="w-full px-3 py-1.5 text-left text-[11px] hover:bg-muted"
-                                            onClick={() => {
-                                              void patchAsistencia(
-                                                item.id,
-                                                {
-                                                  replacementGuardiaId: g.id,
-                                                  attendanceStatus: "reemplazo",
-                                                },
-                                                "Reemplazo asignado"
-                                              );
-                                              setReplacementOpenId(null);
-                                              setReplacementSearch("");
-                                            }}
-                                          >
-                                            {g.persona.firstName} {g.persona.lastName}
-                                            {g.code ? ` (${g.code})` : ""}
-                                          </button>
-                                        </li>
-                                      ))}
-                                      {replacementGuardiasFiltered.length === 0 && (
-                                        <li className="px-3 py-2 text-[10px] text-muted-foreground">Sin resultados</li>
-                                      )}
-                                    </ul>
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </td>
-                          <td className="px-2 py-2 text-center text-[10px] text-muted-foreground">
-                            {item.checkInAt
-                              ? new Date(item.checkInAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })
-                              : "—"}
-                            {" / "}
-                            {item.checkOutAt
-                              ? new Date(item.checkOutAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })
-                              : "—"}
-                          </td>
-                          <td className="px-2 py-2 text-center">
-                            <span title={item.attendanceStatus} className="text-base">
-                              {STATUS_ICONS[item.attendanceStatus] ?? "—"}
+              {/* Card-based layout: each item is a vertical card */}
+              <div className="space-y-2">
+                {group.items.map((item) => {
+                  const te = item.turnosExtra?.[0];
+                  const isLocked = Boolean(item.lockedAt);
+                  const isPPC = !item.plannedGuardiaId;
+                  const showReplacementSearch =
+                    isPPC ||
+                    item.attendanceStatus === "no_asistio" ||
+                    (item.attendanceStatus === "reemplazo" && item.replacementGuardia);
+                  const showAsistioNoAsistio = !isPPC && item.attendanceStatus !== "asistio";
+                  const initialStatus: "pendiente" | "ppc" = item.plannedGuardiaId ? "pendiente" : "ppc";
+                  const hasChanges =
+                    item.attendanceStatus !== initialStatus || item.replacementGuardiaId != null;
+                  const isReplacementOpen = replacementOpenId === item.id;
+                  const showAsistenciaPreviaWarning =
+                    item.actualGuardiaId != null &&
+                    (item.attendanceStatus === "asistio" || item.attendanceStatus === "reemplazo") &&
+                    (item.plannedGuardiaId !== item.actualGuardiaId || item.plannedGuardiaId == null);
+                  const asistenciaPreviaGuardiaName =
+                    item.actualGuardia
+                      ? `${item.actualGuardia.persona.firstName} ${item.actualGuardia.persona.lastName}`
+                      : "Guardia";
+
+                  return (
+                    <div
+                      key={item.id}
+                      className={`rounded-lg border border-border/60 p-3 space-y-2.5 ${isLocked ? "opacity-60" : ""}`}
+                    >
+                      {/* Row 1: Puesto + Estado */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm">{item.puesto.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            S{item.slotNumber} · {item.puesto.shiftStart}-{item.puesto.shiftEnd}
+                            {" "}
+                            <span className={isDayShift(item.puesto.shiftStart) ? "text-sky-400" : "text-indigo-400"}>
+                              {isDayShift(item.puesto.shiftStart) ? "Día" : "Noche"}
                             </span>
-                          </td>
-                          <td className="px-2 py-2">
-                            <div className="flex flex-col gap-1.5">
-                              {showAsistenciaPreviaWarning && (
-                                <div className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[10px] text-amber-200">
-                                  <p className="font-medium">Este día tenía asistencia registrada ({asistenciaPreviaGuardiaName}).</p>
-                                  <div className="flex gap-1 mt-1">
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-5 text-[10px] px-2 border-amber-500/50 text-amber-200 hover:bg-amber-500/20"
-                                      disabled={savingId === item.id || isLocked || !canExecuteOps}
-                                      onClick={() =>
-                                        void patchAsistencia(
-                                          item.id,
-                                          { plannedGuardiaId: item.actualGuardiaId ?? undefined },
-                                          "Asistencia validada (planificado alineado)"
-                                        )
-                                      }
-                                    >
-                                      Validar
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-5 text-[10px] px-2 border-amber-500/50 text-amber-200 hover:bg-amber-500/20"
-                                      disabled={savingId === item.id || isLocked || !canExecuteOps}
-                                      onClick={() => {
-                                        const te = item.turnosExtra?.[0];
-                                        if (te?.status === "paid" && !canManagePaidTeReset) {
-                                          toast.error("No puedes resetear: este TE ya está pagado. Solicita override a un admin.");
-                                          return;
-                                        }
-                                        if (te?.status === "paid" && canManagePaidTeReset) {
-                                          const reason = (window.prompt("Motivo obligatorio para eliminar TE pagado:") || "").trim();
-                                          if (!reason) {
-                                            toast.error("Debes indicar un motivo para forzar la eliminación.");
-                                            return;
-                                          }
-                                          void patchAsistencia(
-                                            item.id,
-                                            {
-                                              attendanceStatus: initialStatus,
-                                              actualGuardiaId: null,
-                                              replacementGuardiaId: null,
-                                              forceDeletePaidTe: true,
-                                              forceDeleteReason: reason,
-                                            },
-                                            "Estado reseteado (override admin)"
-                                          );
-                                          return;
-                                        }
-                                        if (te && (te.status === "pending" || te.status === "approved")) {
-                                          if (!window.confirm("Este reset eliminará el turno extra asociado (si aún no está pagado). ¿Continuar?")) return;
-                                        }
-                                        void patchAsistencia(
-                                          item.id,
-                                          {
-                                            attendanceStatus: initialStatus,
-                                            actualGuardiaId: null,
-                                            replacementGuardiaId: null,
-                                          },
-                                          "Estado reseteado"
-                                        );
-                                      }}
-                                    >
-                                      Corregir
-                                    </Button>
-                                  </div>
+                          </div>
+                        </div>
+                        <span title={item.attendanceStatus} className="text-lg shrink-0">
+                          {STATUS_ICONS[item.attendanceStatus] ?? "—"}
+                        </span>
+                      </div>
+
+                      {/* Row 2: Planificado */}
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-xs text-muted-foreground w-20 shrink-0">Planificado</span>
+                        {item.plannedGuardia ? (
+                          <span>
+                            {item.plannedGuardia.persona.firstName} {item.plannedGuardia.persona.lastName}
+                            {item.plannedGuardia.code && (
+                              <span className="text-xs text-muted-foreground ml-1">({item.plannedGuardia.code})</span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-amber-400 text-sm">Sin asignar (PPC)</span>
+                        )}
+                      </div>
+
+                      {/* Row 3: Reemplazo / buscar guardia */}
+                      <div className="text-sm">
+                        <span className="text-xs text-muted-foreground">Reemplazo</span>
+                        <div className="mt-1">
+                          {item.attendanceStatus === "reemplazo" && item.replacementGuardia ? (
+                            <div>
+                              <span className="text-rose-300">
+                                {item.replacementGuardia.persona.firstName} {item.replacementGuardia.persona.lastName}
+                              </span>
+                              {te && (
+                                <span className="text-xs text-amber-400 ml-2">
+                                  TE {te.status} (${Number(te.amountClp).toLocaleString("es-CL")})
+                                </span>
+                              )}
+                            </div>
+                          ) : showReplacementSearch && (isPPC || item.attendanceStatus === "no_asistio") ? (
+                            <div className="relative" ref={isReplacementOpen ? replacementPopoverRef : undefined}>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-9 w-full justify-start text-sm font-normal"
+                                disabled={savingId === item.id || isLocked}
+                                onClick={() => {
+                                  setReplacementOpenId((prev) => (prev === item.id ? null : item.id));
+                                  setReplacementSearch("");
+                                }}
+                              >
+                                {item.replacementGuardiaId
+                                  ? guardias.find((g) => g.id === item.replacementGuardiaId)
+                                    ? `${guardias.find((g) => g.id === item.replacementGuardiaId)!.persona.firstName} ${guardias.find((g) => g.id === item.replacementGuardiaId)!.persona.lastName}`
+                                    : "Guardia seleccionado"
+                                  : "Buscar guardia…"}
+                              </Button>
+                              {isReplacementOpen && (
+                                <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-md border border-border bg-popover shadow-lg">
+                                  <Input
+                                    placeholder="Nombre, código, RUT…"
+                                    value={replacementSearch}
+                                    onChange={(e) => setReplacementSearch(e.target.value)}
+                                    className="m-2 h-10 text-sm"
+                                    autoFocus
+                                  />
+                                  <ul className="max-h-60 overflow-auto py-1">
+                                    {replacementGuardiasFiltered.map((g) => (
+                                      <li key={g.id}>
+                                        <button
+                                          type="button"
+                                          className="w-full px-3 py-2.5 text-left text-sm hover:bg-muted active:bg-muted/80"
+                                          onClick={() => {
+                                            void patchAsistencia(
+                                              item.id,
+                                              {
+                                                replacementGuardiaId: g.id,
+                                                attendanceStatus: "reemplazo",
+                                              },
+                                              "Reemplazo asignado"
+                                            );
+                                            setReplacementOpenId(null);
+                                            setReplacementSearch("");
+                                          }}
+                                        >
+                                          {g.persona.firstName} {g.persona.lastName}
+                                          {g.code ? ` (${g.code})` : ""}
+                                        </button>
+                                      </li>
+                                    ))}
+                                    {replacementGuardiasFiltered.length === 0 && (
+                                      <li className="px-3 py-2.5 text-sm text-muted-foreground">Sin resultados</li>
+                                    )}
+                                  </ul>
                                 </div>
                               )}
-                              <div className="flex flex-wrap gap-1 items-center">
-                              {showAsistioNoAsistio && (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-6 text-[10px] px-2"
-                                    disabled={savingId === item.id || isLocked || item.attendanceStatus === "no_asistio"}
-                                    onClick={() =>
-                                      void patchAsistencia(
-                                        item.id,
-                                        {
-                                          attendanceStatus: "asistio",
-                                          actualGuardiaId:
-                                            item.replacementGuardiaId ??
-                                            item.actualGuardiaId ??
-                                            item.plannedGuardiaId ??
-                                            null,
-                                        },
-                                        "Asistencia marcada"
-                                      )
-                                    }
-                                  >
-                                    Asistió
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-6 text-[10px] px-2"
-                                    disabled={savingId === item.id || isLocked}
-                                    onClick={() =>
-                                      void patchAsistencia(
-                                        item.id,
-                                        { attendanceStatus: "no_asistio", actualGuardiaId: null },
-                                        "No asistió"
-                                      )
-                                    }
-                                  >
-                                    No asistió
-                                  </Button>
-                                </>
-                              )}
-                              {item.attendanceStatus === "reemplazo" && item.replacementGuardia && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-6 text-[10px] px-2"
-                                  disabled={savingId === item.id || isLocked}
-                                  onClick={() =>
-                                    void patchAsistencia(
-                                      item.id,
-                                      {
-                                        attendanceStatus: "asistio",
-                                        actualGuardiaId: item.replacementGuardiaId ?? null,
-                                      },
-                                      "Asistencia del reemplazo marcada"
-                                    )
-                                  }
-                                >
-                                  Asistió (reemplazo)
-                                </Button>
-                              )}
-                              {hasChanges && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-6 text-[10px] px-2 text-muted-foreground"
-                                  disabled={savingId === item.id || isLocked || !canExecuteOps}
-                                  onClick={() => {
-                                    const te = item.turnosExtra?.[0];
-                                    if (!te) {
-                                      void patchAsistencia(
-                                        item.id,
-                                        {
-                                          attendanceStatus: initialStatus,
-                                          actualGuardiaId: null,
-                                          replacementGuardiaId: null,
-                                        },
-                                        "Estado reseteado"
-                                      );
-                                      return;
-                                    }
-
-                                    if (te.status === "paid") {
-                                      if (!canManagePaidTeReset) {
-                                        toast.error(
-                                          "No puedes resetear: este TE ya está pagado. Solicita override a un admin."
-                                        );
-                                        return;
-                                      }
-                                      const confirmPaid = window.confirm(
-                                        "Este TE ya está pagado. Si continúas, se forzará su eliminación del módulo TE y lote asociado. ¿Continuar?"
-                                      );
-                                      if (!confirmPaid) return;
-                                      const reason = (window.prompt(
-                                        "Motivo obligatorio para eliminar TE pagado:"
-                                      ) || "").trim();
-                                      if (!reason) {
-                                        toast.error("Debes indicar un motivo para forzar la eliminación.");
-                                        return;
-                                      }
-                                      void patchAsistencia(
-                                        item.id,
-                                        {
-                                          attendanceStatus: initialStatus,
-                                          actualGuardiaId: null,
-                                          replacementGuardiaId: null,
-                                          forceDeletePaidTe: true,
-                                          forceDeleteReason: reason,
-                                        },
-                                        "Estado reseteado (override admin)"
-                                      );
-                                      return;
-                                    }
-
-                                    const confirmReset = window.confirm(
-                                      "Este reset eliminará el turno extra asociado (si aún no está pagado). ¿Continuar?"
-                                    );
-                                    if (!confirmReset) return;
-                                    void patchAsistencia(
-                                      item.id,
-                                      {
-                                        attendanceStatus: initialStatus,
-                                        actualGuardiaId: null,
-                                        replacementGuardiaId: null,
-                                      },
-                                      "Estado reseteado"
-                                    );
-                                  }}
-                                  title="Resetear a estado inicial"
-                                >
-                                  <RotateCcw className="h-3 w-3" />
-                                </Button>
-                              )}
-                              </div>
                             </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                          ) : (
+                            <span className="text-muted-foreground text-sm">—</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Asistencia previa warning */}
+                      {showAsistenciaPreviaWarning && (
+                        <div className="rounded border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-xs text-amber-200">
+                          <p className="font-medium">Asistencia registrada ({asistenciaPreviaGuardiaName}).</p>
+                          <div className="flex gap-2 mt-1.5">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs px-3 border-amber-500/50 text-amber-200 hover:bg-amber-500/20"
+                              disabled={savingId === item.id || isLocked || !canExecuteOps}
+                              onClick={() =>
+                                void patchAsistencia(
+                                  item.id,
+                                  { plannedGuardiaId: item.actualGuardiaId ?? undefined },
+                                  "Asistencia validada (planificado alineado)"
+                                )
+                              }
+                            >
+                              Validar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs px-3 border-amber-500/50 text-amber-200 hover:bg-amber-500/20"
+                              disabled={savingId === item.id || isLocked || !canExecuteOps}
+                              onClick={() => {
+                                const te2 = item.turnosExtra?.[0];
+                                if (te2?.status === "paid" && !canManagePaidTeReset) {
+                                  toast.error("No puedes resetear: este TE ya está pagado.");
+                                  return;
+                                }
+                                if (te2?.status === "paid" && canManagePaidTeReset) {
+                                  const reason = (window.prompt("Motivo para eliminar TE pagado:") || "").trim();
+                                  if (!reason) { toast.error("Debes indicar un motivo."); return; }
+                                  void patchAsistencia(item.id, { attendanceStatus: initialStatus, actualGuardiaId: null, replacementGuardiaId: null, forceDeletePaidTe: true, forceDeleteReason: reason }, "Estado reseteado (override admin)");
+                                  return;
+                                }
+                                if (te2 && (te2.status === "pending" || te2.status === "approved")) {
+                                  if (!window.confirm("Se eliminará el TE asociado. ¿Continuar?")) return;
+                                }
+                                void patchAsistencia(item.id, { attendanceStatus: initialStatus, actualGuardiaId: null, replacementGuardiaId: null }, "Estado reseteado");
+                              }}
+                            >
+                              Corregir
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Actions row */}
+                      <div className="flex flex-wrap gap-1.5 items-center pt-0.5">
+                        {showAsistioNoAsistio && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs px-3"
+                              disabled={savingId === item.id || isLocked || item.attendanceStatus === "no_asistio"}
+                              onClick={() =>
+                                void patchAsistencia(
+                                  item.id,
+                                  {
+                                    attendanceStatus: "asistio",
+                                    actualGuardiaId:
+                                      item.replacementGuardiaId ??
+                                      item.actualGuardiaId ??
+                                      item.plannedGuardiaId ??
+                                      null,
+                                  },
+                                  "Asistencia marcada"
+                                )
+                              }
+                            >
+                              Asistió
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs px-3"
+                              disabled={savingId === item.id || isLocked}
+                              onClick={() =>
+                                void patchAsistencia(
+                                  item.id,
+                                  { attendanceStatus: "no_asistio", actualGuardiaId: null },
+                                  "No asistió"
+                                )
+                              }
+                            >
+                              No asistió
+                            </Button>
+                          </>
+                        )}
+                        {item.attendanceStatus === "reemplazo" && item.replacementGuardia && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs px-3"
+                            disabled={savingId === item.id || isLocked}
+                            onClick={() =>
+                              void patchAsistencia(
+                                item.id,
+                                { attendanceStatus: "asistio", actualGuardiaId: item.replacementGuardiaId ?? null },
+                                "Asistencia del reemplazo marcada"
+                              )
+                            }
+                          >
+                            Asistió (reemplazo)
+                          </Button>
+                        )}
+                        {hasChanges && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 text-xs px-2 text-muted-foreground"
+                            disabled={savingId === item.id || isLocked || !canExecuteOps}
+                            onClick={() => {
+                              const te2 = item.turnosExtra?.[0];
+                              if (!te2) {
+                                void patchAsistencia(item.id, { attendanceStatus: initialStatus, actualGuardiaId: null, replacementGuardiaId: null }, "Estado reseteado");
+                                return;
+                              }
+                              if (te2.status === "paid") {
+                                if (!canManagePaidTeReset) { toast.error("TE pagado. Solicita override a un admin."); return; }
+                                if (!window.confirm("TE pagado. Se forzará eliminación. ¿Continuar?")) return;
+                                const reason = (window.prompt("Motivo:") || "").trim();
+                                if (!reason) { toast.error("Debes indicar un motivo."); return; }
+                                void patchAsistencia(item.id, { attendanceStatus: initialStatus, actualGuardiaId: null, replacementGuardiaId: null, forceDeletePaidTe: true, forceDeleteReason: reason }, "Estado reseteado (override admin)");
+                                return;
+                              }
+                              if (!window.confirm("Se eliminará el TE asociado. ¿Continuar?")) return;
+                              void patchAsistencia(item.id, { attendanceStatus: initialStatus, actualGuardiaId: null, replacementGuardiaId: null }, "Estado reseteado");
+                            }}
+                            title="Resetear"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
