@@ -426,7 +426,7 @@ export function OpsPuestosClient({
                                 <Button
                                   size="sm"
                                   variant="ghost"
-                                  className="h-6 text-[10px] px-2 text-muted-foreground"
+                                  className="h-8 sm:h-6 text-xs sm:text-[10px] px-2.5 sm:px-2 text-muted-foreground"
                                   onClick={() =>
                                     setUnassignConfirm({
                                       open: true,
@@ -442,7 +442,7 @@ export function OpsPuestosClient({
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="h-6 text-[10px] px-2"
+                                  className="h-8 sm:h-6 text-xs sm:text-[10px] px-2.5 sm:px-2"
                                   onClick={() => openAssign(puesto.id, slotNum, puesto.name)}
                                 >
                                   <UserPlus className="h-3 w-3 mr-1" />

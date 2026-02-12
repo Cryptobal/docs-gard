@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/opai";
-import { CalendarCheck2, ChevronLeft, ChevronRight, Loader2, RotateCcw } from "lucide-react";
+import { CalendarCheck2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, RotateCcw } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { hasOpsCapability } from "@/lib/ops-rbac";
@@ -104,6 +104,7 @@ export function OpsPautaDiariaClient({
   const [loading, setLoading] = useState<boolean>(true);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [items, setItems] = useState<AsistenciaItem[]>([]);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [replacementOpenId, setReplacementOpenId] = useState<string | null>(null);
   const [replacementSearch, setReplacementSearch] = useState("");
   const replacementPopoverRef = useRef<HTMLDivElement>(null);
@@ -222,109 +223,117 @@ export function OpsPautaDiariaClient({
     <div className="space-y-4">
       {/* Filters */}
       <Card>
-        <CardContent className="pt-5">
-          <div className="grid gap-3 md:grid-cols-4">
-            <div className="space-y-1.5">
-              <Label>Cliente</Label>
-              <select
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={clientId}
-                onChange={(e) => {
-                  setClientId(e.target.value);
-                  setInstallationId("all");
+        <CardContent className="pt-4 pb-3 space-y-3">
+          {/* Date navigation — always visible */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 flex-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 sm:h-9 sm:w-9 shrink-0"
+                onClick={() => {
+                  const d = new Date(date);
+                  d.setUTCDate(d.getUTCDate() - 1);
+                  setDate(toDateInput(d));
                 }}
               >
-                <option value="all">Todos los clientes</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Instalación</Label>
-              <select
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={installationId}
-                onChange={(e) => setInstallationId(e.target.value)}
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="h-10 sm:h-9 flex-1 min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-10 w-10 sm:h-9 sm:w-9 shrink-0"
+                onClick={() => {
+                  const d = new Date(date);
+                  d.setUTCDate(d.getUTCDate() + 1);
+                  setDate(toDateInput(d));
+                }}
               >
-                <option value="all">Todas</option>
-                {installations.map((inst) => (
-                  <option key={inst.id} value={inst.id}>
-                    {inst.name}
-                  </option>
-                ))}
-              </select>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
-            <div className="space-y-1.5">
-              <Label>Fecha</Label>
-              <div className="flex items-center gap-1">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9 shrink-0"
-                  onClick={() => {
-                    const d = new Date(date);
-                    d.setUTCDate(d.getUTCDate() - 1);
-                    setDate(toDateInput(d));
-                  }}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="h-9 flex-1 min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9 shrink-0"
-                  onClick={() => {
-                    const d = new Date(date);
-                    d.setUTCDate(d.getUTCDate() + 1);
-                    setDate(toDateInput(d));
-                  }}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            <div className="flex items-end">
+            <div className="flex items-center gap-2 ml-2">
               {loading ? (
-                <div className="flex items-center gap-2 text-sm text-emerald-400 h-9">
+                <div className="flex items-center gap-1.5 text-sm text-emerald-400">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Cargando asistencia…
+                  <span className="hidden sm:inline">Cargando…</span>
                 </div>
               ) : items.length > 0 ? (
-                <div className="flex items-center gap-2 text-sm text-emerald-400 h-9">
+                <div className="flex items-center gap-1.5 text-sm text-emerald-400">
                   <CalendarCheck2 className="h-4 w-4" />
-                  Asistencia cargada
                 </div>
               ) : null}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setFiltersOpen(!filtersOpen)}
+                className="text-xs"
+              >
+                Filtros
+                {filtersOpen ? <ChevronUp className="ml-1 h-3 w-3" /> : <ChevronDown className="ml-1 h-3 w-3" />}
+              </Button>
             </div>
           </div>
+
+          {/* Collapsible filters */}
+          {filtersOpen && (
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 animate-in slide-in-from-top-2 duration-200">
+              <div className="space-y-1">
+                <Label className="text-xs">Cliente</Label>
+                <select
+                  className="h-10 sm:h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  value={clientId}
+                  onChange={(e) => {
+                    setClientId(e.target.value);
+                    setInstallationId("all");
+                  }}
+                >
+                  <option value="all">Todos los clientes</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Instalación</Label>
+                <select
+                  className="h-10 sm:h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  value={installationId}
+                  onChange={(e) => setInstallationId(e.target.value)}
+                >
+                  <option value="all">Todas</option>
+                  {installations.map((inst) => (
+                    <option key={inst.id} value={inst.id}>{inst.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Summary bar */}
+      {/* Summary bar — responsive: 3+2 on mobile, 5 on desktop */}
       {items.length > 0 && (
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
           {[
-            { label: "Total puestos", value: summary.total, color: "text-foreground" },
+            { label: "Total", value: summary.total, color: "text-foreground" },
             { label: "Cubiertos", value: summary.cubiertos, color: "text-emerald-400" },
             { label: "PPC", value: summary.ppc, color: "text-amber-400" },
-            { label: "Turnos Extra", value: summary.te, color: "text-rose-400" },
+            { label: "TE", value: summary.te, color: "text-rose-400" },
             { label: "Cobertura", value: `${summary.cobertura}%`, color: summary.cobertura >= 80 ? "text-emerald-400" : "text-amber-400" },
           ].map((s) => (
             <Card key={s.label}>
-              <CardContent className="pt-3 pb-3 text-center">
-                <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{s.label}</p>
-                <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
+              <CardContent className="pt-2.5 pb-2.5 text-center">
+                <p className="text-[11px] sm:text-[10px] uppercase tracking-wide text-muted-foreground">{s.label}</p>
+                <p className={`text-base sm:text-lg font-bold ${s.color}`}>{s.value}</p>
               </CardContent>
             </Card>
           ))}
@@ -345,19 +354,19 @@ export function OpsPautaDiariaClient({
         </Card>
       ) : (
         grouped.map(([instId, group]) => (
-          <Card key={instId} className="overflow-visible">
-            <CardContent className="pt-5 space-y-3 overflow-visible">
+          <Card key={instId}>
+            <CardContent className="pt-4 pb-3 space-y-3">
               <h3 className="text-sm font-semibold text-primary/80 uppercase tracking-wide">
                 {group.name}
               </h3>
 
-              <div className="overflow-visible">
-                <table className="w-full text-xs border-collapse min-w-[800px]">
+              <div className="overflow-x-auto -mx-4 px-4 sm:-mx-6 sm:px-6">
+                <table className="w-full text-xs sm:text-xs border-collapse min-w-[700px]">
                   <thead>
                     <tr className="border-b border-border text-left">
-                      <th className="px-2 py-1.5 w-[220px]">Puesto</th>
-                      <th className="px-2 py-1.5 w-[140px]">Planificado</th>
-                      <th className="px-2 py-1.5 w-[160px]">Real / Reemplazo</th>
+                      <th className="px-2 py-1.5 min-w-[160px] sm:w-[220px]">Puesto</th>
+                      <th className="px-2 py-1.5 min-w-[120px] sm:w-[140px]">Planificado</th>
+                      <th className="px-2 py-1.5 min-w-[140px] sm:w-[160px]">Real / Reemplazo</th>
                       <th className="px-2 py-1.5 w-[80px] text-center">Check In/Out</th>
                       <th className="px-2 py-1.5 w-[60px] text-center">Estado</th>
                       <th className="px-2 py-1.5 w-[200px]">Acciones</th>

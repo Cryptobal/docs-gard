@@ -16,7 +16,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { CalendarDays, FileDown, Loader2, Trash2 } from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronUp, FileDown, Loader2, Trash2 } from "lucide-react";
 
 /* ── constants ─────────────────────────────────── */
 
@@ -146,6 +146,30 @@ function daysInMonth(year: number, month: number): Date[] {
   return days;
 }
 
+/** Get the current week's days within a given month */
+function getCurrentWeekDays(monthDays: Date[]): Date[] {
+  const now = new Date();
+  const todayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+
+  // Find which day of the month is closest to today
+  let anchorIdx = monthDays.findIndex(
+    (d) => d.getTime() === todayUTC
+  );
+  if (anchorIdx === -1) {
+    // Today is not in this month, default to first 7 days
+    anchorIdx = 0;
+  }
+
+  // Find Monday of anchor's week
+  const anchorDay = monthDays[anchorIdx];
+  const weekday = anchorDay.getUTCDay(); // 0=Sun
+  const mondayOffset = weekday === 0 ? -6 : 1 - weekday;
+  const startIdx = Math.max(0, anchorIdx + mondayOffset);
+  const endIdx = Math.min(monthDays.length, startIdx + 7);
+
+  return monthDays.slice(startIdx, endIdx);
+}
+
 /* ── main component ────────────────────────────── */
 
 export function OpsPautaMensualClient({
@@ -180,6 +204,10 @@ export function OpsPautaMensualClient({
   const [series, setSeries] = useState<SerieInfo[]>([]);
   const [slotAsignaciones, setSlotAsignaciones] = useState<SlotAsignacion[]>([]);
   const [executionByCell, setExecutionByCell] = useState<Record<string, ExecutionCell>>({});
+
+  // Mobile: view mode (week vs full month) + collapsible filters
+  const [viewMode, setViewMode] = useState<"week" | "month">("week");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Serie painting modal
   const [serieModalOpen, setSerieModalOpen] = useState(false);
@@ -516,104 +544,148 @@ export function OpsPautaMensualClient({
     }
   };
 
+  // Visible days based on view mode
+  const visibleDays = useMemo(() => {
+    if (viewMode === "week") return getCurrentWeekDays(monthDays);
+    return monthDays;
+  }, [viewMode, monthDays]);
+
   /* ── render ── */
   return (
-    <div className="space-y-4">
-      {/* Controls */}
+    <div className="space-y-3">
+      {/* Controls — collapsible on mobile */}
       <Card>
-        <CardContent className="pt-5 space-y-4">
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-1.5">
-              <Label>Cliente</Label>
-              <select
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
-              >
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Instalación</Label>
-              <select
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={installationId}
-                onChange={(e) => setInstallationId(e.target.value)}
-              >
-                {installations.map((inst) => (
-                  <option key={inst.id} value={inst.id}>
-                    {inst.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Mes</Label>
-              <select
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={month}
-                onChange={(e) => setMonth(Number(e.target.value))}
-              >
-                {MESES.map((nombre, idx) => (
-                  <option key={idx} value={idx + 1}>
-                    {nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Año</Label>
-              <Input
-                type="number"
-                min={2020}
-                max={2100}
-                value={year}
-                onChange={(e) => setYear(Number(e.target.value) || year)}
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between rounded-md border border-border bg-muted/20 px-3 py-2">
-            <div className="flex items-center gap-3">
+        <CardContent className="pt-4 pb-3 space-y-3">
+          {/* Header row: status + toggle filters */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
               {loading ? (
                 <div className="flex items-center gap-2 text-sm text-emerald-400">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Cargando pauta…
+                  Cargando…
                 </div>
               ) : items.length > 0 ? (
                 <div className="flex items-center gap-2 text-sm text-emerald-400">
                   <CalendarDays className="h-4 w-4" />
-                  Pauta cargada · {items.length} registros
+                  <span className="hidden sm:inline">Pauta cargada ·</span> {items.length} reg.
                 </div>
               ) : null}
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={handleExportPdf} disabled={loading || items.length === 0} size="sm">
-                <FileDown className="mr-2 h-4 w-4" />
-                Exportar PDF
-              </Button>
-              <Button variant="outline" onClick={handleExportExcel} disabled={loading || items.length === 0} size="sm">
-                <FileDown className="mr-2 h-4 w-4" />
-                Exportar Excel
-              </Button>
+            <div className="flex items-center gap-2">
               {items.length === 0 && !loading && (
                 <Button onClick={handleGenerate} disabled={loading} size="sm">
-                  <CalendarDays className="mr-2 h-4 w-4" />
-                  Generar pauta
+                  <CalendarDays className="mr-1.5 h-4 w-4" />
+                  Generar
                 </Button>
               )}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setFiltersOpen(!filtersOpen)}
+                className="text-xs"
+              >
+                Filtros
+                {filtersOpen ? <ChevronUp className="ml-1 h-3 w-3" /> : <ChevronDown className="ml-1 h-3 w-3" />}
+              </Button>
             </div>
           </div>
+
+          {/* Filters — collapsed by default on mount */}
+          {filtersOpen && (
+            <div className="grid gap-3 grid-cols-2 md:grid-cols-4 animate-in slide-in-from-top-2 duration-200">
+              <div className="space-y-1">
+                <Label className="text-xs">Cliente</Label>
+                <select
+                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
+                >
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Instalación</Label>
+                <select
+                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  value={installationId}
+                  onChange={(e) => setInstallationId(e.target.value)}
+                >
+                  {installations.map((inst) => (
+                    <option key={inst.id} value={inst.id}>{inst.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Mes</Label>
+                <select
+                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  value={month}
+                  onChange={(e) => setMonth(Number(e.target.value))}
+                >
+                  {MESES.map((nombre, idx) => (
+                    <option key={idx} value={idx + 1}>{nombre}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Año</Label>
+                <Input
+                  type="number"
+                  min={2020}
+                  max={2100}
+                  value={year}
+                  onChange={(e) => setYear(Number(e.target.value) || year)}
+                  className="h-9"
+                />
+              </div>
+              <div className="col-span-2 md:col-span-4 flex flex-wrap gap-2">
+                <Button variant="outline" onClick={handleExportPdf} disabled={loading || items.length === 0} size="sm" className="text-xs h-8">
+                  <FileDown className="mr-1.5 h-3.5 w-3.5" />
+                  PDF
+                </Button>
+                <Button variant="outline" onClick={handleExportExcel} disabled={loading || items.length === 0} size="sm" className="text-xs h-8">
+                  <FileDown className="mr-1.5 h-3.5 w-3.5" />
+                  Excel
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* View mode toggle: Semana / Mes */}
+          {matrix.length > 0 && (
+            <div className="flex items-center gap-1 rounded-lg border border-border p-0.5 w-fit">
+              <button
+                type="button"
+                onClick={() => setViewMode("week")}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                  viewMode === "week"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Semana
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("month")}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                  viewMode === "month"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Mes completo
+              </button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Matrix */}
       <Card>
-        <CardContent className="pt-5">
+        <CardContent className="pt-4 pb-3">
           {matrix.length === 0 ? (
             <EmptyState
               icon={<CalendarDays className="h-8 w-8" />}
@@ -622,26 +694,30 @@ export function OpsPautaMensualClient({
               compact
             />
           ) : (
-            <div className="overflow-x-auto -mx-6 px-6">
-              <table className="w-full text-xs border-collapse min-w-[800px]">
+            <div className="overflow-x-auto -mx-4 px-4 sm:-mx-6 sm:px-6">
+              <table className="w-full text-xs border-collapse">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="sticky left-0 z-10 bg-card text-left px-2 py-2 w-[200px] min-w-[200px]">
-                      Puesto / Guardia
+                    <th className="sticky left-0 z-10 bg-card text-left px-1.5 py-2 min-w-[100px] sm:min-w-[200px]">
+                      <span className="hidden sm:inline">Puesto / Guardia</span>
+                      <span className="sm:hidden text-xs">Puesto</span>
                     </th>
-                    {monthDays.map((d) => {
+                    {visibleDays.map((d) => {
                       const dayNum = d.getUTCDate();
                       const dayName = WEEKDAY_SHORT[d.getUTCDay()];
                       const isWeekend = d.getUTCDay() === 0 || d.getUTCDay() === 6;
+                      const isToday = toDateKey(d) === toDateKey(new Date());
                       return (
                         <th
                           key={dayNum}
-                          className={`text-center px-0.5 py-1 min-w-[32px] ${
-                            isWeekend ? "text-amber-400" : "text-muted-foreground"
+                          className={`text-center px-0.5 py-1 min-w-[36px] sm:min-w-[32px] ${
+                            isToday ? "text-primary" : isWeekend ? "text-amber-400" : "text-muted-foreground"
                           }`}
                         >
-                          <div className="text-[10px] leading-tight">{dayName}</div>
-                          <div className="font-semibold">{dayNum}</div>
+                          <div className="text-[11px] sm:text-[10px] leading-tight">{dayName}</div>
+                          <div className={`font-semibold text-sm sm:text-xs ${isToday ? "bg-primary text-primary-foreground rounded-full w-6 h-6 inline-flex items-center justify-center mx-auto" : ""}`}>
+                            {dayNum}
+                          </div>
                         </th>
                       );
                     })}
@@ -656,31 +732,31 @@ export function OpsPautaMensualClient({
                         className={`${isFirstSlot ? "border-t border-border" : ""} hover:bg-muted/10`}
                       >
                         {/* Row header */}
-                        <td className="sticky left-0 z-10 bg-card px-2 py-1.5 align-top">
+                        <td className="sticky left-0 z-10 bg-card px-1.5 py-1 sm:py-1.5 align-top">
                           {isFirstSlot && (
-                            <div className="font-medium text-foreground leading-tight flex items-center gap-1.5">
-                              {row.puestoName}
+                            <div className="font-medium text-foreground leading-tight flex items-center gap-1 text-xs sm:text-sm">
+                              <span className="truncate max-w-[80px] sm:max-w-none">{row.puestoName}</span>
                               {(() => {
                                 const h = parseInt(row.shiftStart.split(":")[0], 10);
                                 const night = h >= 18 || h < 6;
                                 return (
-                                  <span className={`rounded-full px-1 py-0 text-[8px] font-semibold border ${
+                                  <span className={`shrink-0 rounded-full px-1 py-0 text-[9px] sm:text-[8px] font-semibold border ${
                                     night
                                       ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
                                       : "bg-amber-500/15 text-amber-300 border-amber-500/30"
                                   }`}>
-                                    {night ? "Noche" : "Día"}
+                                    {night ? "N" : "D"}
                                   </span>
                                 );
                               })()}
                             </div>
                           )}
                           {isFirstSlot && (
-                            <div className="text-[10px] text-muted-foreground">
+                            <div className="text-[11px] sm:text-[10px] text-muted-foreground hidden sm:block">
                               {row.shiftStart}-{row.shiftEnd}
                             </div>
                           )}
-                          <div className="text-[10px] mt-0.5 flex items-center gap-1">
+                          <div className="text-[11px] sm:text-[10px] mt-0.5 flex items-center gap-1">
                             <span className="text-muted-foreground font-mono">
                               S{row.slotNumber}
                             </span>
@@ -688,26 +764,26 @@ export function OpsPautaMensualClient({
                               row.guardiaId ? (
                                 <Link
                                   href={`/personas/guardias/${row.guardiaId}`}
-                                  className="text-foreground font-medium truncate max-w-[120px] hover:text-primary hover:underline underline-offset-2 transition-colors"
+                                  className="text-foreground font-medium truncate max-w-[60px] sm:max-w-[120px] hover:text-primary hover:underline underline-offset-2 transition-colors"
                                 >
                                   {row.guardiaName}
                                 </Link>
                               ) : (
-                                <span className="text-foreground font-medium truncate max-w-[120px]">
+                                <span className="text-foreground font-medium truncate max-w-[60px] sm:max-w-[120px]">
                                   {row.guardiaName}
                                 </span>
                               )
                             ) : (
-                              <span className="text-amber-400/60 italic text-[9px]">sin asignar</span>
+                              <span className="text-amber-400/60 italic text-[10px]">sin asignar</span>
                             )}
                             {row.patternCode && (
-                              <span className="text-primary/50 text-[9px]">{row.patternCode}</span>
+                              <span className="text-primary/50 text-[10px] hidden sm:inline">{row.patternCode}</span>
                             )}
                           </div>
                         </td>
 
                         {/* Day cells */}
-                        {monthDays.map((d) => {
+                        {visibleDays.map((d) => {
                           const dateKey = toDateKey(d);
                           const cell = row.cells.get(dateKey);
                           const code = cell?.shiftCode ?? "";
@@ -718,9 +794,9 @@ export function OpsPautaMensualClient({
                             execution?.state === "te"
                               ? "TE"
                               : execution?.state === "asistio"
-                                ? "ASI"
+                                ? "✓"
                                 : execution?.state === "sin_cobertura"
-                                  ? "SC"
+                                  ? "✗"
                                   : null;
                           const executionBadgeClass =
                             execution?.state === "te"
@@ -738,7 +814,7 @@ export function OpsPautaMensualClient({
                             >
                               {cell ? (
                                 <div
-                                  className={`relative inline-flex items-center justify-center w-7 h-6 rounded text-[10px] font-medium border cursor-pointer transition-colors ${
+                                  className={`relative inline-flex items-center justify-center w-9 h-8 sm:w-7 sm:h-6 rounded text-xs sm:text-[10px] font-medium border cursor-pointer transition-colors active:scale-95 ${
                                     isEmpty
                                       ? "border-dashed border-border/40 text-muted-foreground/30 hover:border-primary/50 hover:text-primary/50"
                                       : colorClass
@@ -771,14 +847,7 @@ export function OpsPautaMensualClient({
                                   {code || "·"}
                                   {executionBadge ? (
                                     <span
-                                      className={`absolute -bottom-1 -right-1 rounded px-0.5 py-[1px] text-[8px] leading-none font-semibold ${executionBadgeClass}`}
-                                      title={
-                                        execution?.state === "te"
-                                          ? `Cobertura TE${execution.teStatus ? ` (${execution.teStatus})` : ""}`
-                                          : execution?.state === "asistio"
-                                            ? "Asistencia efectiva"
-                                            : "Sin cobertura"
-                                      }
+                                      className={`absolute -bottom-1 -right-1 rounded px-0.5 py-[1px] text-[9px] sm:text-[8px] leading-none font-semibold ${executionBadgeClass}`}
                                     >
                                       {executionBadge}
                                     </span>
@@ -786,7 +855,7 @@ export function OpsPautaMensualClient({
                                 </div>
                               ) : (
                                 <div
-                                  className="inline-flex items-center justify-center w-7 h-6 rounded text-[10px] border border-dashed border-border/20 text-muted-foreground/20 cursor-pointer hover:border-primary/40"
+                                  className="inline-flex items-center justify-center w-9 h-8 sm:w-7 sm:h-6 rounded text-xs sm:text-[10px] border border-dashed border-border/20 text-muted-foreground/20 cursor-pointer hover:border-primary/40 active:scale-95"
                                   onClick={() =>
                                     openPintarOpcionesModal({
                                       puestoId: row.puestoId,
@@ -809,55 +878,25 @@ export function OpsPautaMensualClient({
                 </tbody>
               </table>
 
-              {/* Legend */}
-              <div className="mt-3 flex flex-wrap gap-3 text-[10px] text-muted-foreground border-t border-border pt-3">
-                <span className="flex items-center gap-1">
-                  <span className="inline-block w-4 h-3 rounded bg-emerald-600/20 border border-emerald-600/30" />
-                  T = Trabaja
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="inline-block w-4 h-3 rounded bg-zinc-700/30 border border-zinc-600/20" />
-                  - = Descanso
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="inline-block w-4 h-3 rounded bg-green-800/30 border border-green-600/30" />
-                  V = Vacaciones
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="inline-block w-4 h-3 rounded bg-yellow-800/30 border border-yellow-600/30" />
-                  L = Licencia
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="inline-block w-4 h-3 rounded bg-orange-800/30 border border-orange-600/30" />
-                  P = Permiso
-                </span>
-                <span className="text-muted-foreground/50">
-                  Click izquierdo = pintar serie o solo el día (T/-) · Click derecho = eliminar serie o día
-                </span>
+              {/* Legend — compact on mobile */}
+              <div className="mt-3 flex flex-wrap gap-2 sm:gap-3 text-[11px] sm:text-[10px] text-muted-foreground border-t border-border pt-3">
+                {[
+                  { code: "T", label: "Trabaja", cls: "bg-emerald-600/20 border-emerald-600/30" },
+                  { code: "-", label: "Descanso", cls: "bg-zinc-700/30 border-zinc-600/20" },
+                  { code: "V", label: "Vacaciones", cls: "bg-green-800/30 border-green-600/30" },
+                  { code: "L", label: "Licencia", cls: "bg-yellow-800/30 border-yellow-600/30" },
+                  { code: "P", label: "Permiso", cls: "bg-orange-800/30 border-orange-600/30" },
+                ].map((l) => (
+                  <span key={l.code} className="flex items-center gap-1">
+                    <span className={`inline-block w-4 h-3 rounded border ${l.cls}`} />
+                    <span className="hidden sm:inline">{l.code} = {l.label}</span>
+                    <span className="sm:hidden">{l.code}</span>
+                  </span>
+                ))}
               </div>
-              <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-muted-foreground border-t border-border pt-3">
-                <span className="font-medium text-foreground/80">Doble capa (ejecución real):</span>
-                <span className="flex items-center gap-1">
-                  <span className="inline-flex items-center justify-center rounded px-1 py-[1px] text-[8px] font-semibold bg-emerald-600 text-emerald-50">
-                    ASI
-                  </span>
-                  Asistió efectivamente
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="inline-flex items-center justify-center rounded px-1 py-[1px] text-[8px] font-semibold bg-rose-600 text-rose-50">
-                    TE
-                  </span>
-                  Cubierto con turno extra/reemplazo
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="inline-flex items-center justify-center rounded px-1 py-[1px] text-[8px] font-semibold bg-amber-500 text-amber-950">
-                    SC
-                  </span>
-                  Sin cobertura (no asistió)
-                </span>
-                <span className="text-muted-foreground/60">
-                  El color de fondo sigue mostrando planificación; el badge muestra ejecución real.
-                </span>
+              <div className="mt-1.5 text-[11px] sm:text-[10px] text-muted-foreground/50">
+                <span className="hidden sm:inline">Click izquierdo = pintar · Click derecho / mantener presionado = eliminar</span>
+                <span className="sm:hidden">Toca = pintar · Mantén presionado = eliminar</span>
               </div>
             </div>
           )}
