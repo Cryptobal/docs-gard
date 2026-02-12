@@ -172,12 +172,12 @@ export function AppShell({ sidebar, children, userName, userRole, className }: A
           className
         )}
       >
-        {/* Barra global: UF + UTM + campana — siempre visible a la derecha */}
-        <div className="hidden lg:flex sticky top-0 z-20 min-h-12 items-center justify-end gap-4 border-b border-border/50 bg-background/95 backdrop-blur px-6 py-3">
-          <GlobalIndicators />
-        </div>
         <main className="flex-1">
-          <div className="px-4 py-6 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pb-20 lg:pb-6 animate-in-page" role="region">
+          <div className="relative px-4 py-6 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 pb-20 lg:pb-6 animate-in-page" role="region">
+            {/* Indicadores globales desktop — flotante top-right, sin barra dedicada */}
+            <div className="hidden lg:flex absolute top-6 right-8 xl:right-10 2xl:right-12 z-10 items-center gap-3">
+              <GlobalIndicators />
+            </div>
             {children}
           </div>
         </main>

@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
-import { createAccountSchema } from "@/lib/validations/crm";
+import { createAccountSchema, updateAccountSchema } from "@/lib/validations/crm";
 
 const OWNER_OVERRIDE_EMAILS = new Set(["carlos.irigoyen@gard.cl", "carlos@gard.cl"]);
 type AccountLifecycle = "prospect" | "client_active" | "client_inactive";
@@ -99,7 +99,7 @@ export async function PATCH(
       );
     }
 
-    const parsed = await parseBody(request, createAccountSchema.partial());
+    const parsed = await parseBody(request, updateAccountSchema);
     if (parsed.error) return parsed.error;
 
     const existingLifecycle = deriveLifecycle(existing);
@@ -192,9 +192,10 @@ export async function PATCH(
         { status: 403 }
       );
     }
+    const msg = error instanceof Error ? error.message : "Error al actualizar la cuenta";
     console.error("Error updating account:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to update account" },
+      { success: false, error: msg },
       { status: 500 }
     );
   }

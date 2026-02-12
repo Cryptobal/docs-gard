@@ -71,7 +71,24 @@ export const createAccountSchema = z.object({
   isActive: z.boolean().default(false),
   website: z.string().trim().url("URL inválida").max(500).optional().nullable().or(z.literal("")),
   address: z.string().trim().max(500).optional().nullable(),
-  notes: z.string().trim().max(2000).optional().nullable(),
+  notes: z.string().trim().max(20000).optional().nullable(),
+});
+
+/** Más permisivo para PATCH: website acepta cualquier string, notes más largo */
+export const updateAccountSchema = z.object({
+  name: z.string().trim().min(1, "Nombre es requerido").max(200).optional(),
+  type: z.enum(["prospect", "client"]).optional(),
+  rut: z.string().trim().max(20).optional().nullable(),
+  legalName: z.string().trim().max(200).optional().nullable(),
+  legalRepresentativeName: z.string().trim().max(200).optional().nullable(),
+  legalRepresentativeRut: z.string().trim().max(20).optional().nullable(),
+  industry: z.string().trim().max(100).optional().nullable(),
+  segment: z.string().trim().max(100).optional().nullable(),
+  status: z.enum(["prospect", "client_active", "client_inactive", "active", "inactive"]).optional(),
+  isActive: z.boolean().optional(),
+  website: z.string().trim().max(500).optional().nullable(),
+  address: z.string().trim().max(500).optional().nullable(),
+  notes: z.string().trim().max(20000).optional().nullable(),
 });
 
 // ── Contact ──

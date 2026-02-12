@@ -37,7 +37,6 @@ import {
   Plus,
   MessageSquareText,
   FileText,
-  RefreshCw,
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -199,7 +198,7 @@ export function CrmAccountDetailClient({
 
   // ── Enrich / Regenerate company info ──
   const [enrichingCompanyInfo, setEnrichingCompanyInfo] = useState(false);
-  const [regenerateOpen, setRegenerateOpen] = useState(false);
+  const [enrichWebsiteInput, setEnrichWebsiteInput] = useState("");
   const [regenerateInstruction, setRegenerateInstruction] = useState("");
   const [regenerating, setRegenerating] = useState(false);
 
@@ -264,9 +263,9 @@ export function CrmAccountDetailClient({
   };
 
   const enrichCompanyInfoFromWebsite = async () => {
-    const website = (account.website || "").trim();
+    const website = (account.website || enrichWebsiteInput || "").trim();
     if (!website) {
-      toast.error("Primero ingresa la página web de la empresa (en Editar cuenta).");
+      toast.error("Primero ingresa la página web de la empresa.");
       return;
     }
     setEnrichingCompanyInfo(true);
@@ -314,6 +313,7 @@ export function CrmAccountDetailClient({
 
       setAccount((prev) => ({ ...prev, ...patchBody }));
       setAccountLogoUrl(logoUrl);
+      setEnrichWebsiteInput("");
       setAccountForm((prev) => ({
         ...prev,
         notes: stripAccountLogoMarker(newNotes),
@@ -350,8 +350,6 @@ export function CrmAccountDetailClient({
       if (newNotes) {
         setAccount((prev) => ({ ...prev, notes: newNotes }));
         setAccountForm((prev) => ({ ...prev, notes: stripAccountLogoMarker(newNotes) }));
-        setRegenerateOpen(false);
-        setRegenerateInstruction("");
         toast.success("Descripción regenerada con IA.");
         router.refresh();
       }
@@ -646,7 +644,8 @@ export function CrmAccountDetailClient({
                   variant="outline"
                   className="h-7 text-xs"
                   onClick={enrichCompanyInfoFromWebsite}
-                  disabled={enrichingCompanyInfo || !account.website?.trim()}
+                  disabled={enrichingCompanyInfo || !(account.website || enrichWebsiteInput)?.trim()}
+                  title={(account.website || enrichWebsiteInput)?.trim() ? "Obtener datos desde el sitio" : "Ingresa una URL abajo"}
                 >
                   {enrichingCompanyInfo && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
                   Traer datos de la empresa
@@ -657,7 +656,12 @@ export function CrmAccountDetailClient({
                   {account.website}
                 </a>
               ) : (
-                <p className="text-xs text-muted-foreground">Agrega la web en Editar cuenta para usar esta función.</p>
+                <Input
+                  value={enrichWebsiteInput}
+                  onChange={(e) => setEnrichWebsiteInput(e.target.value)}
+                  placeholder="https://www.empresa.cl"
+                  className={`h-8 text-xs ${inputCn}`}
+                />
               )}
             </div>
             {accountLogoUrl && (
@@ -678,31 +682,38 @@ export function CrmAccountDetailClient({
                 </span>
               </InfoRow>
             )}
-            {(stripAccountLogoMarker(account.notes) || account.website) && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <Label className="text-xs">Información de la empresa</Label>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs"
-                    onClick={() => setRegenerateOpen(true)}
-                  >
-                    <Sparkles className="mr-1 h-3 w-3" />
-                    Regenerar con IA
-                  </Button>
+            <div className="space-y-2">
+              <Label className="text-xs">Información de la empresa</Label>
+              {stripAccountLogoMarker(account.notes) ? (
+                <div className="rounded-md border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
+                  {stripAccountLogoMarker(account.notes)}
                 </div>
-                {stripAccountLogoMarker(account.notes) ? (
-                  <div className="rounded-md border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
-                    {stripAccountLogoMarker(account.notes)}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground italic">Sin descripción. Usa &quot;Traer datos de la empresa&quot; o &quot;Regenerar con IA&quot;.</p>
-                )}
+              ) : (
+                <p className="text-xs text-muted-foreground italic">Sin descripción. Usa &quot;Traer datos de la empresa&quot; o &quot;Regenerar con IA&quot;.</p>
+              )}
+              <div className="space-y-2 pt-1">
+                <Label className="text-[10px] text-muted-foreground">Instrucción para regenerar (opcional)</Label>
+                <Input
+                  value={regenerateInstruction}
+                  onChange={(e) => setRegenerateInstruction(e.target.value)}
+                  placeholder="Ej: Hazlo más breve, enfócate en retail..."
+                  className={`h-8 text-xs ${inputCn}`}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={regenerateNotesWithAi}
+                  disabled={regenerating}
+                >
+                  {regenerating && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                  <Sparkles className="mr-1 h-3 w-3" />
+                  Regenerar con IA
+                </Button>
               </div>
-            )}
-            {!account.address && !stripAccountLogoMarker(account.notes) && !accountLogoUrl && !account.website && (
+            </div>
+            {!account.address && !stripAccountLogoMarker(account.notes) && !accountLogoUrl && !account.website && !enrichWebsiteInput && (
               <p className="text-muted-foreground text-xs">Sin dirección ni notas.</p>
             )}
           </div>
@@ -861,7 +872,7 @@ export function CrmAccountDetailClient({
 
       {/* ── Account Edit Modal ── */}
       <Dialog open={editAccountOpen} onOpenChange={setEditAccountOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Editar cuenta</DialogTitle>
           </DialogHeader>
@@ -943,7 +954,7 @@ export function CrmAccountDetailClient({
 
       {/* ── Contact Edit Modal ── */}
       <Dialog open={!!editContact} onOpenChange={(v) => !v && setEditContact(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Editar contacto</DialogTitle>
           </DialogHeader>
@@ -987,7 +998,7 @@ export function CrmAccountDetailClient({
 
       {/* ── New Contact Modal ── */}
       <Dialog open={newContactOpen} onOpenChange={setNewContactOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" aria-describedby={undefined}>
           <DialogHeader>
             <DialogTitle>Nuevo contacto</DialogTitle>
           </DialogHeader>
@@ -1073,35 +1084,6 @@ export function CrmAccountDetailClient({
         onConfirm={() => deleteContact(deleteContactConfirm.id)}
       />
 
-      {/* ── Regenerar descripción con IA ── */}
-      <Dialog open={regenerateOpen} onOpenChange={setRegenerateOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Regenerar información de la empresa con IA</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            La IA reescribirá la descripción usando los datos actuales de la cuenta. Opcionalmente indica una instrucción para guiar el resultado.
-          </p>
-          <div className="space-y-2">
-            <Label className="text-xs">Instrucción (opcional)</Label>
-            <textarea
-              value={regenerateInstruction}
-              onChange={(e) => setRegenerateInstruction(e.target.value)}
-              placeholder="Ej: Hazlo más breve, enfócate en el rubro minero, destaca la experiencia en retail..."
-              className={`min-h-[80px] w-full rounded-md border px-3 py-2 text-sm ${inputCn}`}
-              rows={3}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRegenerateOpen(false)}>Cancelar</Button>
-            <Button onClick={regenerateNotesWithAi} disabled={regenerating}>
-              {regenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Regenerar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
