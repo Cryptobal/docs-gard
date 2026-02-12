@@ -37,6 +37,8 @@ import {
   Plus,
   MessageSquareText,
   FileText,
+  RefreshCw,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -194,6 +196,13 @@ export function CrmAccountDetailClient({
   // ── Delete state ──
   const [deleteAccountConfirm, setDeleteAccountConfirm] = useState(false);
   const [deleteContactConfirm, setDeleteContactConfirm] = useState<{ open: boolean; id: string }>({ open: false, id: "" });
+
+  // ── Enrich / Regenerate company info ──
+  const [enrichingCompanyInfo, setEnrichingCompanyInfo] = useState(false);
+  const [regenerateOpen, setRegenerateOpen] = useState(false);
+  const [regenerateInstruction, setRegenerateInstruction] = useState("");
+  const [regenerating, setRegenerating] = useState(false);
+
   const lifecycle = getAccountLifecycle(account);
 
   const inputCn = "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
@@ -251,6 +260,106 @@ export function CrmAccountDetailClient({
       router.push("/crm/accounts");
     } catch {
       toast.error("No se pudo eliminar");
+    }
+  };
+
+  const enrichCompanyInfoFromWebsite = async () => {
+    const website = (account.website || "").trim();
+    if (!website) {
+      toast.error("Primero ingresa la página web de la empresa (en Editar cuenta).");
+      return;
+    }
+    setEnrichingCompanyInfo(true);
+    try {
+      const response = await fetch("/api/crm/company-enrich", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          website,
+          companyName: account.name,
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload?.success) {
+        throw new Error(payload?.error || "No se pudo obtener información del sitio.");
+      }
+      const summary = payload?.data?.summary || "";
+      const normalizedWebsite = payload?.data?.websiteNormalized || "";
+      const logoUrl = payload?.data?.localLogoUrl || payload?.data?.logoUrl || null;
+      const industry = payload?.data?.industry || "";
+      const segment = payload?.data?.segment || "";
+      const legalName = payload?.data?.legalName || "";
+      const companyRut = payload?.data?.companyRut || "";
+      const legalRepresentativeName = payload?.data?.legalRepresentativeName || "";
+      const legalRepresentativeRut = payload?.data?.legalRepresentativeRut || "";
+
+      const newNotes = summary ? withAccountLogoMarker(summary, logoUrl) : (logoUrl ? withAccountLogoMarker("", logoUrl) : account.notes);
+      const patchBody: Record<string, unknown> = {
+        notes: newNotes,
+        website: normalizedWebsite || account.website,
+        industry: industry && !["not available", "n/a", "no disponible"].includes(industry.toLowerCase()) ? industry : account.industry,
+        segment: segment && !["not available", "n/a", "no disponible"].includes(segment.toLowerCase()) ? segment : account.segment,
+        legalName: legalName && !["not available", "n/a", "no disponible"].includes(legalName.toLowerCase()) ? legalName : account.legalName,
+        rut: companyRut && !["not available", "n/a", "no disponible"].includes(companyRut.toLowerCase()) ? companyRut : account.rut,
+        legalRepresentativeName: legalRepresentativeName && !["not available", "n/a", "no disponible"].includes(legalRepresentativeName.toLowerCase()) ? legalRepresentativeName : account.legalRepresentativeName,
+        legalRepresentativeRut: legalRepresentativeRut && !["not available", "n/a", "no disponible"].includes(legalRepresentativeRut.toLowerCase()) ? legalRepresentativeRut : account.legalRepresentativeRut,
+      };
+      const res = await fetch(`/api/crm/accounts/${account.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patchBody),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data?.error);
+
+      setAccount((prev) => ({ ...prev, ...patchBody }));
+      setAccountLogoUrl(logoUrl);
+      setAccountForm((prev) => ({
+        ...prev,
+        notes: stripAccountLogoMarker(newNotes),
+        website: patchBody.website as string || prev.website,
+        industry: patchBody.industry as string || prev.industry,
+        segment: patchBody.segment as string || prev.segment,
+        legalName: patchBody.legalName as string || prev.legalName,
+        rut: patchBody.rut as string || prev.rut,
+        legalRepresentativeName: patchBody.legalRepresentativeName as string || prev.legalRepresentativeName,
+        legalRepresentativeRut: patchBody.legalRepresentativeRut as string || prev.legalRepresentativeRut,
+      }));
+      toast.success("Datos de la empresa actualizados desde la web.");
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo traer datos de la empresa.");
+    } finally {
+      setEnrichingCompanyInfo(false);
+    }
+  };
+
+  const regenerateNotesWithAi = async () => {
+    setRegenerating(true);
+    try {
+      const res = await fetch(`/api/crm/accounts/${account.id}/regenerate-notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customInstruction: regenerateInstruction.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data?.error);
+
+      const newNotes = data.data?.notes;
+      if (newNotes) {
+        setAccount((prev) => ({ ...prev, notes: newNotes }));
+        setAccountForm((prev) => ({ ...prev, notes: stripAccountLogoMarker(newNotes) }));
+        setRegenerateOpen(false);
+        setRegenerateInstruction("");
+        toast.success("Descripción regenerada con IA.");
+        router.refresh();
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo regenerar la descripción.");
+    } finally {
+      setRegenerating(false);
     }
   };
 
@@ -528,15 +637,29 @@ export function CrmAccountDetailClient({
             </InfoRow>
           </div>
           <div className="space-y-3 text-sm">
-            <InfoRow label="Página web">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs">Página web</Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={enrichCompanyInfoFromWebsite}
+                  disabled={enrichingCompanyInfo || !account.website?.trim()}
+                >
+                  {enrichingCompanyInfo && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                  Traer datos de la empresa
+                </Button>
+              </div>
               {account.website ? (
-                <a href={account.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
+                <a href={account.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate block text-sm">
                   {account.website}
                 </a>
               ) : (
-                "—"
+                <p className="text-xs text-muted-foreground">Agrega la web en Editar cuenta para usar esta función.</p>
               )}
-            </InfoRow>
+            </div>
             {accountLogoUrl && (
               <div className="rounded-md border border-border bg-muted/20 p-2">
                 <p className="text-[10px] text-muted-foreground mb-1">Logo de la empresa</p>
@@ -555,12 +678,31 @@ export function CrmAccountDetailClient({
                 </span>
               </InfoRow>
             )}
-            {stripAccountLogoMarker(account.notes) && (
-              <div className="rounded-md border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
-                {stripAccountLogoMarker(account.notes)}
+            {(stripAccountLogoMarker(account.notes) || account.website) && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <Label className="text-xs">Información de la empresa</Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => setRegenerateOpen(true)}
+                  >
+                    <Sparkles className="mr-1 h-3 w-3" />
+                    Regenerar con IA
+                  </Button>
+                </div>
+                {stripAccountLogoMarker(account.notes) ? (
+                  <div className="rounded-md border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
+                    {stripAccountLogoMarker(account.notes)}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground italic">Sin descripción. Usa &quot;Traer datos de la empresa&quot; o &quot;Regenerar con IA&quot;.</p>
+                )}
               </div>
             )}
-            {!account.address && !stripAccountLogoMarker(account.notes) && !accountLogoUrl && (
+            {!account.address && !stripAccountLogoMarker(account.notes) && !accountLogoUrl && !account.website && (
               <p className="text-muted-foreground text-xs">Sin dirección ni notas.</p>
             )}
           </div>
@@ -893,6 +1035,8 @@ export function CrmAccountDetailClient({
         onOpenChange={setDeleteAccountConfirm}
         title="Eliminar cuenta"
         description="Se eliminarán también contactos, negocios e instalaciones asociados. Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        variant="destructive"
         onConfirm={deleteAccount}
       />
       <ConfirmDialog
@@ -928,6 +1072,36 @@ export function CrmAccountDetailClient({
         description="El contacto será eliminado permanentemente. Esta acción no se puede deshacer."
         onConfirm={() => deleteContact(deleteContactConfirm.id)}
       />
+
+      {/* ── Regenerar descripción con IA ── */}
+      <Dialog open={regenerateOpen} onOpenChange={setRegenerateOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Regenerar información de la empresa con IA</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            La IA reescribirá la descripción usando los datos actuales de la cuenta. Opcionalmente indica una instrucción para guiar el resultado.
+          </p>
+          <div className="space-y-2">
+            <Label className="text-xs">Instrucción (opcional)</Label>
+            <textarea
+              value={regenerateInstruction}
+              onChange={(e) => setRegenerateInstruction(e.target.value)}
+              placeholder="Ej: Hazlo más breve, enfócate en el rubro minero, destaca la experiencia en retail..."
+              className={`min-h-[80px] w-full rounded-md border px-3 py-2 text-sm ${inputCn}`}
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRegenerateOpen(false)}>Cancelar</Button>
+            <Button onClick={regenerateNotesWithAi} disabled={regenerating}>
+              {regenerating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Regenerar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
