@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
+import { notifyRendicionApproved } from "@/lib/finance-notifications";
 import { z } from "zod";
 
 type Params = { id: string };
@@ -118,10 +119,32 @@ export async function POST(
         },
       });
 
-      return updated;
+      return { updated, allApproved: allApproved };
     });
 
-    return NextResponse.json({ success: true, data: result });
+    // Send email to submitter when fully approved (fire-and-forget)
+    if (result.allApproved) {
+      const submitter = await prisma.admin.findUnique({
+        where: { id: rendicion.submitterId },
+        select: { email: true },
+      });
+      const approver = await prisma.admin.findUnique({
+        where: { id: ctx.userId },
+        select: { name: true },
+      });
+      if (submitter?.email) {
+        notifyRendicionApproved({
+          rendicionCode: rendicion.code,
+          amount: rendicion.amount,
+          submitterEmail: submitter.email,
+          approverName: approver?.name ?? ctx.userEmail,
+        }).catch((err) =>
+          console.error("[Finance] Error sending approve notification:", err),
+        );
+      }
+    }
+
+    return NextResponse.json({ success: true, data: result.updated });
   } catch (error) {
     console.error("[Finance] Error approving rendicion:", error);
     return NextResponse.json(

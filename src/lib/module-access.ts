@@ -51,11 +51,13 @@ const ROLE_CRM_SUBMODULE_ACCESS: Record<Role, CrmSubmoduleKey[]> = {
   editor: ROLE_POLICIES.editor.crmSubmodules,
   rrhh: ROLE_POLICIES.rrhh.crmSubmodules,
   operaciones: ROLE_POLICIES.operaciones.crmSubmodules,
+  finanzas: ROLE_POLICIES.finanzas.crmSubmodules,
   reclutamiento: ROLE_POLICIES.reclutamiento.crmSubmodules,
   solo_ops: ROLE_POLICIES.solo_ops.crmSubmodules,
   solo_crm: ROLE_POLICIES.solo_crm.crmSubmodules,
   solo_documentos: ROLE_POLICIES.solo_documentos.crmSubmodules,
   solo_payroll: ROLE_POLICIES.solo_payroll.crmSubmodules,
+  solo_finanzas: ROLE_POLICIES.solo_finanzas.crmSubmodules,
   viewer: ROLE_POLICIES.viewer.crmSubmodules,
 };
 
@@ -65,11 +67,13 @@ const ROLE_CONFIG_SUBMODULE_ACCESS: Record<Role, ConfigSubmoduleKey[]> = {
   editor: ROLE_POLICIES.editor.configSubmodules,
   rrhh: ROLE_POLICIES.rrhh.configSubmodules,
   operaciones: ROLE_POLICIES.operaciones.configSubmodules,
+  finanzas: ROLE_POLICIES.finanzas.configSubmodules,
   reclutamiento: ROLE_POLICIES.reclutamiento.configSubmodules,
   solo_ops: ROLE_POLICIES.solo_ops.configSubmodules,
   solo_crm: ROLE_POLICIES.solo_crm.configSubmodules,
   solo_documentos: ROLE_POLICIES.solo_documentos.configSubmodules,
   solo_payroll: ROLE_POLICIES.solo_payroll.configSubmodules,
+  solo_finanzas: ROLE_POLICIES.solo_finanzas.configSubmodules,
   viewer: ROLE_POLICIES.viewer.configSubmodules,
 };
 
@@ -79,11 +83,13 @@ const ROLE_DOCS_SUBMODULE_ACCESS: Record<Role, DocsSubmoduleKey[]> = {
   editor: ROLE_POLICIES.editor.docsSubmodules,
   rrhh: ROLE_POLICIES.rrhh.docsSubmodules,
   operaciones: ROLE_POLICIES.operaciones.docsSubmodules,
+  finanzas: ROLE_POLICIES.finanzas.docsSubmodules,
   reclutamiento: ROLE_POLICIES.reclutamiento.docsSubmodules,
   solo_ops: ROLE_POLICIES.solo_ops.docsSubmodules,
   solo_crm: ROLE_POLICIES.solo_crm.docsSubmodules,
   solo_documentos: ROLE_POLICIES.solo_documentos.docsSubmodules,
   solo_payroll: ROLE_POLICIES.solo_payroll.docsSubmodules,
+  solo_finanzas: ROLE_POLICIES.solo_finanzas.docsSubmodules,
   viewer: ROLE_POLICIES.viewer.docsSubmodules,
 };
 

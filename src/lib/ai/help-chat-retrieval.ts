@@ -77,6 +77,8 @@ const TOKEN_SYNONYMS: Record<string, string[]> = {
   seguridad: ["ronda", "rondas", "guardia", "guardias", "ops"],
   rendicion: ["rendiciones", "gasto", "finanzas", "aprobacion", "aprobar", "pendiente"],
   aprobar: ["aprobacion", "aprobaciones", "pendiente", "pendientes", "rendicion"],
+  app: ["aplicacion", "instalar", "descargar", "home", "homescreen", "pantalla", "inicio"],
+  instalar: ["app", "aplicacion", "descargar", "acceso", "directo", "home", "homescreen"],
 };
 
 function normalizeWord(word: string): string {

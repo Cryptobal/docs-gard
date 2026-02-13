@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
+import { notifyRendicionSubmitted } from "@/lib/finance-notifications";
 
 type Params = { id: string };
 
@@ -92,6 +93,26 @@ export async function POST(
 
       return updated;
     });
+
+    // Send email notifications to approvers (fire-and-forget)
+    if (approverIds.length > 0) {
+      const approvers = await prisma.admin.findMany({
+        where: { id: { in: approverIds }, status: "active" },
+        select: { email: true },
+      });
+      const submitter = await prisma.admin.findUnique({
+        where: { id: ctx.userId },
+        select: { name: true },
+      });
+      notifyRendicionSubmitted({
+        rendicionCode: existing.code,
+        submitterName: submitter?.name ?? ctx.userEmail,
+        amount: existing.amount,
+        approverEmails: approvers.map((a) => a.email),
+      }).catch((err) =>
+        console.error("[Finance] Error sending submit notification:", err),
+      );
+    }
 
     return NextResponse.json({ success: true, data: rendicion });
   } catch (error) {

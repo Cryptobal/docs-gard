@@ -7,6 +7,7 @@ import {
   parseBody,
 } from "@/lib/api-auth";
 import { canView, hasCapability } from "@/lib/permissions";
+import { notifyRendicionPaid } from "@/lib/finance-notifications";
 import { z } from "zod";
 
 const createPaymentSchema = z.object({
@@ -164,6 +165,28 @@ export async function POST(request: NextRequest) {
         },
       });
     });
+
+    // Send email notifications to each rendicion submitter (fire-and-forget)
+    const submitterIds = [...new Set(rendiciones.map((r) => r.submitterId))];
+    const submitters = await prisma.admin.findMany({
+      where: { id: { in: submitterIds } },
+      select: { id: true, email: true },
+    });
+    const submitterMap = new Map(submitters.map((s) => [s.id, s.email]));
+
+    for (const rendicion of rendiciones) {
+      const submitterEmail = submitterMap.get(rendicion.submitterId);
+      if (submitterEmail) {
+        notifyRendicionPaid({
+          rendicionCode: rendicion.code,
+          amount: rendicion.amount,
+          submitterEmail,
+          paymentCode: code,
+        }).catch((err) =>
+          console.error("[Finance] Error sending paid notification:", err),
+        );
+      }
+    }
 
     return NextResponse.json({ success: true, data: payment }, { status: 201 });
   } catch (error) {

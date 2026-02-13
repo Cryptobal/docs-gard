@@ -20,11 +20,13 @@ const ROLE_HIERARCHY: Record<Role, number> = {
   editor: ROLE_POLICIES.editor.rank,
   rrhh: ROLE_POLICIES.rrhh.rank,
   operaciones: ROLE_POLICIES.operaciones.rank,
+  finanzas: ROLE_POLICIES.finanzas.rank,
   reclutamiento: ROLE_POLICIES.reclutamiento.rank,
   solo_ops: ROLE_POLICIES.solo_ops.rank,
   solo_crm: ROLE_POLICIES.solo_crm.rank,
   solo_documentos: ROLE_POLICIES.solo_documentos.rank,
   solo_payroll: ROLE_POLICIES.solo_payroll.rank,
+  solo_finanzas: ROLE_POLICIES.solo_finanzas.rank,
   viewer: ROLE_POLICIES.viewer.rank,
 };
 

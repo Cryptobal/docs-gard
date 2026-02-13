@@ -493,6 +493,70 @@ function buildTurnosAmbiguousAnswer(appBaseUrl: string): string {
   ].join("\n");
 }
 
+function isInstallHomeScreenQuestion(message: string): boolean {
+  const asksInstall =
+    message.includes("descargar") ||
+    message.includes("instalar") ||
+    message.includes("app") ||
+    message.includes("aplicacion");
+  const asksHomeScreen =
+    message.includes("pantalla de inicio") ||
+    message.includes("home screen") ||
+    message.includes("acceso directo") ||
+    message.includes("icono");
+  const mentionsSite =
+    message.includes("opai") || message.includes("gard.cl") || message.includes("www.opai.gard.cl");
+
+  return (asksInstall && mentionsSite) || (asksHomeScreen && mentionsSite) || (asksInstall && asksHomeScreen);
+}
+
+function buildInstallHomeScreenAnswer(): string {
+  const url = "https://www.opai.gard.cl";
+  return [
+    "Si quieres, lo hacemos altiro. Primero dime:",
+    "1) **Dispositivo**: iPhone o Android",
+    "2) **Navegador**: Safari, Chrome, Edge, Firefox, Samsung Internet o app Google",
+    "",
+    `Mientras tanto, aqui tienes el paso a paso para **${url}**:`,
+    "",
+    "**iPhone**",
+    "- **Safari**:",
+    "  1) Abre el sitio en Safari.",
+    "  2) Toca el boton **Compartir** (cuadrado con flecha).",
+    "  3) Selecciona **Anadir a pantalla de inicio**.",
+    "  4) Confirma con **Anadir**.",
+    "- **Chrome / Edge (iOS)**:",
+    "  1) Abre el sitio en el navegador.",
+    "  2) Toca **Compartir** (o menu del navegador).",
+    "  3) Elige **Anadir a pantalla de inicio**.",
+    "  4) Confirma con **Anadir**.",
+    "  5) Si no aparece esa opcion, abre el sitio en Safari y haz el flujo de Safari.",
+    "",
+    "**Android**",
+    "- **Chrome**:",
+    "  1) Abre el sitio en Chrome.",
+    "  2) Toca menu **⋮**.",
+    "  3) Elige **Anadir a pantalla principal / Instalar app**.",
+    "  4) Confirma con **Anadir** o **Instalar**.",
+    "- **Samsung Internet**:",
+    "  1) Abre el sitio.",
+    "  2) Toca menu **≡ / ⋮**.",
+    "  3) Elige **Anadir pagina a** -> **Pantalla de inicio**.",
+    "  4) Confirma con **Anadir**.",
+    "- **Edge / Firefox (Android)**:",
+    "  1) Abre el sitio.",
+    "  2) Abre menu del navegador.",
+    "  3) Busca **Anadir a pantalla de inicio** o **Instalar**.",
+    "  4) Confirma.",
+    "- **App Google (Android/iOS)**:",
+    "  1) Abre el sitio desde Chrome/Safari para asegurar la opcion.",
+    "  2) Haz el flujo de **Anadir a pantalla de inicio** desde ese navegador.",
+    "",
+    "**Acceso directo**:",
+    `- [Abrir OPAI](${url})`,
+  ].join("\n");
+}
+
 function isProspectToClientQuestion(message: string): boolean {
   const mentionsProspect = message.includes("prospecto") || message.includes("lead");
   const mentionsClient = message.includes("cliente");
@@ -576,6 +640,10 @@ export function resolveFunctionalIntent(userMessage: string, appBaseUrl: string)
 
   if (asksTurnosGeneric) {
     return buildTurnosAmbiguousAnswer(appBaseUrl);
+  }
+
+  if (isInstallHomeScreenQuestion(msg)) {
+    return buildInstallHomeScreenAnswer();
   }
 
   if (isProspectToClientQuestion(msg)) {

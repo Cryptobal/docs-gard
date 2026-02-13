@@ -47,6 +47,7 @@ import {
   ISAPRES_CHILE,
 } from "@/lib/personas";
 import { hasOpsCapability } from "@/lib/ops-rbac";
+import { PersonaRendicionesTab } from "@/components/finance/PersonaRendicionesTab";
 
 /** Format a date-only value using UTC to avoid timezone shift */
 function formatDateUTC(value: string | Date): string {
@@ -153,6 +154,7 @@ interface GuardiaDetailClientProps {
   initialGuardia: GuardiaDetail;
   asignaciones?: AsignacionHistorial[];
   userRole: string;
+  personaAdminId?: string | null;
 }
 
 const DOC_LABEL: Record<string, string> = {
@@ -202,7 +204,7 @@ function lifecycleBadgeVariant(
   return "secondary";
 }
 
-export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRole }: GuardiaDetailClientProps) {
+export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRole, personaAdminId }: GuardiaDetailClientProps) {
   const [guardia, setGuardia] = useState(initialGuardia);
   const [uploading, setUploading] = useState(false);
   const [creatingDoc, setCreatingDoc] = useState(false);
@@ -1885,6 +1887,16 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         </div>
       ),
     },
+    /* rendiciones */
+    ...(personaAdminId
+      ? [
+          {
+            key: "rendiciones" as const,
+            label: "Rendiciones de gastos",
+            children: <PersonaRendicionesTab adminId={personaAdminId} />,
+          },
+        ]
+      : []),
     /* historial */
     {
       key: "historial" as const,

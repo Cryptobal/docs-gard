@@ -27,11 +27,13 @@ export const ROLE_APP_ACCESS: Record<Role, AppKey[]> = {
   editor: ROLE_POLICIES.editor.appAccess,
   rrhh: ROLE_POLICIES.rrhh.appAccess,
   operaciones: ROLE_POLICIES.operaciones.appAccess,
+  finanzas: ROLE_POLICIES.finanzas.appAccess,
   reclutamiento: ROLE_POLICIES.reclutamiento.appAccess,
   solo_ops: ROLE_POLICIES.solo_ops.appAccess,
   solo_crm: ROLE_POLICIES.solo_crm.appAccess,
   solo_documentos: ROLE_POLICIES.solo_documentos.appAccess,
   solo_payroll: ROLE_POLICIES.solo_payroll.appAccess,
+  solo_finanzas: ROLE_POLICIES.solo_finanzas.appAccess,
   viewer: ROLE_POLICIES.viewer.appAccess,
 };
 

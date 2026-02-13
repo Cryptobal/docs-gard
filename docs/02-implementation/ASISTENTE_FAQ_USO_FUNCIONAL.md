@@ -182,6 +182,35 @@ Gestionar plantillas y documentos operacionales/comerciales con contenido estruc
 ### ¿Qué se puede hacer en Presentaciones?
 Armar propuestas/presentaciones y dar seguimiento de interacción según el flujo comercial habilitado.
 
+## Acceso desde celular (Home Screen)
+
+### ¿Cómo "descargo" OPAI en mi teléfono?
+OPAI se usa como **aplicación web**. No necesitas App Store/Play Store para uso base.
+Puedes crear un acceso directo a `https://www.opai.gard.cl` en la pantalla de inicio.
+
+### iPhone (Safari)
+1. Abre `https://www.opai.gard.cl` en Safari.
+2. Pulsa **Compartir**.
+3. Elige **Añadir a pantalla de inicio**.
+4. Pulsa **Añadir**.
+
+### iPhone (Chrome/Edge)
+1. Abre `https://www.opai.gard.cl` en Chrome o Edge.
+2. Usa **Compartir** y selecciona **Añadir a pantalla de inicio**.
+3. Si no aparece la opción, abre el sitio en Safari y usa el flujo de Safari.
+
+### Android (Chrome)
+1. Abre `https://www.opai.gard.cl` en Chrome.
+2. Pulsa menú **⋮**.
+3. Elige **Añadir a pantalla principal** o **Instalar app**.
+4. Confirma con **Añadir/Instalar**.
+
+### Android (Samsung Internet / Edge / Firefox)
+1. Abre `https://www.opai.gard.cl`.
+2. Abre el menú del navegador.
+3. Elige **Añadir a pantalla de inicio** (o equivalente).
+4. Confirma.
+
 ## Configuración: usuarios, roles y permisos
 
 ### ¿Dónde se administra acceso?

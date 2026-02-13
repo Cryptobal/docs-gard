@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
+import { notifyRendicionRejected } from "@/lib/finance-notifications";
 import { z } from "zod";
 
 type Params = { id: string };
@@ -96,6 +97,27 @@ export async function POST(
 
       return updated;
     });
+
+    // Send email to submitter (fire-and-forget)
+    const submitter = await prisma.admin.findUnique({
+      where: { id: rendicion.submitterId },
+      select: { email: true },
+    });
+    const rejector = await prisma.admin.findUnique({
+      where: { id: ctx.userId },
+      select: { name: true },
+    });
+    if (submitter?.email) {
+      notifyRendicionRejected({
+        rendicionCode: rendicion.code,
+        amount: rendicion.amount,
+        submitterEmail: submitter.email,
+        rejectorName: rejector?.name ?? ctx.userEmail,
+        reason,
+      }).catch((err) =>
+        console.error("[Finance] Error sending reject notification:", err),
+      );
+    }
 
     return NextResponse.json({ success: true, data: result });
   } catch (error) {

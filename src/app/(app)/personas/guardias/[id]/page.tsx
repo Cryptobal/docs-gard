@@ -58,6 +58,16 @@ export default async function GuardiaDetailPage({
 
   if (!guardia) notFound();
 
+  // Try to find matching Admin for this persona (by email) for rendiciones link
+  let personaAdminId: string | null = null;
+  if (guardia.persona.email) {
+    const matchingAdmin = await prisma.admin.findFirst({
+      where: { tenantId, email: guardia.persona.email },
+      select: { id: true },
+    });
+    if (matchingAdmin) personaAdminId = matchingAdmin.id;
+  }
+
   // Enrich history events and comments with user names
   const userMap = new Map(adminUsers.map((u) => [u.id, u.name]));
   const enrichedGuardia = {
@@ -83,6 +93,7 @@ export default async function GuardiaDetailPage({
         initialGuardia={JSON.parse(JSON.stringify(enrichedGuardia))}
         asignaciones={JSON.parse(JSON.stringify(asignaciones))}
         userRole={session.user.role}
+        personaAdminId={personaAdminId}
       />
     </div>
   );
