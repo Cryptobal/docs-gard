@@ -12,7 +12,7 @@ export default async function TePagosPage() {
     redirect("/opai/login?callbackUrl=/te/pagos");
   }
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, "ops")) {
+  if (!canView(perms, "ops", "turnos_extra")) {
     redirect("/hub");
   }
 

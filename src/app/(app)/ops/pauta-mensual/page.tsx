@@ -12,7 +12,7 @@ export default async function OpsPautaMensualPage() {
     redirect("/opai/login?callbackUrl=/ops/pauta-mensual");
   }
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, "ops")) {
+  if (!canView(perms, "ops", "pauta_mensual")) {
     redirect("/hub");
   }
 

@@ -12,7 +12,7 @@ export default async function OpsPuestosPage() {
     redirect("/opai/login?callbackUrl=/ops/puestos");
   }
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, "ops")) {
+  if (!canView(perms, "ops", "puestos")) {
     redirect("/hub");
   }
 

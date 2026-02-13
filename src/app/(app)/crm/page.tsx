@@ -4,7 +4,7 @@
 
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
-import { resolvePagePerms, canView } from '@/lib/permissions-server';
+import { resolvePagePerms, canView, hasModuleAccess } from '@/lib/permissions-server';
 import { getDefaultTenantId } from '@/lib/tenant';
 import { prisma } from '@/lib/prisma';
 import { PageHeader } from '@/components/opai';
@@ -48,7 +48,7 @@ export default async function CRMPage() {
   const session = await auth();
   if (!session?.user) redirect('/opai/login?callbackUrl=/crm');
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, 'crm')) redirect('/hub');
+  if (!hasModuleAccess(perms, 'crm')) redirect('/hub');
   const role = session.user.role;
 
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());

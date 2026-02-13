@@ -14,7 +14,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getDefaultTenantId } from '@/lib/tenant';
-import { resolvePagePerms, canView } from '@/lib/permissions-server';
+import { resolvePagePerms, canView, hasModuleAccess } from '@/lib/permissions-server';
 import { PageHeader, ReloadButton, DocumentosSubnav } from '@/components/opai';
 import { DocumentosContent } from '@/components/opai/DocumentosContent';
 import { CrmGlobalSearch } from '@/components/crm/CrmGlobalSearch';
@@ -30,7 +30,7 @@ export default async function DashboardPage() {
   const session = await auth();
   if (!session?.user) redirect('/opai/login?callbackUrl=/opai/inicio');
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, 'docs')) {
+  if (!hasModuleAccess(perms, 'docs')) {
     redirect('/hub');
   }
   const canUseCrmSearch = canView(perms, 'crm');

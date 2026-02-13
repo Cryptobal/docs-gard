@@ -12,6 +12,7 @@ import {
   CAPABILITY_META,
   PERMISSION_LEVELS,
   LEVEL_LABELS,
+  LEVEL_RANK,
   SUBMODULE_KEYS,
   getEffectiveLevel,
   EMPTY_PERMISSIONS,
@@ -144,7 +145,7 @@ function PermissionEditor({
   const setSubmoduleLevel = (mod: ModuleKey, sub: string, level: PermissionLevel) => {
     const parentLevel = permissions.modules[mod] ?? "none";
     const subKey = `${mod}.${sub}`;
-    const next = { ...permissions, submodules: { ...permissions.submodules } };
+    const next = { ...permissions, modules: { ...permissions.modules }, submodules: { ...permissions.submodules } };
 
     if (level === parentLevel) {
       // Si el nivel es igual al padre, remover override (vuelve a heredar)
@@ -152,6 +153,12 @@ function PermissionEditor({
     } else {
       next.submodules[subKey] = level;
     }
+
+    // Auto-bump: si algún submódulo tiene nivel > padre, subir padre a "view" mínimo
+    if (LEVEL_RANK[level] > LEVEL_RANK[parentLevel] && parentLevel === "none") {
+      next.modules[mod] = "view";
+    }
+
     onChange(next);
   };
 

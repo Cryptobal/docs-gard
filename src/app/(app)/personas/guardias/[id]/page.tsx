@@ -17,7 +17,7 @@ export default async function GuardiaDetailPage({
     redirect(`/opai/login?callbackUrl=/personas/guardias/${id}`);
   }
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, "ops")) {
+  if (!canView(perms, "ops", "guardias")) {
     redirect("/hub");
   }
 
@@ -27,6 +27,9 @@ export default async function GuardiaDetailPage({
       where: { id, tenantId },
       include: {
         persona: true,
+        currentInstallation: {
+          select: { id: true, name: true, marcacionCode: true, account: { select: { id: true, name: true } } },
+        },
         bankAccounts: { orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }] },
         comments: { orderBy: [{ createdAt: "desc" }], take: 100 },
         documents: { orderBy: [{ createdAt: "desc" }] },

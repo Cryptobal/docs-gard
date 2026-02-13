@@ -12,7 +12,7 @@ export default async function TeAprobacionesPage() {
     redirect("/opai/login?callbackUrl=/te/aprobaciones");
   }
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, "ops")) {
+  if (!canView(perms, "ops", "turnos_extra")) {
     redirect("/hub");
   }
 

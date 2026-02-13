@@ -52,8 +52,8 @@ export default async function HubPage() {
   const thirtyDaysAgo = new Date(now);
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const canUseCrmOverview = canView(perms, 'crm');
-  const canUseDocsOverview = canView(perms, 'docs');
+  const canUseCrmOverview = hasModuleAccess(perms, 'crm');
+  const canUseDocsOverview = hasModuleAccess(perms, 'docs');
   const canUseCrmSearch = canUseCrmOverview;
   const canOpenLeads = canView(perms, 'crm', 'leads');
   const canOpenDeals = canView(perms, 'crm', 'deals');

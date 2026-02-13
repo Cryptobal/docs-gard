@@ -12,7 +12,7 @@ export default async function TeRegistroPage() {
     redirect("/opai/login?callbackUrl=/te/registro");
   }
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, "ops")) {
+  if (!canView(perms, "ops", "turnos_extra")) {
     redirect("/hub");
   }
 

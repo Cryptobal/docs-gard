@@ -12,7 +12,7 @@ export default async function OpsAsistenciaDiariaPage() {
     redirect("/opai/login?callbackUrl=/ops/pauta-diaria");
   }
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, "ops")) {
+  if (!canView(perms, "ops", "pauta_diaria")) {
     redirect("/hub");
   }
 

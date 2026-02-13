@@ -12,7 +12,7 @@ export default async function OpsPpcPage() {
     redirect("/opai/login?callbackUrl=/ops/ppc");
   }
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, "ops")) {
+  if (!canView(perms, "ops", "ppc")) {
     redirect("/hub");
   }
 

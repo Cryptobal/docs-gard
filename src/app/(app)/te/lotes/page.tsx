@@ -12,7 +12,7 @@ export default async function TeLotesPage() {
     redirect("/opai/login?callbackUrl=/te/lotes");
   }
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, "ops")) {
+  if (!canView(perms, "ops", "turnos_extra")) {
     redirect("/hub");
   }
 

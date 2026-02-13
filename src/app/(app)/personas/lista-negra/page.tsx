@@ -12,7 +12,7 @@ export default async function ListaNegraPage() {
     redirect("/opai/login?callbackUrl=/personas/lista-negra");
   }
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, "ops")) {
+  if (!canView(perms, "ops", "guardias")) {
     redirect("/hub");
   }
 

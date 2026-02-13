@@ -12,7 +12,7 @@ export default async function GuardiasPage() {
     redirect("/opai/login?callbackUrl=/personas/guardias");
   }
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, "ops")) {
+  if (!canView(perms, "ops", "guardias")) {
     redirect("/hub");
   }
 

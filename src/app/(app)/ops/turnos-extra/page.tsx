@@ -12,7 +12,7 @@ export default async function OpsTurnosExtraPage() {
     redirect("/opai/login?callbackUrl=/ops/turnos-extra");
   }
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, "ops")) {
+  if (!canView(perms, "ops", "turnos_extra")) {
     redirect("/hub");
   }
 
