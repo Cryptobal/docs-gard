@@ -37,6 +37,14 @@ const FUNCTIONAL_MARKERS = [
   "cliente",
   "permiso",
   "rol",
+  "descargar",
+  "instalar",
+  "app",
+  "aplicacion",
+  "celular",
+  "telefono",
+  "home screen",
+  "pantalla de inicio",
 ];
 
 const DATA_MARKERS = [
@@ -499,6 +507,12 @@ function isInstallHomeScreenQuestion(message: string): boolean {
     message.includes("instalar") ||
     message.includes("app") ||
     message.includes("aplicacion");
+  const mentionsMobileDevice =
+    message.includes("celular") ||
+    message.includes("telefono") ||
+    message.includes("movil") ||
+    message.includes("iphone") ||
+    message.includes("android");
   const asksHomeScreen =
     message.includes("pantalla de inicio") ||
     message.includes("home screen") ||
@@ -507,7 +521,12 @@ function isInstallHomeScreenQuestion(message: string): boolean {
   const mentionsSite =
     message.includes("opai") || message.includes("gard.cl") || message.includes("www.opai.gard.cl");
 
-  return (asksInstall && mentionsSite) || (asksHomeScreen && mentionsSite) || (asksInstall && asksHomeScreen);
+  return (
+    (asksInstall && mentionsSite) ||
+    (asksHomeScreen && mentionsSite) ||
+    (asksInstall && asksHomeScreen) ||
+    (asksInstall && mentionsMobileDevice)
+  );
 }
 
 function buildInstallHomeScreenAnswer(): string {
@@ -627,6 +646,10 @@ export function shouldPreferFunctionalInference(
 export function resolveFunctionalIntent(userMessage: string, appBaseUrl: string): string | null {
   const msg = normalize(userMessage);
 
+  if (isInstallHomeScreenQuestion(msg)) {
+    return buildInstallHomeScreenAnswer();
+  }
+
   if (!isFunctionalQuestion(msg)) {
     return null;
   }
@@ -640,10 +663,6 @@ export function resolveFunctionalIntent(userMessage: string, appBaseUrl: string)
 
   if (asksTurnosGeneric) {
     return buildTurnosAmbiguousAnswer(appBaseUrl);
-  }
-
-  if (isInstallHomeScreenQuestion(msg)) {
-    return buildInstallHomeScreenAnswer();
   }
 
   if (isProspectToClientQuestion(msg)) {
