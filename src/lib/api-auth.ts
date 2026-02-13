@@ -49,7 +49,7 @@ export async function requireAuth(): Promise<AuthContext | null> {
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { resolvePermissions } from "@/lib/permissions-server";
-import { hasModuleAccess, canView, canEdit, hasCapability } from "@/lib/permissions";
+import { hasModuleAccess, canView, canEdit, canDelete, hasCapability } from "@/lib/permissions";
 import type { ModuleKey, CapabilityKey, RolePermissions } from "@/lib/permissions";
 
 /**
@@ -127,6 +127,25 @@ export async function ensureModuleAccess(
   if (!hasModuleAccess(perms, module)) {
     return NextResponse.json(
       { success: false, error: `Sin permisos para módulo ${module.toUpperCase()}` },
+      { status: 403 },
+    );
+  }
+  return null;
+}
+
+/**
+ * Verificar permiso de eliminación (nivel full) en módulo/submódulo.
+ * Retorna 403 o null.
+ */
+export async function ensureCanDelete(
+  ctx: AuthContext,
+  module: ModuleKey,
+  submodule?: string,
+): Promise<NextResponse | null> {
+  const perms = await resolveApiPerms(ctx);
+  if (!canDelete(perms, module, submodule)) {
+    return NextResponse.json(
+      { success: false, error: `Sin permisos para eliminar en ${module}${submodule ? `.${submodule}` : ""}` },
       { status: 403 },
     );
   }

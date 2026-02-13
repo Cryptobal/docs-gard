@@ -16,6 +16,7 @@ import {
   Bell,
   ClipboardList,
   ShieldCheck,
+  Bot,
 } from "lucide-react";
 
 type ConfigItem = {
@@ -65,6 +66,14 @@ const CONFIG_SECTIONS: ConfigSection[] = [
         title: "Notificaciones",
         description: "Alertas, emails y campana por módulo",
         icon: Bell,
+      },
+      {
+        submodule: "notificaciones",
+        href: "/opai/configuracion/asistente-ia",
+        title: "Asistente IA",
+        description: "Control de roles, acceso y alcance del chat",
+        icon: Bot,
+        adminOnly: true,
       },
     ],
   },

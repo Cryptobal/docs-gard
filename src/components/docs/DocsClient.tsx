@@ -31,6 +31,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { DOC_STATUS_CONFIG, DOC_CATEGORIES } from "@/lib/docs/token-registry";
 import type { DocDocument } from "@/types/docs";
+import { useCanDelete } from "@/lib/permissions-context";
 
 const STATUS_ICONS: Record<string, React.ComponentType<any>> = {
   draft: FileEdit,
@@ -65,6 +66,7 @@ function getCategoryLabel(module: string, category: string): string {
 
 export function DocsClient() {
   const router = useRouter();
+  const canDeleteDocument = useCanDelete("docs", "gestion");
   const [documents, setDocuments] = useState<DocDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -121,6 +123,7 @@ export function DocsClient() {
   ];
 
   const deleteDocument = async (id: string) => {
+    if (!canDeleteDocument) return;
     if (!confirm("¿Eliminar este documento?")) return;
     try {
       await fetch(`/api/docs/documents/${id}`, { method: "DELETE" });
@@ -302,16 +305,18 @@ export function DocsClient() {
                     <ExternalLink className="h-3.5 w-3.5 mr-2" />
                     Abrir
                   </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteDocument(doc.id);
-                    }}
-                    className="text-destructive"
-                  >
-                    <Trash2 className="h-3.5 w-3.5 mr-2" />
-                    Eliminar
-                  </DropdownMenuItem>
+                  {canDeleteDocument ? (
+                    <DropdownMenuItem
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteDocument(doc.id);
+                      }}
+                      className="text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-2" />
+                      Eliminar
+                    </DropdownMenuItem>
+                  ) : null}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

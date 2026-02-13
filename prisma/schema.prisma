@@ -23,6 +23,8 @@ model Tenant {
   templates       Template[]
   webhookSessions WebhookSession[]
   roleTemplates   RoleTemplate[]
+  aiChatConversations AiChatConversation[]
+  aiChatMessages  AiChatMessage[]
 
   @@index([slug])
   @@index([active])
@@ -158,6 +160,7 @@ model Admin {
   activatedAt     DateTime?
   tenant          Tenant        @relation(fields: [tenantId], references: [id], onDelete: SetNull)
   roleTemplate    RoleTemplate? @relation(fields: [roleTemplateId], references: [id], onDelete: SetNull)
+  aiChatConversations AiChatConversation[]
 
   @@index([email])
   @@index([status])
@@ -259,6 +262,40 @@ model Setting {
   @@index([key])
   @@index([category])
   @@index([tenantId])
+  @@schema("public")
+}
+
+model AiChatConversation {
+  id        String   @id @default(cuid())
+  tenantId  String
+  userId    String
+  title     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user     Admin           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages AiChatMessage[]
+
+  @@index([tenantId, userId], map: "idx_ai_chat_conv_tenant_user")
+  @@index([updatedAt], map: "idx_ai_chat_conv_updated_at")
+  @@schema("public")
+}
+
+model AiChatMessage {
+  id             String   @id @default(cuid())
+  conversationId String   @map("conversation_id")
+  tenantId       String   @map("tenant_id")
+  role           String
+  content        String   @db.Text
+  metadata       Json?    @db.JsonB
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  conversation AiChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt], map: "idx_ai_chat_msg_conv_created")
+  @@index([tenantId], map: "idx_ai_chat_msg_tenant")
   @@schema("public")
 }
 

@@ -5,17 +5,16 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import { getDefaultTenantId } from '@/lib/tenant';
+import {
+  requireAuth,
+  unauthorized,
+  ensureModuleAccess,
+  ensureCanDelete,
+} from '@/lib/api-auth';
 
 interface RouteContext {
   params: Promise<{ id: string }>;
-}
-
-async function getTenantId() {
-  const session = await auth();
-  return session?.user?.tenantId ?? getDefaultTenantId();
 }
 
 // GET /api/presentations/[id]
@@ -24,8 +23,10 @@ export async function GET(
   context: RouteContext
 ) {
   try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
     const { id } = await context.params;
-    const tenantId = await getTenantId();
+    const tenantId = ctx.tenantId;
 
     const presentation = await prisma.presentation.findFirst({
       where: { id, tenantId },
@@ -64,8 +65,10 @@ export async function PATCH(
   context: RouteContext
 ) {
   try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
     const { id } = await context.params;
-    const tenantId = await getTenantId();
+    const tenantId = ctx.tenantId;
     const body = await request.json();
 
     const {
@@ -117,8 +120,15 @@ export async function DELETE(
   context: RouteContext
 ) {
   try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const forbiddenModule = await ensureModuleAccess(ctx, 'docs');
+    if (forbiddenModule) return forbiddenModule;
+    const forbiddenDelete = await ensureCanDelete(ctx, 'docs', 'presentaciones');
+    if (forbiddenDelete) return forbiddenDelete;
+
     const { id } = await context.params;
-    const tenantId = await getTenantId();
+    const tenantId = ctx.tenantId;
 
     const deleted = await prisma.presentation.deleteMany({
       where: { id, tenantId },

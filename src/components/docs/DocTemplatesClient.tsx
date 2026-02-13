@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DOC_CATEGORIES, WA_USAGE_SLUGS } from "@/lib/docs/token-registry";
 import type { DocTemplate } from "@/types/docs";
+import { useCanDelete } from "@/lib/permissions-context";
 
 function getCategoryLabel(module: string, category: string): string {
   const cats = DOC_CATEGORIES[module];
@@ -47,6 +48,7 @@ export function DocTemplatesClient() {
 
 function DocTemplatesInner() {
   const router = useRouter();
+  const canDeleteTemplate = useCanDelete("docs", "gestion");
   const searchParams = useSearchParams();
   const moduleFromUrl = searchParams.get("module");
   const [templates, setTemplates] = useState<DocTemplate[]>([]);
@@ -80,6 +82,7 @@ function DocTemplatesInner() {
   ).filter((t) => !moduleFromUrl || t.module === moduleFromUrl);
 
   const deleteTemplate = async (id: string) => {
+    if (!canDeleteTemplate) return;
     if (!confirm("¿Desactivar este template?")) return;
     try {
       await fetch(`/api/docs/templates/${id}`, { method: "DELETE" });
@@ -250,16 +253,18 @@ function DocTemplatesInner() {
                         <Copy className="h-3.5 w-3.5 mr-2" />
                         Generar Documento
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteTemplate(template.id);
-                        }}
-                        className="text-destructive"
-                      >
-                        <Trash2 className="h-3.5 w-3.5 mr-2" />
-                        Desactivar
-                      </DropdownMenuItem>
+                      {canDeleteTemplate ? (
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteTemplate(template.id);
+                          }}
+                          className="text-destructive"
+                        >
+                          <Trash2 className="h-3.5 w-3.5 mr-2" />
+                          Desactivar
+                        </DropdownMenuItem>
+                      ) : null}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>

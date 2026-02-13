@@ -28,6 +28,7 @@ import {
 import { DOC_CATEGORIES, DOC_MODULES } from "@/lib/docs/token-registry";
 import { toast } from "sonner";
 import { Loader2, Plus, Pencil, Trash2, Download } from "lucide-react";
+import { useCanDelete } from "@/lib/permissions-context";
 
 type DocCategoryRow = {
   id: string;
@@ -42,6 +43,7 @@ const MODULE_LABELS: Record<string, string> = Object.fromEntries(
 );
 
 export function DocCategoriesClient() {
+  const canDeleteCategory = useCanDelete("config", "categorias");
   const [categories, setCategories] = useState<DocCategoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [seedLoading, setSeedLoading] = useState(false);
@@ -139,6 +141,10 @@ export function DocCategoriesClient() {
   };
 
   const deleteCategory = async (id: string) => {
+    if (!canDeleteCategory) {
+      toast.error("No tienes permisos para eliminar categorías");
+      return;
+    }
     if (!confirm("¿Eliminar esta categoría? Las plantillas que la usen seguirán existiendo.")) return;
     try {
       const res = await fetch(`/api/docs/categories/${id}`, { method: "DELETE" });
@@ -256,14 +262,16 @@ export function DocCategoriesClient() {
                             >
                               <Pencil className="h-3 w-3" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 text-destructive"
-                              onClick={() => deleteCategory(c.id)}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
+                            {canDeleteCategory ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 w-7 p-0 text-destructive"
+                                onClick={() => deleteCategory(c.id)}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            ) : null}
                           </div>
                         </li>
                       ))}

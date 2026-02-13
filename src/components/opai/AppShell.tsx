@@ -10,6 +10,7 @@ import { BottomNav } from './BottomNav';
 import { CommandPalette } from './CommandPalette';
 import { NotificationBell } from './NotificationBell';
 import { TopbarActions } from './TopbarActions';
+import { AiHelpChatWidget } from './AiHelpChatWidget';
 
 export interface AppShellProps {
   sidebar?: ReactNode;
@@ -188,6 +189,9 @@ export function AppShell({ sidebar, children, userName, userEmail, userRole, cla
 
       {/* ── Command Palette ── */}
       <CommandPalette userRole={userRole} />
+
+      {/* ── Asistente IA ── */}
+      <AiHelpChatWidget />
     </div>
   );
 }

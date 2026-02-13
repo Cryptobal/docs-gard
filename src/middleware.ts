@@ -14,6 +14,7 @@ import {
   hasModuleAccess,
   canView,
   canEdit,
+  canDelete,
   apiPathToModule,
   apiPathToSubmodule,
   type RolePermissions,
@@ -145,7 +146,13 @@ export default auth((req) => {
       // Verificar acceso al submódulo (si se puede mapear)
       const apiSub = apiPathToSubmodule(pathname);
       if (apiSub) {
-        if (isWrite && !canEdit(perms, apiSub.module, apiSub.submodule)) {
+        if (method === 'DELETE' && !canDelete(perms, apiSub.module, apiSub.submodule)) {
+          return Response.json(
+            { success: false, error: `Sin permisos para eliminar en ${apiSub.module}.${apiSub.submodule}` },
+            { status: 403 }
+          );
+        }
+        if (method !== 'DELETE' && isWrite && !canEdit(perms, apiSub.module, apiSub.submodule)) {
           return Response.json(
             { success: false, error: `Sin permisos de escritura para ${apiSub.module}.${apiSub.submodule}` },
             { status: 403 }

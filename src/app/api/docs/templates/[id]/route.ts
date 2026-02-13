@@ -7,7 +7,13 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
+import {
+  requireAuth,
+  unauthorized,
+  parseBody,
+  ensureModuleAccess,
+  ensureCanDelete,
+} from "@/lib/api-auth";
 import { updateDocTemplateSchema } from "@/lib/validations/docs";
 import { extractTokenKeys } from "@/lib/docs/token-resolver";
 
@@ -145,6 +151,10 @@ export async function DELETE(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const forbiddenModule = await ensureModuleAccess(ctx, "docs");
+    if (forbiddenModule) return forbiddenModule;
+    const forbiddenDelete = await ensureCanDelete(ctx, "docs", "gestion");
+    if (forbiddenDelete) return forbiddenDelete;
 
     const { id } = await params;
 

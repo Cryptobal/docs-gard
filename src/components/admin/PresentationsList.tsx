@@ -35,6 +35,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { EmailStatusBadge } from './EmailStatusBadge';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useCanDelete } from '@/lib/permissions-context';
 
 type PresentationWithRelations = Presentation & {
   template: Template;
@@ -48,6 +49,7 @@ interface PresentationsListProps {
 }
 
 export function PresentationsList({ presentations: initialPresentations, initialFilter = 'all' }: PresentationsListProps) {
+  const canDeletePresentation = useCanDelete('docs', 'presentaciones');
   const [presentations, setPresentations] = useState(initialPresentations);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewFilter, setViewFilter] = useState<string>(initialFilter);
@@ -177,6 +179,10 @@ export function PresentationsList({ presentations: initialPresentations, initial
 
   // Eliminar presentación (todos los documentos; confirmación vía modal)
   const deletePresentation = async (id: string, companyName: string, skipConfirm = false) => {
+    if (!canDeletePresentation) {
+      toast.error('No tienes permisos para eliminar esta presentación');
+      return;
+    }
     if (!skipConfirm) {
       setDeleteModal({ id, companyName });
       return;
@@ -406,14 +412,16 @@ export function PresentationsList({ presentations: initialPresentations, initial
                         <Building2 className="w-4 h-4" />
                       </a>
                     ) : null}
-                    <button
-                      onClick={() => deletePresentation(presentation.id, companyName)}
-                      disabled={deletingId === presentation.id}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-red-500/20 hover:bg-red-500/30 text-red-300 transition-colors disabled:opacity-50"
-                      title="Eliminar documento"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {canDeletePresentation ? (
+                      <button
+                        onClick={() => deletePresentation(presentation.id, companyName)}
+                        disabled={deletingId === presentation.id}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-red-500/20 hover:bg-red-500/30 text-red-300 transition-colors disabled:opacity-50"
+                        title="Eliminar documento"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               </div>

@@ -25,6 +25,7 @@ import { SignatureStatusPanel } from "./SignatureStatusPanel";
 import { DOC_STATUS_CONFIG, DOC_CATEGORIES } from "@/lib/docs/token-registry";
 import { toast } from "sonner";
 import type { DocDocument, DocHistory } from "@/types/docs";
+import { useCanDelete } from "@/lib/permissions-context";
 
 interface DocDetailClientProps {
   documentId: string;
@@ -52,6 +53,7 @@ function getCategoryLabel(module: string, category: string): string {
 
 export function DocDetailClient({ documentId }: DocDetailClientProps) {
   const router = useRouter();
+  const canDeleteDocument = useCanDelete("docs", "gestion");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [doc, setDoc] = useState<DocDocument | null>(null);
@@ -128,6 +130,10 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
   };
 
   const handleDelete = async () => {
+    if (!canDeleteDocument) {
+      toast.error("No tienes permisos para eliminar este documento");
+      return;
+    }
     if (!confirm("¿Eliminar este documento permanentemente?")) return;
     try {
       await fetch(`/api/docs/documents/${documentId}`, { method: "DELETE" });
@@ -181,14 +187,16 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
           <History className="h-3.5 w-3.5" />
           Historial
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1.5 text-destructive"
-          onClick={handleDelete}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
+        {canDeleteDocument ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-destructive"
+            onClick={handleDelete}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        ) : null}
         {isEditable && (
           <Button size="sm" className="gap-1.5" onClick={handleSave} disabled={saving}>
             {saving ? (
