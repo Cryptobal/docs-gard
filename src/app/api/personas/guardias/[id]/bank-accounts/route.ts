@@ -65,6 +65,16 @@ export async function POST(
     if (parsed.error) return parsed.error;
     const body = parsed.data;
 
+    const existingCount = await prisma.opsCuentaBancaria.count({
+      where: { tenantId: ctx.tenantId, guardiaId: id },
+    });
+    if (existingCount > 0) {
+      return NextResponse.json(
+        { success: false, error: "Solo se permite una cuenta bancaria por trabajador. Edite la existente." },
+        { status: 400 }
+      );
+    }
+
     const created = await prisma.$transaction(async (tx) => {
       if (body.isDefault) {
         await tx.opsCuentaBancaria.updateMany({

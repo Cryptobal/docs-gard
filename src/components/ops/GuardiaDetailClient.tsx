@@ -12,6 +12,7 @@ import {
   History,
   Landmark,
   Loader2,
+  KeyRound,
   Mail,
   MessageCircle,
   MessageSquare,
@@ -20,6 +21,7 @@ import {
   Pencil,
   Save,
   Send,
+  Shield,
   Trash2,
   Upload,
   User,
@@ -59,6 +61,7 @@ function formatDateUTC(value: string | Date): string {
 
 const SECTIONS = [
   { id: "asignacion", label: "Asignación", icon: MapPin },
+  { id: "marcacion", label: "Marcación", icon: Shield },
   { id: "datos", label: "Datos personales", icon: User },
   { id: "documentos", label: "Ficha de documentos", icon: FilePlus2 },
   { id: "docs-vinculados", label: "Docs vinculados", icon: Link2 },
@@ -99,6 +102,7 @@ type GuardiaDetail = {
     hasMobilization?: boolean | null;
   };
   availableExtraShifts?: boolean;
+  marcacionPin?: string | null; // indica si tiene PIN configurado (no el valor)
   bankAccounts: Array<{
     id: string;
     bankCode?: string | null;
@@ -202,13 +206,25 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const issuedAtRef = useRef<HTMLInputElement | null>(null);
   const expiresAtRef = useRef<HTMLInputElement | null>(null);
+  const existingAccount = guardia.bankAccounts[0] ?? null;
   const [accountForm, setAccountForm] = useState({
     bankCode: "",
     accountType: "",
     accountNumber: "",
-    holderName: "",
     isDefault: true,
   });
+  useEffect(() => {
+    if (existingAccount) {
+      setAccountForm({
+        bankCode: existingAccount.bankCode ?? "",
+        accountType: existingAccount.accountType ?? "",
+        accountNumber: existingAccount.accountNumber ?? "",
+        isDefault: existingAccount.isDefault ?? true,
+      });
+    } else {
+      setAccountForm({ bankCode: "", accountType: "", accountNumber: "", isDefault: true });
+    }
+  }, [existingAccount?.id, existingAccount?.bankCode, existingAccount?.accountType, existingAccount?.accountNumber, existingAccount?.isDefault]);
   const [sendingComm, setSendingComm] = useState(false);
   const [commForm, setCommForm] = useState({
     channel: "email",
@@ -675,8 +691,13 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
   };
 
   const handleCreateBankAccount = async () => {
-    if (!accountForm.bankCode || !accountForm.accountType || !accountForm.accountNumber || !accountForm.holderName) {
-      toast.error("Banco, tipo, número y titular son obligatorios");
+    if (!accountForm.bankCode || !accountForm.accountType || !accountForm.accountNumber) {
+      toast.error("Banco, tipo y número de cuenta son obligatorios");
+      return;
+    }
+    const holderName = guardia.persona.rut?.trim();
+    if (!holderName) {
+      toast.error("El guardia debe tener RUT para agregar cuenta bancaria");
       return;
     }
     setCreatingAccount(true);
@@ -690,7 +711,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
           bankName: bank?.name ?? accountForm.bankCode,
           accountType: accountForm.accountType,
           accountNumber: accountForm.accountNumber,
-          holderName: accountForm.holderName,
+          holderName,
           isDefault: accountForm.isDefault,
         }),
       });
@@ -708,13 +729,53 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         bankCode: "",
         accountType: "",
         accountNumber: "",
-        holderName: "",
         isDefault: false,
       });
       toast.success("Cuenta bancaria agregada");
     } catch (error) {
       console.error(error);
       toast.error("No se pudo crear cuenta bancaria");
+    } finally {
+      setCreatingAccount(false);
+    }
+  };
+
+  const handleUpdateBankAccount = async () => {
+    if (!existingAccount) return;
+    if (!accountForm.bankCode || !accountForm.accountType || !accountForm.accountNumber) {
+      toast.error("Banco, tipo y número de cuenta son obligatorios");
+      return;
+    }
+    setCreatingAccount(true);
+    try {
+      const bank = CHILE_BANKS.find((b) => b.code === accountForm.bankCode);
+      const response = await fetch(
+        `/api/personas/guardias/${guardia.id}/bank-accounts?accountId=${existingAccount.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            bankCode: accountForm.bankCode,
+            bankName: bank?.name ?? accountForm.bankCode,
+            accountType: accountForm.accountType,
+            accountNumber: accountForm.accountNumber,
+          }),
+        }
+      );
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || "No se pudo actualizar cuenta bancaria");
+      }
+      setGuardia((prev) => ({
+        ...prev,
+        bankAccounts: prev.bankAccounts.map((acc) =>
+          acc.id === existingAccount.id ? { ...acc, ...payload.data } : acc
+        ),
+      }));
+      toast.success("Cuenta bancaria actualizada");
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo actualizar cuenta bancaria");
     } finally {
       setCreatingAccount(false);
     }
@@ -929,6 +990,44 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         </CardContent>
       </Card>
 
+      {/* ── Marcación de asistencia (PIN) ── */}
+      <Card id="marcacion">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <KeyRound className="h-5 w-5" />
+            Marcación de asistencia
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+            <div>
+              <p className="text-sm font-medium">PIN de marcación</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {guardia.marcacionPin
+                  ? "PIN configurado — el guardia puede marcar asistencia"
+                  : "Sin PIN — el guardia no puede marcar asistencia"}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {guardia.marcacionPin && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                  Activo
+                </span>
+              )}
+              {!guardia.marcacionPin && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600">
+                  Sin PIN
+                </span>
+              )}
+            </div>
+          </div>
+
+          {canManageGuardias && (
+            <MarcacionPinSection guardiaId={guardia.id} hasPin={!!guardia.marcacionPin} />
+          )}
+        </CardContent>
+      </Card>
+
       <Card id="datos">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Datos personales</CardTitle>
@@ -939,59 +1038,106 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
             </Button>
           )}
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-3">
-          <Input value={`${guardia.persona.firstName} ${guardia.persona.lastName}`} readOnly />
-          <Input value={guardia.persona.rut || "Sin RUT"} readOnly />
-          <Input value={guardia.persona.email || "Sin email"} readOnly />
-          <Input value={guardia.persona.phoneMobile || "Sin celular"} readOnly />
-          <Input value={guardia.persona.birthDate ? toDateInput(guardia.persona.birthDate) : "Sin fecha nacimiento"} readOnly />
-          <Input
-            value={
-              guardia.persona.sex
-                ? guardia.persona.sex.charAt(0).toUpperCase() + guardia.persona.sex.slice(1)
-                : "Sin sexo"
-            }
-            readOnly
-          />
-          <Input value={guardia.persona.afp || "Sin AFP"} readOnly />
-          <Input
-            value={
-              guardia.persona.healthSystem === "isapre"
-                ? `ISAPRE${guardia.persona.isapreName ? ` · ${guardia.persona.isapreName}` : ""}`
-                : guardia.persona.healthSystem
-                  ? guardia.persona.healthSystem.toUpperCase()
-                  : "Sin sistema de salud"
-            }
-            readOnly
-          />
-          <Input
-            value={
-              guardia.persona.healthSystem === "isapre" && guardia.persona.isapreHasExtraPercent
-                ? `Cotización ${guardia.persona.isapreExtraPercent || "N/D"}%`
-                : "Cotización legal"
-            }
-            readOnly
-          />
-          <Input value={guardia.persona.hasMobilization ? "Con movilización" : "Sin movilización"} readOnly />
-          <Input value={guardia.availableExtraShifts ? "Disponible para TE" : "No disponible para TE"} readOnly />
-          <Input className="md:col-span-2" value={guardia.persona.addressFormatted || "Sin dirección"} readOnly />
-          {mapUrl ? (
-            <a
-              href={`https://www.google.com/maps/@${guardia.persona.lat},${guardia.persona.lng},17z`}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-lg overflow-hidden border border-border h-[120px] w-[160px]"
-              title="Abrir en Google Maps"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={mapUrl} alt="Mapa guardia" className="h-full w-full object-cover" />
-            </a>
-          ) : (
-            <div className="rounded-lg border border-dashed border-border h-[120px] w-[160px] flex items-center justify-center text-xs text-muted-foreground">
-              <MapPin className="h-4 w-4 mr-1" />
-              Sin mapa
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Nombre completo</Label>
+              <Input value={`${guardia.persona.firstName} ${guardia.persona.lastName}`} readOnly className="h-9" />
             </div>
-          )}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">RUT</Label>
+              <Input value={guardia.persona.rut || "Sin RUT"} readOnly className="h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Email</Label>
+              <Input value={guardia.persona.email || "Sin email"} readOnly className="h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Celular</Label>
+              <Input value={guardia.persona.phoneMobile || "Sin celular"} readOnly className="h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Fecha de nacimiento</Label>
+              <Input value={guardia.persona.birthDate ? toDateInput(guardia.persona.birthDate) : "Sin fecha nacimiento"} readOnly className="h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Sexo</Label>
+              <Input
+                value={
+                  guardia.persona.sex
+                    ? guardia.persona.sex.charAt(0).toUpperCase() + guardia.persona.sex.slice(1)
+                    : "Sin sexo"
+                }
+                readOnly
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">AFP</Label>
+              <Input value={guardia.persona.afp || "Sin AFP"} readOnly className="h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Sistema de salud</Label>
+              <Input
+                value={
+                  guardia.persona.healthSystem === "isapre"
+                    ? `ISAPRE${guardia.persona.isapreName ? ` · ${guardia.persona.isapreName}` : ""}`
+                    : guardia.persona.healthSystem
+                      ? guardia.persona.healthSystem.toUpperCase()
+                      : "Sin sistema de salud"
+                }
+                readOnly
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Cotización</Label>
+              <Input
+                value={
+                  guardia.persona.healthSystem === "isapre" && guardia.persona.isapreHasExtraPercent
+                    ? `Cotización ${guardia.persona.isapreExtraPercent || "N/D"}%`
+                    : "Cotización legal"
+                }
+                readOnly
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Movilización</Label>
+              <Input value={guardia.persona.hasMobilization ? "Con movilización" : "Sin movilización"} readOnly className="h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Turnos extra</Label>
+              <Input value={guardia.availableExtraShifts ? "Disponible para TE" : "No disponible para TE"} readOnly className="h-9" />
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-[1fr_200px] md:items-start">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Dirección</Label>
+              <Input value={guardia.persona.addressFormatted || "Sin dirección"} readOnly className="h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Ubicación</Label>
+              {mapUrl ? (
+                <a
+                  href={`https://www.google.com/maps/@${guardia.persona.lat},${guardia.persona.lng},17z`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-lg overflow-hidden border border-border block h-[120px] w-full min-w-[160px]"
+                  title="Abrir en Google Maps"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={mapUrl} alt="Mapa guardia" className="h-full w-full object-cover" />
+                </a>
+              ) : (
+                <div className="rounded-lg border border-dashed border-border h-[120px] w-full min-w-[160px] flex items-center justify-center text-xs text-muted-foreground">
+                  <MapPin className="h-4 w-4 mr-1" />
+                  Sin mapa
+                </div>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -1304,15 +1450,19 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Landmark className="h-4 w-4" />
-            Cuentas bancarias
+            Cuenta bancaria
           </CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            Un solo banco por trabajador. {existingAccount ? "Edite los datos y guarde los cambios." : "Complete para registrar la cuenta."}
+          </p>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid gap-3 md:grid-cols-5">
+        <CardContent>
+          <div className="grid gap-3 md:grid-cols-4">
             <select
               className="h-10 rounded-md border border-border bg-background px-3 text-sm"
               value={accountForm.bankCode}
               onChange={(e) => setAccountForm((prev) => ({ ...prev, bankCode: e.target.value }))}
+              disabled={!canManageGuardias}
             >
               <option value="">Banco chileno</option>
               {CHILE_BANKS.map((bank) => (
@@ -1325,6 +1475,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
               className="h-10 rounded-md border border-border bg-background px-3 text-sm"
               value={accountForm.accountType}
               onChange={(e) => setAccountForm((prev) => ({ ...prev, accountType: e.target.value }))}
+              disabled={!canManageGuardias}
             >
               <option value="">Tipo de cuenta</option>
               {BANK_ACCOUNT_TYPES.map((type) => (
@@ -1337,35 +1488,14 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
               placeholder="Número de cuenta"
               value={accountForm.accountNumber}
               onChange={(e) => setAccountForm((prev) => ({ ...prev, accountNumber: e.target.value }))}
+              disabled={!canManageGuardias}
             />
-            <Input
-              placeholder="Titular"
-              value={accountForm.holderName}
-              onChange={(e) => setAccountForm((prev) => ({ ...prev, holderName: e.target.value }))}
-            />
-            <Button onClick={handleCreateBankAccount} disabled={creatingAccount || !canManageGuardias}>
-              {creatingAccount ? "..." : "Agregar"}
+            <Button
+              onClick={existingAccount ? handleUpdateBankAccount : handleCreateBankAccount}
+              disabled={creatingAccount || !canManageGuardias}
+            >
+              {creatingAccount ? "..." : existingAccount ? "Guardar" : "Agregar"}
             </Button>
-          </div>
-
-          <div className="space-y-2">
-            {guardia.bankAccounts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Sin cuentas bancarias.</p>
-            ) : (
-              guardia.bankAccounts.map((acc) => (
-                <div key={acc.id} className="rounded-md border border-border p-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">{acc.bankName}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {ACCOUNT_TYPE_LABEL[acc.accountType] || acc.accountType} · {acc.accountNumber}
-                    </p>
-                  </div>
-                  {acc.isDefault ? (
-                    <span className="text-[11px] rounded-full bg-primary/15 px-2 py-1 text-primary">Por defecto</span>
-                  ) : null}
-                </div>
-              ))
-            )}
           </div>
         </CardContent>
       </Card>
@@ -1824,3 +1954,87 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
   );
 }
 
+// ─────────────────────────────────────────────
+// Sub-componente: Gestión de PIN de marcación
+// ─────────────────────────────────────────────
+
+function MarcacionPinSection({
+  guardiaId,
+  hasPin,
+}: {
+  guardiaId: string;
+  hasPin: boolean;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [generatedPin, setGeneratedPin] = useState<string | null>(null);
+
+  const handleGeneratePin = async () => {
+    setLoading(true);
+    setGeneratedPin(null);
+    try {
+      const res = await fetch("/api/ops/marcacion/pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guardiaId }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        toast.error(data.error || "Error al generar PIN");
+        return;
+      }
+      setGeneratedPin(data.data.pin);
+      toast.success(hasPin ? "PIN reseteado exitosamente" : "PIN generado exitosamente");
+    } catch {
+      toast.error("Error de conexión");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCopyPin = () => {
+    if (generatedPin) {
+      navigator.clipboard.writeText(generatedPin);
+      toast.success("PIN copiado al portapapeles");
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      {generatedPin && (
+        <div className="p-4 bg-emerald-950/50 border border-emerald-700/50 rounded-lg dark:bg-emerald-900/20 dark:border-emerald-600/50">
+          <p className="text-sm font-medium text-emerald-200 mb-2">
+            PIN generado (queda registrado en el sistema para marcación):
+          </p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-3xl font-mono font-bold tracking-[0.3em] text-emerald-100">
+              {generatedPin}
+            </span>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="bg-emerald-700 hover:bg-emerald-600 text-white border-0"
+              onClick={handleCopyPin}
+            >
+              <Copy className="h-3.5 w-3.5 mr-1.5" />
+              Copiar
+            </Button>
+          </div>
+          <p className="text-xs text-emerald-300/90 mt-2">
+            Copia y entrega este PIN al guardia. Por seguridad no se puede consultar de nuevo.
+          </p>
+        </div>
+      )}
+
+      <Button
+        size="sm"
+        variant={hasPin ? "outline" : "default"}
+        onClick={handleGeneratePin}
+        disabled={loading}
+      >
+        {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        <KeyRound className="mr-1.5 h-4 w-4" />
+        {hasPin ? "Resetear PIN" : "Generar PIN"}
+      </Button>
+    </div>
+  );
+}
