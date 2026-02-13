@@ -6,8 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { hasAppAccess } from "@/lib/app-access";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
 
 const KEY_PREFIX = "cpq.";
 const DEFAULTS = {
@@ -20,18 +19,12 @@ const DEFAULTS = {
 
 const buildKey = (key: keyof typeof DEFAULTS) => `${KEY_PREFIX}${key}`;
 
-function forbiddenCpq() {
-  return NextResponse.json(
-    { success: false, error: "Sin permisos para módulo CPQ" },
-    { status: 403 }
-  );
-}
-
 export async function GET() {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    if (!hasAppAccess(ctx.userRole, "cpq")) return forbiddenCpq();
+    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
+    if (forbiddenMod) return forbiddenMod;
     const tenantId = ctx.tenantId;
     const keys = Object.keys(DEFAULTS).map((key) => buildKey(key as keyof typeof DEFAULTS));
     const settings = await prisma.setting.findMany({
@@ -74,7 +67,8 @@ export async function PUT(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    if (!hasAppAccess(ctx.userRole, "cpq")) return forbiddenCpq();
+    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
+    if (forbiddenMod) return forbiddenMod;
     const tenantId = ctx.tenantId;
     const body = await request.json();
 

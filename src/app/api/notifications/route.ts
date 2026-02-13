@@ -7,14 +7,15 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { addDays } from "date-fns";
 import { getNotificationPrefs } from "@/lib/notification-prefs";
-import { hasAppAccess } from "@/lib/app-access";
-import { type AppKey } from "@/lib/app-keys";
+import { hasModuleAccess } from "@/lib/permissions";
+import type { AuthContext } from "@/lib/api-auth";
+import type { ModuleKey } from "@/lib/permissions";
 
 const GUARDIA_DOC_ALERT_DAYS = 30;
-const NOTIFICATION_TYPE_APP_ACCESS: Record<string, AppKey> = {
+const NOTIFICATION_TYPE_APP_ACCESS: Record<string, ModuleKey> = {
   new_lead: "crm",
   lead_approved: "crm",
   prospect: "crm",
@@ -35,9 +36,10 @@ const NOTIFICATION_TYPE_APP_ACCESS: Record<string, AppKey> = {
   followup_failed: "crm",
 };
 
-function getRoleExcludedNotificationTypes(role: string): string[] {
+async function getRoleExcludedNotificationTypes(ctx: AuthContext): Promise<string[]> {
+  const perms = await resolveApiPerms(ctx);
   return Object.entries(NOTIFICATION_TYPE_APP_ACCESS)
-    .filter(([, app]) => !hasAppAccess(role, app))
+    .filter(([, module]) => !hasModuleAccess(perms, module))
     .map(([type]) => type);
 }
 
@@ -124,7 +126,7 @@ export async function GET(request: NextRequest) {
       prefs.guardiaDocExpiryBellEnabled
     );
 
-    const excludedTypes = new Set<string>(getRoleExcludedNotificationTypes(ctx.userRole));
+    const excludedTypes = new Set<string>(await getRoleExcludedNotificationTypes(ctx));
     if (!prefs.guardiaDocExpiryBellEnabled) {
       excludedTypes.add("guardia_doc_expiring");
       excludedTypes.add("guardia_doc_expired");
@@ -171,7 +173,7 @@ export async function PATCH(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const roleExcludedTypes = getRoleExcludedNotificationTypes(ctx.userRole);
+    const roleExcludedTypes = await getRoleExcludedNotificationTypes(ctx);
 
     const body = await request.json();
 
@@ -216,7 +218,7 @@ export async function DELETE(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const roleExcludedTypes = getRoleExcludedNotificationTypes(ctx.userRole);
+    const roleExcludedTypes = await getRoleExcludedNotificationTypes(ctx);
 
     const body = await request.json();
 

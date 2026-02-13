@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = ensureOpsAccess(ctx);
+    const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
 
     const formData = await request.formData();

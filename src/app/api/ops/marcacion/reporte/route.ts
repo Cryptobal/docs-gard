@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     if (!ctx) {
       return NextResponse.json({ success: false, error: "No autorizado" }, { status: 401 });
     }
-    const forbidden = ensureOpsAccess(ctx);
+    const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
 
     const { searchParams } = new URL(req.url);

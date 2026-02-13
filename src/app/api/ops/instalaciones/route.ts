@@ -21,7 +21,7 @@ export async function GET() {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = ensureOpsAccess(ctx);
+    const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
 
     const installations = await prisma.crmInstallation.findMany({
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = ensureOpsAccess(ctx);
+    const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
 
     const parsed = await parseBody(request, createOpsInstallationSchema);

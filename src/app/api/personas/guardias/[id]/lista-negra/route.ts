@@ -14,7 +14,7 @@ export async function PATCH(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = ensureOpsCapability(ctx, "guardias_blacklist");
+    const forbidden = await ensureOpsCapability(ctx, "guardias_blacklist");
     if (forbidden) return forbidden;
 
     const { id } = await params;

@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
-import { hasAppAccess } from "@/lib/app-access";
 import { prisma } from "@/lib/prisma";
 import type { AuthContext } from "@/lib/api-auth";
-import { hasOpsCapability, type OpsCapability } from "@/lib/ops-rbac";
+import type { OpsCapability } from "@/lib/ops-rbac";
+import { resolvePermissions } from "@/lib/permissions-server";
+import { hasModuleAccess, hasCapability, type CapabilityKey } from "@/lib/permissions";
 
 export type WeekdayKey =
   | "monday"
@@ -31,8 +32,12 @@ export function forbiddenOps() {
   );
 }
 
-export function ensureOpsAccess(ctx: AuthContext): NextResponse | null {
-  if (!hasAppAccess(ctx.userRole, "ops")) {
+export async function ensureOpsAccess(ctx: AuthContext): Promise<NextResponse | null> {
+  const perms = await resolvePermissions({
+    role: ctx.userRole,
+    roleTemplateId: ctx.roleTemplateId,
+  });
+  if (!hasModuleAccess(perms, "ops")) {
     return forbiddenOps();
   }
   return null;
@@ -45,14 +50,28 @@ export function forbiddenOpsCapability(capability: OpsCapability) {
   );
 }
 
-export function ensureOpsCapability(
+/** Mapeo de OpsCapability legacy → CapabilityKey nuevo */
+const OPS_CAP_MAP: Partial<Record<OpsCapability, CapabilityKey>> = {
+  guardias_blacklist: "guardias_blacklist",
+  te_execution: "te_approve",
+};
+
+export async function ensureOpsCapability(
   ctx: AuthContext,
   capability: OpsCapability
-): NextResponse | null {
-  const forbiddenModule = ensureOpsAccess(ctx);
-  if (forbiddenModule) return forbiddenModule;
-  if (!hasOpsCapability(ctx.userRole, capability)) {
-    return forbiddenOpsCapability(capability);
+): Promise<NextResponse | null> {
+  const forbidden = await ensureOpsAccess(ctx);
+  if (forbidden) return forbidden;
+
+  const newCap = OPS_CAP_MAP[capability];
+  if (newCap) {
+    const perms = await resolvePermissions({
+      role: ctx.userRole,
+      roleTemplateId: ctx.roleTemplateId,
+    });
+    if (!hasCapability(perms, newCap)) {
+      return forbiddenOpsCapability(capability);
+    }
   }
   return null;
 }

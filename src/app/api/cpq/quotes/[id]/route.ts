@@ -6,16 +6,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { hasAppAccess } from "@/lib/app-access";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
-
-function forbiddenCpq() {
-  return NextResponse.json(
-    { success: false, error: "Sin permisos para módulo CPQ" },
-    { status: 403 }
-  );
-}
 
 export async function GET(
   _request: NextRequest,
@@ -25,7 +17,8 @@ export async function GET(
     const { id } = await params;
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    if (!hasAppAccess(ctx.userRole, "cpq")) return forbiddenCpq();
+    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
+    if (forbiddenMod) return forbiddenMod;
     const tenantId = ctx.tenantId;
 
     const quote = await prisma.cpqQuote.findFirst({
@@ -67,7 +60,8 @@ export async function PATCH(
     const { id } = await params;
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    if (!hasAppAccess(ctx.userRole, "cpq")) return forbiddenCpq();
+    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
+    if (forbiddenMod) return forbiddenMod;
     const tenantId = ctx.tenantId;
     const body = await request.json();
 
@@ -117,7 +111,8 @@ export async function DELETE(
     const { id } = await params;
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    if (!hasAppAccess(ctx.userRole, "cpq")) return forbiddenCpq();
+    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
+    if (forbiddenMod) return forbiddenMod;
     const tenantId = ctx.tenantId;
 
     const existing = await prisma.cpqQuote.findFirst({

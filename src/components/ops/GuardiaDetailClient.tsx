@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import {
   Dialog,
   DialogContent,
@@ -101,8 +102,17 @@ type GuardiaDetail = {
     isapreExtraPercent?: string | null;
     hasMobilization?: boolean | null;
   };
+  hiredAt?: string | null;
   availableExtraShifts?: boolean;
   marcacionPin?: string | null; // indica si tiene PIN configurado (no el valor)
+  montoAnticipo?: number;
+  recibeAnticipo?: boolean;
+  currentInstallation?: {
+    id: string;
+    name: string;
+    marcacionCode?: string | null;
+    account?: { id: string; name: string } | null;
+  } | null;
   bankAccounts: Array<{
     id: string;
     bankCode?: string | null;
@@ -254,6 +264,12 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
     isapreExtraPercent: "",
     hasMobilization: false,
     availableExtraShifts: false,
+    addressFormatted: "",
+    commune: "",
+    city: "",
+    region: "",
+    lat: "",
+    lng: "",
   });
   const [availableDocs, setAvailableDocs] = useState<
     Array<{
@@ -351,8 +367,26 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
       isapreExtraPercent: guardia.persona.isapreExtraPercent || "",
       hasMobilization: guardia.persona.hasMobilization || false,
       availableExtraShifts: guardia.availableExtraShifts || false,
+      addressFormatted: guardia.persona.addressFormatted || "",
+      commune: guardia.persona.commune || "",
+      city: guardia.persona.city || "",
+      region: guardia.persona.region || "",
+      lat: guardia.persona.lat || "",
+      lng: guardia.persona.lng || "",
     });
     setEditPersonalOpen(true);
+  };
+
+  const onEditAddressChange = (result: AddressResult) => {
+    setEditPersonalForm((p) => ({
+      ...p,
+      addressFormatted: result.address,
+      commune: result.commune || "",
+      city: result.city || "",
+      region: result.region || "",
+      lat: String(result.lat || ""),
+      lng: String(result.lng || ""),
+    }));
   };
 
   const saveEditPersonal = async () => {
@@ -376,6 +410,12 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
           isapreExtraPercent: editPersonalForm.healthSystem === "isapre" && editPersonalForm.isapreHasExtraPercent ? editPersonalForm.isapreExtraPercent || undefined : undefined,
           hasMobilization: editPersonalForm.hasMobilization,
           availableExtraShifts: editPersonalForm.availableExtraShifts,
+          addressFormatted: editPersonalForm.addressFormatted.trim() || undefined,
+          commune: editPersonalForm.commune.trim() || undefined,
+          city: editPersonalForm.city.trim() || undefined,
+          region: editPersonalForm.region.trim() || undefined,
+          lat: editPersonalForm.lat ? Number(editPersonalForm.lat) : undefined,
+          lng: editPersonalForm.lng ? Number(editPersonalForm.lng) : undefined,
         }),
       });
       const data = await res.json();
@@ -402,6 +442,12 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
           isapreHasExtraPercent: editPersonalForm.isapreHasExtraPercent,
           isapreExtraPercent: editPersonalForm.isapreExtraPercent || prev.persona.isapreExtraPercent,
           hasMobilization: editPersonalForm.hasMobilization,
+          addressFormatted: editPersonalForm.addressFormatted.trim() || prev.persona.addressFormatted,
+          commune: editPersonalForm.commune.trim() || prev.persona.commune,
+          city: editPersonalForm.city.trim() || prev.persona.city,
+          region: editPersonalForm.region.trim() || prev.persona.region,
+          lat: editPersonalForm.lat || prev.persona.lat,
+          lng: editPersonalForm.lng || prev.persona.lng,
         },
       }));
       toast.success("Datos actualizados");
@@ -1058,7 +1104,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Fecha de nacimiento</Label>
-              <Input value={guardia.persona.birthDate ? toDateInput(guardia.persona.birthDate) : "Sin fecha nacimiento"} readOnly className="h-9" />
+              <Input value={guardia.persona.birthDate ? formatDateUTC(guardia.persona.birthDate) : "Sin fecha nacimiento"} readOnly className="h-9" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Sexo</Label>
@@ -1109,6 +1155,32 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Turnos extra</Label>
               <Input value={guardia.availableExtraShifts ? "Disponible para TE" : "No disponible para TE"} readOnly className="h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Fecha de ingreso</Label>
+              <Input value={guardia.hiredAt ? formatDateUTC(guardia.hiredAt) : "Sin fecha de ingreso"} readOnly className="h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Recibe anticipo</Label>
+              <Input value={guardia.recibeAnticipo ? "Sí" : "No"} readOnly className="h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Monto anticipo</Label>
+              <Input value={guardia.montoAnticipo ? `$ ${guardia.montoAnticipo.toLocaleString("es-CL")}` : "$ 0"} readOnly className="h-9" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Instalación actual</Label>
+              {guardia.currentInstallation ? (
+                <Link href={`/crm/installations/${guardia.currentInstallation.id}`} className="block">
+                  <Input
+                    value={`${guardia.currentInstallation.name}${guardia.currentInstallation.account ? ` · ${guardia.currentInstallation.account.name}` : ""}`}
+                    readOnly
+                    className="h-9 cursor-pointer text-primary hover:underline"
+                  />
+                </Link>
+              ) : (
+                <Input value="Sin instalación asignada" readOnly className="h-9" />
+              )}
             </div>
           </div>
 
@@ -1918,6 +1990,22 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                 </div>
               </>
             )}
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label className="text-xs">Dirección (Google Maps)</Label>
+              <AddressAutocomplete
+                value={editPersonalForm.addressFormatted}
+                onChange={onEditAddressChange}
+                placeholder="Buscar dirección..."
+                showMap
+              />
+              {(editPersonalForm.commune || editPersonalForm.city || editPersonalForm.region) && (
+                <div className="grid gap-2 grid-cols-3 mt-1">
+                  <Input value={editPersonalForm.commune} readOnly placeholder="Comuna" className="text-xs h-8" />
+                  <Input value={editPersonalForm.city} readOnly placeholder="Ciudad" className="text-xs h-8" />
+                  <Input value={editPersonalForm.region} readOnly placeholder="Región" className="text-xs h-8" />
+                </div>
+              )}
+            </div>
             <div className="space-y-1.5 sm:col-span-2 flex gap-6">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input

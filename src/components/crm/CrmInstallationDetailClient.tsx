@@ -43,6 +43,8 @@ export type InstallationDetail = {
   marcacionCode?: string | null;
   geoRadiusM?: number;
   metadata?: Record<string, unknown> | null;
+  startDate?: string | null;
+  endDate?: string | null;
   puestosActivos?: Array<{
     id: string;
     name: string;
@@ -91,6 +93,12 @@ export type InstallationDetail = {
       persona: { firstName: string; lastName: string; rut?: string | null };
     };
     puesto: { id: string; name: string; shiftStart: string; shiftEnd: string };
+  }>;
+  guardiasActuales?: Array<{
+    id: string;
+    code?: string | null;
+    lifecycleStatus: string;
+    persona: { firstName: string; lastName: string; rut?: string | null };
   }>;
   account?: { id: string; name: string; type?: "prospect" | "client"; status?: string; isActive?: boolean } | null;
 };
@@ -225,13 +233,19 @@ function MarcacionSection({ installation }: { installation: InstallationDetail }
 function DotacionSection({ installation }: { installation: InstallationDetail }) {
   const asignaciones = installation.asignacionGuardias ?? [];
   const puestos = installation.puestosActivos ?? [];
+  const guardiasDirectos = installation.guardiasActuales ?? [];
 
-  if (puestos.length === 0) {
+  // IDs de guardias ya mostrados vía asignaciones (para evitar duplicados)
+  const assignedGuardiaIds = new Set(asignaciones.map((a) => a.guardia.id));
+  // Guardias directos que NO aparecen ya en asignaciones
+  const guardiasExtraDirectos = guardiasDirectos.filter((g) => !assignedGuardiaIds.has(g.id));
+
+  if (puestos.length === 0 && guardiasExtraDirectos.length === 0) {
     return (
       <EmptyState
         icon={<LayoutGrid className="h-8 w-8" />}
         title="Sin dotación"
-        description="No hay puestos operativos activos. Configúralos primero."
+        description="No hay puestos operativos activos ni guardias asignados."
         compact
       />
     );
@@ -322,6 +336,37 @@ function DotacionSection({ installation }: { installation: InstallationDetail })
           );
         })}
       </div>
+
+      {/* Guardias asignados directamente (sin puesto operativo, ej: migración masiva) */}
+      {guardiasExtraDirectos.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium text-muted-foreground">
+            Guardias asignados ({guardiasExtraDirectos.length})
+          </p>
+          <div className="space-y-1">
+            {guardiasExtraDirectos.map((g) => (
+              <Link
+                key={g.id}
+                href={`/personas/guardias/${g.id}`}
+                className="flex items-center gap-2 rounded-md border border-border/60 bg-card px-3 py-1.5 text-xs hover:bg-accent transition-colors"
+              >
+                <span className="font-medium">
+                  {g.persona.firstName} {g.persona.lastName}
+                </span>
+                {g.code && <span className="text-muted-foreground">({g.code})</span>}
+                <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium border ${
+                  LIFECYCLE_COLORS[g.lifecycleStatus] ?? LIFECYCLE_COLORS.postulante
+                }`}>
+                  {LIFECYCLE_LABELS[g.lifecycleStatus] ?? g.lifecycleStatus}
+                </span>
+                {g.persona.rut && (
+                  <span className="text-[10px] text-muted-foreground">{g.persona.rut}</span>
+                )}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <p className="text-[10px] text-muted-foreground/60 border-t border-border pt-3">
         La asignación de guardias se gestiona desde OPS (Puestos operativos). Esta vista es de solo lectura.
@@ -783,6 +828,8 @@ export function CrmInstallationDetailClient({
     lng: installation.lng ?? null as number | null,
     teMontoClp: Number(installation.teMontoClp) || 0,
     notes: installation.notes || "",
+    startDate: installation.startDate ? new Date(installation.startDate).toISOString().slice(0, 10) : "",
+    endDate: installation.endDate ? new Date(installation.endDate).toISOString().slice(0, 10) : "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -796,6 +843,8 @@ export function CrmInstallationDetailClient({
       lng: installation.lng ?? null,
       teMontoClp: Number(installation.teMontoClp) || 0,
       notes: installation.notes || "",
+      startDate: installation.startDate ? new Date(installation.startDate).toISOString().slice(0, 10) : "",
+      endDate: installation.endDate ? new Date(installation.endDate).toISOString().slice(0, 10) : "",
     });
     setEditOpen(true);
   };
@@ -871,6 +920,14 @@ export function CrmInstallationDetailClient({
                   ? `$ ${Number(installation.teMontoClp).toLocaleString("es-CL")}`
                   : "No definido"
               }
+            />
+            <DetailField
+              label="Fecha inicio"
+              value={installation.startDate ? new Intl.DateTimeFormat("es-CL").format(new Date(installation.startDate)) : undefined}
+            />
+            <DetailField
+              label="Fecha término"
+              value={installation.endDate ? new Intl.DateTimeFormat("es-CL").format(new Date(installation.endDate)) : undefined}
             />
             {installation.notes && (
               <DetailField
@@ -1059,6 +1116,28 @@ export function CrmInstallationDetailClient({
                 className="bg-background text-foreground border-input"
                 disabled={saving}
               />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label className="text-xs">Fecha inicio</Label>
+                <Input
+                  type="date"
+                  value={editForm.startDate}
+                  onChange={(e) => setEditForm((p) => ({ ...p, startDate: e.target.value }))}
+                  className="bg-background text-foreground border-input text-sm"
+                  disabled={saving}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Fecha término</Label>
+                <Input
+                  type="date"
+                  value={editForm.endDate}
+                  onChange={(e) => setEditForm((p) => ({ ...p, endDate: e.target.value }))}
+                  className="bg-background text-foreground border-input text-sm"
+                  disabled={saving}
+                />
+              </div>
             </div>
           </div>
           <DialogFooter>

@@ -48,6 +48,9 @@ export async function requireAuth(): Promise<AuthContext | null> {
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { resolvePermissions } from "@/lib/permissions-server";
+import { hasModuleAccess, canView, canEdit, hasCapability } from "@/lib/permissions";
+import type { ModuleKey, CapabilityKey, RolePermissions } from "@/lib/permissions";
 
 /**
  * Standard 401 JSON response.
@@ -95,4 +98,37 @@ export async function parseBody<T extends z.ZodType>(
       ),
     };
   }
+}
+
+// ── Permission helpers for API routes ──
+
+/**
+ * Resolver permisos de un AuthContext (usa cache de 5min).
+ * Soporta tanto roles legacy como custom (RoleTemplate).
+ */
+export async function resolveApiPerms(ctx: AuthContext): Promise<RolePermissions> {
+  return resolvePermissions({
+    role: ctx.userRole,
+    roleTemplateId: ctx.roleTemplateId,
+  });
+}
+
+/**
+ * Verificar acceso a un módulo. Retorna 403 o null.
+ * 
+ * Reemplaza: `if (!hasAppAccess(ctx.userRole, "cpq")) return forbiddenCpq();`
+ * Con:       `const forbidden = await ensureModuleAccess(ctx, "cpq"); if (forbidden) return forbidden;`
+ */
+export async function ensureModuleAccess(
+  ctx: AuthContext,
+  module: ModuleKey,
+): Promise<NextResponse | null> {
+  const perms = await resolveApiPerms(ctx);
+  if (!hasModuleAccess(perms, module)) {
+    return NextResponse.json(
+      { success: false, error: `Sin permisos para módulo ${module.toUpperCase()}` },
+      { status: 403 },
+    );
+  }
+  return null;
 }

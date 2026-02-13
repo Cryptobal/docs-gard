@@ -4,23 +4,16 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { hasAppAccess } from "@/lib/app-access";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
 import { simulatePayslip } from "@/modules/payroll/engine";
 import type { PayslipSimulationInput } from "@/modules/payroll/engine";
-
-function forbiddenPayroll() {
-  return NextResponse.json(
-    { success: false, error: "Sin permisos para módulo Payroll" },
-    { status: 403 }
-  );
-}
 
 export async function POST(req: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    if (!hasAppAccess(ctx.userRole, "payroll")) return forbiddenPayroll();
+    const forbiddenMod = await ensureModuleAccess(ctx, "payroll");
+    if (forbiddenMod) return forbiddenMod;
 
     const body = await req.json();
 

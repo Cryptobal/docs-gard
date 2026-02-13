@@ -14,7 +14,7 @@ export async function PATCH(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = ensureOpsCapability(ctx, "rrhh_events");
+    const forbidden = await ensureOpsCapability(ctx, "rrhh_events");
     if (forbidden) return forbidden;
     const { id } = await params;
     const parsed = await parseBody(request, updateGuardiaLifecycleSchema);

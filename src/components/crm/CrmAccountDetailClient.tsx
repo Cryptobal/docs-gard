@@ -117,6 +117,9 @@ type AccountDetail = {
   segment?: string | null;
   website?: string | null;
   address?: string | null;
+  commune?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
   notes?: string | null;
   contacts: ContactRow[];
   deals: DealRow[];
@@ -171,6 +174,9 @@ export function CrmAccountDetailClient({
     segment: account.segment || "",
     website: account.website || "",
     address: account.address || "",
+    commune: account.commune || "",
+    startDate: account.startDate ? new Date(account.startDate).toISOString().slice(0, 10) : "",
+    endDate: account.endDate ? new Date(account.endDate).toISOString().slice(0, 10) : "",
     notes: stripAccountLogoMarker(account.notes),
   });
 
@@ -210,6 +216,9 @@ export function CrmAccountDetailClient({
       segment: account.segment || "",
       website: account.website || "",
       address: account.address || "",
+      commune: account.commune || "",
+      startDate: account.startDate ? new Date(account.startDate).toISOString().slice(0, 10) : "",
+      endDate: account.endDate ? new Date(account.endDate).toISOString().slice(0, 10) : "",
       notes: stripAccountLogoMarker(account.notes),
     });
     setEditAccountOpen(true);
@@ -586,6 +595,15 @@ export function CrmAccountDetailClient({
               value={account.address}
               icon={account.address ? <MapPin className="h-3 w-3" /> : undefined}
             />
+            <DetailField label="Comuna" value={account.commune} />
+            <DetailField
+              label="Fecha inicio"
+              value={account.startDate ? new Intl.DateTimeFormat("es-CL").format(new Date(account.startDate)) : undefined}
+            />
+            <DetailField
+              label="Fecha término"
+              value={account.endDate ? new Intl.DateTimeFormat("es-CL").format(new Date(account.endDate)) : undefined}
+            />
           </DetailFieldGrid>
           <div className="space-y-4">
             <div className="space-y-1.5">
@@ -834,6 +852,18 @@ export function CrmAccountDetailClient({
             <div className="space-y-1.5">
               <Label className="text-xs">Dirección</Label>
               <Input value={accountForm.address} onChange={(e) => setAccountForm((p) => ({ ...p, address: e.target.value }))} className={inputCn} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Comuna</Label>
+              <Input value={accountForm.commune} onChange={(e) => setAccountForm((p) => ({ ...p, commune: e.target.value }))} className={inputCn} placeholder="Lo Barnechea, Providencia..." />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Fecha inicio</Label>
+              <Input type="date" value={accountForm.startDate} onChange={(e) => setAccountForm((p) => ({ ...p, startDate: e.target.value }))} className={inputCn} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Fecha término</Label>
+              <Input type="date" value={accountForm.endDate} onChange={(e) => setAccountForm((p) => ({ ...p, endDate: e.target.value }))} className={inputCn} />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label className="text-xs">Notas</Label>

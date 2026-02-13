@@ -1,15 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { hasAppAccess } from "@/lib/app-access";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { createOpsAuditLog } from "@/lib/ops";
-
-function forbiddenCpq() {
-  return NextResponse.json(
-    { success: false, error: "Sin permisos para módulo CPQ" },
-    { status: 403 }
-  );
-}
 
 type DotacionSnapshotItem = {
   positionId: string;
@@ -36,7 +28,8 @@ export async function POST(
     const { id } = await params;
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    if (!hasAppAccess(ctx.userRole, "cpq")) return forbiddenCpq();
+    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
+    if (forbiddenMod) return forbiddenMod;
 
     const quote = await prisma.cpqQuote.findFirst({
       where: { id, tenantId: ctx.tenantId },

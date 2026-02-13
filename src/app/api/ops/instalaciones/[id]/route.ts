@@ -25,7 +25,7 @@ export async function GET(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = ensureOpsAccess(ctx);
+    const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
 
     const { id } = await params;
@@ -66,7 +66,7 @@ export async function PATCH(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = ensureOpsAccess(ctx);
+    const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
 
     const { id } = await params;

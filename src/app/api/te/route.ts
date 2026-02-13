@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = ensureOpsAccess(ctx);
+    const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
 
     const parsed = await parseBody(request, createTeManualSchema);
@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = ensureOpsAccess(ctx);
+    const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
 
     const status = request.nextUrl.searchParams.get("status") || undefined;

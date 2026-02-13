@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = ensureOpsAccess(ctx);
+    const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
 
     const status = request.nextUrl.searchParams.get("status") || undefined;
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = ensureOpsCapability(ctx, "guardias_manage");
+    const forbidden = await ensureOpsCapability(ctx, "guardias_manage");
     if (forbidden) return forbidden;
 
     const parsed = await parseBody(request, createGuardiaSchema);

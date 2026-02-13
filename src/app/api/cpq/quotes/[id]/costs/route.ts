@@ -7,8 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { hasAppAccess } from "@/lib/app-access";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 
 const safeNumber = (value: unknown) => Number(value || 0);
@@ -30,13 +29,6 @@ const normalizeUnitPrice = (value: number, unit?: string | null) => {
   return value;
 };
 
-function forbiddenCpq() {
-  return NextResponse.json(
-    { success: false, error: "Sin permisos para módulo CPQ" },
-    { status: 403 }
-  );
-}
-
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -44,7 +36,8 @@ export async function GET(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    if (!hasAppAccess(ctx.userRole, "cpq")) return forbiddenCpq();
+    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
+    if (forbiddenMod) return forbiddenMod;
 
     const { id } = await params;
     const quote = await prisma.cpqQuote.findFirst({
@@ -407,7 +400,8 @@ export async function PUT(
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    if (!hasAppAccess(ctx.userRole, "cpq")) return forbiddenCpq();
+    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
+    if (forbiddenMod) return forbiddenMod;
 
     const { id } = await params;
     const quote = await prisma.cpqQuote.findFirst({

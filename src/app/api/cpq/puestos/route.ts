@@ -6,8 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { hasAppAccess } from "@/lib/app-access";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
 
 function normalizeColorHex(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -16,18 +15,12 @@ function normalizeColorHex(value: unknown): string | null {
   return /^#[0-9a-f]{6}$/.test(normalized) ? normalized : null;
 }
 
-function forbiddenCpq() {
-  return NextResponse.json(
-    { success: false, error: "Sin permisos para módulo CPQ" },
-    { status: 403 }
-  );
-}
-
 export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    if (!hasAppAccess(ctx.userRole, "cpq")) return forbiddenCpq();
+    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
+    if (forbiddenMod) return forbiddenMod;
 
     const { searchParams } = new URL(request.url);
     const active = searchParams.get("active");
@@ -51,7 +44,8 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    if (!hasAppAccess(ctx.userRole, "cpq")) return forbiddenCpq();
+    const forbiddenMod = await ensureModuleAccess(ctx, "cpq");
+    if (forbiddenMod) return forbiddenMod;
 
     const body = await request.json();
     if (!body.name?.trim()) {

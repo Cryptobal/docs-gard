@@ -25,7 +25,7 @@ export default async function CrmInstallationDetailPage({
   const role = session.user.role;
 
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
-  const [installation, puestosActivos, puestosHistorial, quotesInstalacion, asignacionGuardias] = await Promise.all([
+  const [installation, puestosActivos, puestosHistorial, quotesInstalacion, asignacionGuardias, guardiasActuales] = await Promise.all([
     prisma.crmInstallation.findFirst({
       where: { id, tenantId },
       include: { account: { select: { id: true, name: true, type: true, isActive: true } } },
@@ -93,6 +93,17 @@ export default async function CrmInstallationDetailPage({
       },
       orderBy: [{ puestoId: "asc" }, { slotNumber: "asc" }],
     }),
+    // Guardias asignados directamente vía currentInstallationId (migración masiva)
+    prisma.opsGuardia.findMany({
+      where: { tenantId, currentInstallationId: id, status: "active" },
+      select: {
+        id: true,
+        code: true,
+        lifecycleStatus: true,
+        persona: { select: { firstName: true, lastName: true, rut: true } },
+      },
+      orderBy: [{ persona: { lastName: "asc" } }],
+    }),
   ]);
 
   if (!installation) {
@@ -106,6 +117,7 @@ export default async function CrmInstallationDetailPage({
       puestosHistorial,
       quotesInstalacion,
       asignacionGuardias,
+      guardiasActuales,
     })
   );
 

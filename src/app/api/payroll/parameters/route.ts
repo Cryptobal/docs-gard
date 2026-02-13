@@ -5,20 +5,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { hasAppAccess } from "@/lib/app-access";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
 import type { PayrollParameters } from "@/modules/payroll/engine";
 
 // NUNCA cachear esta ruta - los parámetros legales deben ser siempre frescos
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-
-function forbiddenPayroll() {
-  return NextResponse.json(
-    { success: false, error: "Sin permisos para módulo Payroll" },
-    { status: 403 }
-  );
-}
 
 /**
  * GET /api/payroll/parameters
@@ -28,7 +20,8 @@ export async function GET(req: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    if (!hasAppAccess(ctx.userRole, "payroll")) return forbiddenPayroll();
+    const forbiddenMod = await ensureModuleAccess(ctx, "payroll");
+    if (forbiddenMod) return forbiddenMod;
 
     const searchParams = req.nextUrl.searchParams;
     const activeOnly = searchParams.get("active_only") !== "false";
@@ -161,7 +154,8 @@ export async function POST(req: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    if (!hasAppAccess(ctx.userRole, "payroll")) return forbiddenPayroll();
+    const forbiddenMod = await ensureModuleAccess(ctx, "payroll");
+    if (forbiddenMod) return forbiddenMod;
 
     const body = await req.json();
 
