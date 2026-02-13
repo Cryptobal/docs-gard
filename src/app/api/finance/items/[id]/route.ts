@@ -83,3 +83,46 @@ export async function PATCH(
     );
   }
 }
+
+// ── DELETE: delete item ──
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<Params> },
+) {
+  try {
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const perms = await resolveApiPerms(ctx);
+
+    if (!hasCapability(perms, "rendicion_configure")) {
+      return NextResponse.json(
+        { success: false, error: "Sin permisos para eliminar ítems" },
+        { status: 403 },
+      );
+    }
+
+    const { id } = await params;
+
+    const existing = await prisma.financeRendicionItem.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { success: false, error: "Ítem no encontrado" },
+        { status: 404 },
+      );
+    }
+
+    await prisma.financeRendicionItem.delete({ where: { id } });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("[Finance] Error deleting item:", error);
+    return NextResponse.json(
+      { success: false, error: "No se pudo eliminar el ítem" },
+      { status: 500 },
+    );
+  }
+}

@@ -291,45 +291,101 @@ export function RendicionForm({
       setLoading(true);
 
       try {
-        const formData = new FormData();
-        formData.append("type", type);
-        formData.append("date", date);
-        formData.append("description", description);
-        formData.append("asDraft", String(asDraft));
+        let rendicionId = initialData?.id;
+        const cleanAmount = amount ? parseInt(amount.replace(/[^\d]/g, "")) : 0;
 
-        if (type === "PURCHASE") {
-          formData.append("amount", amount);
-          if (documentType) formData.append("documentType", documentType);
+        // Step 1: For MILEAGE, start trip first
+        if (type === "MILEAGE" && startLocation && endLocation && !initialData) {
+          // Start trip
+          const tripStartRes = await fetch("/api/finance/trips/start", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              startLat: startLocation.lat,
+              startLng: startLocation.lng,
+              startAddress: startLocation.address || null,
+            }),
+          });
+          const tripStartData = await tripStartRes.json();
+          if (!tripStartRes.ok) throw new Error(tripStartData.error || "Error al iniciar trayecto");
+
+          const tripId = tripStartData.data?.id;
+
+          // End trip (calculates distance and creates rendicion)
+          const tripEndRes = await fetch(`/api/finance/trips/${tripId}/end`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              endLat: endLocation.lat,
+              endLng: endLocation.lng,
+              endAddress: endLocation.address || null,
+              tollAmount: parseInt(tollAmount.replace(/[^\d]/g, "")) || 0,
+            }),
+          });
+          const tripEndData = await tripEndRes.json();
+          if (!tripEndRes.ok) throw new Error(tripEndData.error || "Error al finalizar trayecto");
+
+          rendicionId = tripEndData.data?.rendicionId || tripEndData.rendicionId;
+
+          // Update rendicion with extra fields if needed
+          if (rendicionId && (description || costCenterId)) {
+            await fetch(`/api/finance/rendiciones/${rendicionId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                description: description || null,
+                costCenterId: costCenterId || null,
+                date,
+              }),
+            });
+          }
+        } else if (type === "PURCHASE" || initialData) {
+          // Step 1: Create or update rendicion with JSON
+          const body: Record<string, unknown> = {
+            type,
+            amount: cleanAmount,
+            date,
+            description: description || null,
+            documentType: documentType || null,
+            itemId: itemId || null,
+            costCenterId: costCenterId || null,
+          };
+
+          const url = initialData
+            ? `/api/finance/rendiciones/${initialData.id}`
+            : "/api/finance/rendiciones";
+          const method = initialData ? "PATCH" : "POST";
+
+          const res = await fetch(url, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Error al guardar rendición");
+          rendicionId = data.data?.id || data.id;
         }
 
-        if (type === "MILEAGE" && startLocation && endLocation) {
-          formData.append("startLat", String(startLocation.lat));
-          formData.append("startLng", String(startLocation.lng));
-          formData.append("endLat", String(endLocation.lat));
-          formData.append("endLng", String(endLocation.lng));
-          formData.append("tollAmount", tollAmount);
-          if (mileageCost) {
-            formData.append("amount", String(mileageCost.total));
+        // Step 2: Upload attachments
+        if (rendicionId && attachments.length > 0) {
+          for (const att of attachments) {
+            const fd = new FormData();
+            fd.append("file", att.file);
+            fd.append("rendicionId", rendicionId);
+            fd.append("attachmentType", documentType === "FACTURA" ? "INVOICE" : "RECEIPT");
+            await fetch("/api/finance/attachments/upload", { method: "POST", body: fd });
           }
         }
 
-        if (itemId) formData.append("itemId", itemId);
-        if (costCenterId) formData.append("costCenterId", costCenterId);
-
-        attachments.forEach((a) => {
-          formData.append("files", a.file);
-        });
-
-        const url = initialData
-          ? `/api/finance/rendiciones/${initialData.id}`
-          : "/api/finance/rendiciones";
-        const method = initialData ? "PUT" : "POST";
-
-        const res = await fetch(url, { method, body: formData });
-        const data = await res.json();
-
-        if (!res.ok) {
-          throw new Error(data.error || "Error al guardar rendición");
+        // Step 3: Submit for approval if not draft
+        if (!asDraft && rendicionId) {
+          const submitRes = await fetch(`/api/finance/rendiciones/${rendicionId}/submit`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+          });
+          const submitData = await submitRes.json();
+          if (!submitRes.ok) throw new Error(submitData.error || "Error al enviar para aprobación");
         }
 
         toast.success(
@@ -337,12 +393,10 @@ export function RendicionForm({
             ? "Rendición guardada como borrador"
             : "Rendición enviada para aprobación"
         );
-        router.push(`/finanzas/rendiciones/${data.id}`);
+        router.push(rendicionId ? `/finanzas/rendiciones/${rendicionId}` : "/finanzas/rendiciones");
         router.refresh();
       } catch (err) {
-        toast.error(
-          err instanceof Error ? err.message : "Error al guardar"
-        );
+        toast.error(err instanceof Error ? err.message : "Error al guardar");
       } finally {
         setLoading(false);
       }
@@ -454,10 +508,9 @@ export function RendicionForm({
                 <Label htmlFor="amount">Monto (CLP)</Label>
                 <Input
                   id="amount"
-                  type="number"
-                  min={0}
+                  inputMode="numeric"
                   value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
+                  onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ""))}
                   placeholder="0"
                   className={cn("mt-1", errors.amount && "border-red-500")}
                 />
@@ -563,10 +616,9 @@ export function RendicionForm({
                 <Label htmlFor="tollAmount">Peaje (CLP)</Label>
                 <Input
                   id="tollAmount"
-                  type="number"
-                  min={0}
+                  inputMode="numeric"
                   value={tollAmount}
-                  onChange={(e) => setTollAmount(e.target.value)}
+                  onChange={(e) => setTollAmount(e.target.value.replace(/[^\d]/g, ""))}
                   placeholder="0"
                   className="mt-1"
                 />
