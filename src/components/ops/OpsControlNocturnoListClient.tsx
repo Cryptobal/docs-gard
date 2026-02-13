@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/opai";
+import { useCanEdit } from "@/lib/permissions-context";
 import {
   Dialog,
   DialogContent,
@@ -46,7 +47,7 @@ type ReporteListItem = {
 };
 
 interface Props {
-  userRole: string;
+  userRole?: string; // legacy, unused — permissions come from context
 }
 
 /* ── Status helpers ── */
@@ -73,8 +74,9 @@ function formatDateShort(dateStr: string): string {
 
 /* ── Component ── */
 
-export function OpsControlNocturnoListClient({ userRole }: Props) {
+export function OpsControlNocturnoListClient(_props: Props) {
   const router = useRouter();
+  const canCreate = useCanEdit("ops", "control_nocturno");
   const [loading, setLoading] = useState(true);
   const [reportes, setReportes] = useState<ReporteListItem[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
@@ -146,16 +148,18 @@ export function OpsControlNocturnoListClient({ userRole }: Props) {
         <p className="text-xs text-muted-foreground">
           {reportes.length} reporte{reportes.length !== 1 ? "s" : ""}
         </p>
-        <Button size="sm" onClick={() => {
-          setFormDate(toDateInput(new Date()));
-          setFormOperator("");
-          setFormCentral("");
-          setCreateOpen(true);
-        }}>
-          <Plus className="h-4 w-4 mr-1.5" />
-          <span className="hidden sm:inline">Nuevo reporte</span>
-          <span className="sm:hidden">Nuevo</span>
-        </Button>
+        {canCreate && (
+          <Button size="sm" onClick={() => {
+            setFormDate(toDateInput(new Date()));
+            setFormOperator("");
+            setFormCentral("");
+            setCreateOpen(true);
+          }}>
+            <Plus className="h-4 w-4 mr-1.5" />
+            <span className="hidden sm:inline">Nuevo reporte</span>
+            <span className="sm:hidden">Nuevo</span>
+          </Button>
+        )}
       </div>
 
       {/* Lista de reportes */}

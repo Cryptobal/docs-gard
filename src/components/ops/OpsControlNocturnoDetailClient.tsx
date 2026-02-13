@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useCanEdit, useHasCapability } from "@/lib/permissions-context";
 import {
   Dialog,
   DialogContent,
@@ -86,7 +87,7 @@ type Reporte = {
 
 interface Props {
   reporteId: string;
-  userRole: string;
+  userRole?: string; // legacy, unused — permissions come from context
 }
 
 /* ── Status helpers ── */
@@ -162,7 +163,7 @@ function formatDateFull(dateStr: string): string {
 
 /* ── Component ── */
 
-export function OpsControlNocturnoDetailClient({ reporteId, userRole }: Props) {
+export function OpsControlNocturnoDetailClient({ reporteId }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -176,8 +177,12 @@ export function OpsControlNocturnoDetailClient({ reporteId, userRole }: Props) {
   const [dirty, setDirty] = useState(false);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const isEditable = reporte?.status === "borrador" || reporte?.status === "rechazado";
-  const canApprove = userRole === "owner" || userRole === "admin" || userRole === "operaciones";
+  // Permissions from context (works with any role, including custom RoleTemplates)
+  const canEditCN = useCanEdit("ops", "control_nocturno");
+  const canApproveCN = useHasCapability("control_nocturno_approve");
+
+  const isEditable = canEditCN && (reporte?.status === "borrador" || reporte?.status === "rechazado");
+  const canApprove = canApproveCN;
 
   // Mark dirty on any local change
   const markDirty = useCallback(() => setDirty(true), []);
