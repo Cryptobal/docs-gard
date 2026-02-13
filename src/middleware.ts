@@ -75,12 +75,31 @@ function getAuthData(authData: unknown): { role: string; roleTemplateId?: string
   };
 }
 
-function resolvePermsFromAuth(authData: unknown): RolePermissions {
-  const { role } = getAuthData(authData);
-  // En middleware no podemos hacer async DB calls fácilmente,
-  // así que usamos defaults por role. Los templates custom se validan en API routes.
+/**
+ * Resuelve permisos desde auth data del JWT.
+ * 
+ * Para roles legacy (owner, admin, editor, etc.) usa defaults hardcodeados.
+ * Para roles custom (roleTemplateId presente) retorna null → se salta
+ * el enforcement en middleware y la API route lo valida por BD.
+ */
+function resolvePermsFromAuth(authData: unknown): RolePermissions | null {
+  const { role, roleTemplateId } = getAuthData(authData);
+
+  // Roles custom: no podemos resolver desde BD en middleware (sync-only).
+  // Dejamos que la API route individual haga la validación granular.
+  if (roleTemplateId && !(role in DEFAULT_ROLE_PERMISSIONS_MAP)) {
+    return null;
+  }
+
   return getDefaultPermissions(role);
 }
+
+// Roles legacy conocidos (para distinguirlos de custom)
+const DEFAULT_ROLE_PERMISSIONS_MAP: Record<string, true> = {
+  owner: true, admin: true, editor: true, rrhh: true, operaciones: true,
+  reclutamiento: true, solo_ops: true, solo_crm: true, solo_documentos: true,
+  solo_payroll: true, viewer: true,
+};
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
@@ -108,31 +127,35 @@ export default auth((req) => {
   const apiModule = apiPathToModule(pathname);
   if (apiModule) {
     const perms = resolvePermsFromAuth(req.auth);
-    const method = req.method;
-    const isWrite = method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE';
 
-    // Verificar acceso al módulo
-    if (!hasModuleAccess(perms, apiModule)) {
-      return Response.json(
-        { success: false, error: `Sin permisos para módulo ${apiModule.toUpperCase()}` },
-        { status: 403 }
-      );
-    }
+    // Si perms es null → rol custom; la API route valida por BD
+    if (perms) {
+      const method = req.method;
+      const isWrite = method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE';
 
-    // Verificar acceso al submódulo (si se puede mapear)
-    const apiSub = apiPathToSubmodule(pathname);
-    if (apiSub) {
-      if (isWrite && !canEdit(perms, apiSub.module, apiSub.submodule)) {
+      // Verificar acceso al módulo
+      if (!hasModuleAccess(perms, apiModule)) {
         return Response.json(
-          { success: false, error: `Sin permisos de escritura para ${apiSub.module}.${apiSub.submodule}` },
+          { success: false, error: `Sin permisos para módulo ${apiModule.toUpperCase()}` },
           { status: 403 }
         );
       }
-      if (!isWrite && !canView(perms, apiSub.module, apiSub.submodule)) {
-        return Response.json(
-          { success: false, error: `Sin permisos de lectura para ${apiSub.module}.${apiSub.submodule}` },
-          { status: 403 }
-        );
+
+      // Verificar acceso al submódulo (si se puede mapear)
+      const apiSub = apiPathToSubmodule(pathname);
+      if (apiSub) {
+        if (isWrite && !canEdit(perms, apiSub.module, apiSub.submodule)) {
+          return Response.json(
+            { success: false, error: `Sin permisos de escritura para ${apiSub.module}.${apiSub.submodule}` },
+            { status: 403 }
+          );
+        }
+        if (!isWrite && !canView(perms, apiSub.module, apiSub.submodule)) {
+          return Response.json(
+            { success: false, error: `Sin permisos de lectura para ${apiSub.module}.${apiSub.submodule}` },
+            { status: 403 }
+          );
+        }
       }
     }
   }
