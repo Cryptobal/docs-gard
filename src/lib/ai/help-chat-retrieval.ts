@@ -75,6 +75,8 @@ const TOKEN_SYNONYMS: Record<string, string[]> = {
   ruta: ["modulo", "menu", "navegacion", "donde", "acceso", "pantalla"],
   control: ["monitoreo", "seguimiento", "alertas", "dashboard", "gestion"],
   seguridad: ["ronda", "rondas", "guardia", "guardias", "ops"],
+  rendicion: ["rendiciones", "gasto", "finanzas", "aprobacion", "aprobar", "pendiente"],
+  aprobar: ["aprobacion", "aprobaciones", "pendiente", "pendientes", "rendicion"],
 };
 
 function normalizeWord(word: string): string {
@@ -204,6 +206,8 @@ export async function retrieveDocsContext(
   const hasClientIntent = qExpanded.has("cliente") || qExpanded.has("cuenta");
   const hasGuardiaIntent = qExpanded.has("guardia");
   const hasRondaIntent = qExpanded.has("ronda") || qExpanded.has("checkpoint") || qExpanded.has("qr");
+  const hasRendicionIntent =
+    qExpanded.has("rendicion") || qExpanded.has("aprobacion") || qExpanded.has("finanza");
 
   const scored = chunks
     .map((chunk) => {
@@ -222,6 +226,8 @@ export async function retrieveDocsContext(
       if (hasClientIntent && (source.includes("crm") || chunk.tokenSet.has("crm"))) intentBoost += 2;
       if (hasGuardiaIntent && (source.includes("ops") || chunk.tokenSet.has("guardia"))) intentBoost += 2;
       if (hasRondaIntent && (chunk.tokenSet.has("ronda") || chunk.tokenSet.has("checkpoint"))) intentBoost += 2;
+      if (hasRendicionIntent && (source.includes("finance") || source.includes("finanzas") || chunk.tokenSet.has("rendicion")))
+        intentBoost += 2;
 
       const score = overlap * 2 + titleBoost + queryPhraseBoost + faqBoost + intentBoost;
       return { chunk, score };

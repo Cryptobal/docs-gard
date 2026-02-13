@@ -9,7 +9,7 @@ const GLOBAL_SYSTEM_CONTEXT = `
 Contexto global de OPAI Suite (Gard):
 - Plataforma SaaS para empresas de seguridad privada en Chile.
 - Arquitectura multi-tenant y modular.
-- Módulos principales: Hub, CRM, CPQ, Presentaciones, Documentos, Payroll, FX (UF/UTM), Ops, Personas, Rondas, Configuración.
+- Módulos principales: Hub, CRM, CPQ, Presentaciones, Documentos, Payroll, FX (UF/UTM), Ops, Personas, Rondas, Finanzas, Configuración.
 
 Relación funcional clave entre módulos:
 - CRM gestiona clientes, cuentas, contactos, deals e instalaciones.
@@ -18,6 +18,7 @@ Relación funcional clave entre módulos:
 - Asistencia diaria alimenta operación real y turnos extra.
 - Payroll usa parámetros legales y referencias económicas (UF/UTM) para cálculos y simulaciones.
 - FX gestiona indicadores económicos del sistema (UF diaria, UTM mensual).
+- Finanzas gestiona rendiciones, aprobaciones, pagos y reportes de gastos.
 
 Glosario operativo base:
 - Puesto operativo: punto de servicio en una instalación.
@@ -43,6 +44,9 @@ Rutas funcionales canónicas (sí puedes usarlas en respuestas):
 - Ops > Rondas > Checkpoints: crear puntos y generar QR.
 - Ops > Rondas > Plantillas: ordenar checkpoints.
 - Ops > Rondas > Programación: definir frecuencia, días y horarios.
+- Finanzas > Rendiciones: alta y seguimiento.
+- Finanzas > Aprobaciones: revisión de pendientes por aprobar.
+- Finanzas > Pagos: cierre administrativo de rendiciones aprobadas.
 `;
 
 export function buildHelpChatSystemPrompt(params: BuildHelpChatSystemPromptParams): string {
@@ -91,6 +95,7 @@ Uso de herramientas:
 - ${allowDataQuestions ? "Puedes y debes usar herramientas cuando se necesite validar o traer datos." : "No puedes usar herramientas de datos en esta sesión; responde solo con conocimiento funcional documentado."}
 - Si la pregunta pide UF o UTM actual y la herramienta está disponible, úsala.
 - Si la pregunta pide métricas o búsqueda de guardias y la herramienta está disponible, úsala.
+- Si preguntan por rendiciones pendientes por aprobar (ej: "qué rendiciones faltan por aprobar"), usa herramienta y lista resultados concretos (código, monto, estado y fecha).
 
 ${GLOBAL_SYSTEM_CONTEXT}
 `.trim();

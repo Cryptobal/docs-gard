@@ -6,7 +6,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  schemas  = ["public", "payroll", "fx", "cpq", "crm", "docs", "ops"]
+  schemas  = ["public", "payroll", "fx", "cpq", "crm", "docs", "ops", "finance"]
 }
 
 model Tenant {
@@ -25,6 +25,8 @@ model Tenant {
   roleTemplates   RoleTemplate[]
   aiChatConversations AiChatConversation[]
   aiChatMessages  AiChatMessage[]
+  financeConfig   FinanceRendicionConfig?
+  financePayments FinancePayment[]
 
   @@index([slug])
   @@index([active])
@@ -2386,4 +2388,249 @@ model DocHistory {
   @@index([createdAt(sort: Desc)], map: "idx_doc_history_created_desc")
   @@map("doc_history")
   @@schema("docs")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  SCHEMA: finance — Rendiciones de Gastos
+// ═══════════════════════════════════════════════════════════════════════════════
+
+model FinanceRendicionConfig {
+  id                    String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId              String   @unique @map("tenant_id")
+  tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Parámetros de kilometraje
+  kmPerLiter            Decimal  @default(10) @map("km_per_liter") @db.Decimal(6, 2)
+  fuelPricePerLiter     Int      @default(1500) @map("fuel_price_per_liter")
+  vehicleFeePct         Decimal  @default(10) @map("vehicle_fee_pct") @db.Decimal(5, 2)
+
+  // Reglas de obligatoriedad
+  requireImage          Boolean  @default(true) @map("require_image")
+  requireObservations   Boolean  @default(false) @map("require_observations")
+  requireTollImage      Boolean  @default(false) @map("require_toll_image")
+
+  // Aprobadores por defecto (Admin users)
+  defaultApprover1Id    String?  @map("default_approver_1_id")
+  defaultApprover2Id    String?  @map("default_approver_2_id")
+
+  // Límites globales CLP
+  maxDailyAmount        Int?     @map("max_daily_amount")
+  maxMonthlyAmount      Int?     @map("max_monthly_amount")
+
+  // Alertas
+  pendingAlertDays      Int      @default(5) @map("pending_alert_days")
+  approvalAlertDays     Int      @default(3) @map("approval_alert_days")
+
+  // Cuenta origen Santander
+  santanderAccountNumber String? @map("santander_account_number")
+
+  createdAt             DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("finance_rendicion_config")
+  @@schema("finance")
+}
+
+model FinanceRendicionItem {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId    String   @map("tenant_id")
+  name        String
+  code        String?
+  category    String?
+  active      Boolean  @default(true)
+  maxPerDay   Int?     @map("max_per_day")
+  maxPerMonth Int?     @map("max_per_month")
+  accountCode String?  @map("account_code")
+
+  rendiciones FinanceRendicion[]
+
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, name], map: "uq_finance_item_tenant_name")
+  @@index([tenantId], map: "idx_finance_items_tenant")
+  @@map("finance_rendicion_items")
+  @@schema("finance")
+}
+
+model FinanceCostCenter {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String   @map("tenant_id")
+  name            String
+  code            String?
+  active          Boolean  @default(true)
+  installationId  String?  @map("installation_id") @db.Uuid
+  accountId       String?  @map("account_id") @db.Uuid
+
+  rendiciones     FinanceRendicion[]
+
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, code], map: "uq_finance_cost_center_code")
+  @@index([tenantId], map: "idx_finance_cost_centers_tenant")
+  @@map("finance_cost_centers")
+  @@schema("finance")
+}
+
+model FinanceRendicion {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String   @map("tenant_id")
+  code            String   @unique
+  submitterId     String   @map("submitter_id")
+  type            String   @default("PURCHASE") // PURCHASE | MILEAGE
+  status          String   @default("DRAFT") // DRAFT | SUBMITTED | IN_APPROVAL | APPROVED | REJECTED | PAID
+  amount          Int      @default(0)
+  date            DateTime @db.Date
+  description     String?
+  documentType    String?  @map("document_type") // BOLETA | FACTURA
+  itemId          String?  @map("item_id") @db.Uuid
+  item            FinanceRendicionItem? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  tripId          String?  @unique @map("trip_id") @db.Uuid
+  trip            FinanceTrip? @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  costCenterId    String?  @map("cost_center_id") @db.Uuid
+  costCenter      FinanceCostCenter? @relation(fields: [costCenterId], references: [id], onDelete: SetNull)
+  paymentId       String?  @map("payment_id") @db.Uuid
+  payment         FinancePayment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  paidAt          DateTime? @map("paid_at") @db.Timestamptz(6)
+  paymentMethod   String?  @map("payment_method")
+  rejectedAt      DateTime? @map("rejected_at") @db.Timestamptz(6)
+  rejectionReason String?  @map("rejection_reason")
+  rejectedById    String?  @map("rejected_by_id")
+  submittedAt     DateTime? @map("submitted_at") @db.Timestamptz(6)
+
+  approvals       FinanceApproval[]
+  attachments     FinanceAttachment[]
+  history         FinanceRendicionHistory[]
+
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([tenantId, submitterId], map: "idx_finance_rendiciones_tenant_submitter")
+  @@index([tenantId, status], map: "idx_finance_rendiciones_tenant_status")
+  @@index([tenantId, date], map: "idx_finance_rendiciones_tenant_date")
+  @@index([code], map: "idx_finance_rendiciones_code")
+  @@map("finance_rendiciones")
+  @@schema("finance")
+}
+
+model FinanceRendicionHistory {
+  id            String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  rendicionId   String   @map("rendicion_id") @db.Uuid
+  rendicion     FinanceRendicion @relation(fields: [rendicionId], references: [id], onDelete: Cascade)
+  action        String   // CREATED | SUBMITTED | APPROVED | REJECTED | PAID | EDITED | RESUBMITTED
+  fromStatus    String?  @map("from_status")
+  toStatus      String?  @map("to_status")
+  userId        String   @map("user_id")
+  userName      String?  @map("user_name")
+  comment       String?
+  metadata      Json?    @db.JsonB
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([rendicionId], map: "idx_finance_history_rendicion")
+  @@index([createdAt(sort: Desc)], map: "idx_finance_history_created_desc")
+  @@map("finance_rendicion_history")
+  @@schema("finance")
+}
+
+model FinanceTrip {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String   @map("tenant_id")
+  submitterId     String   @map("submitter_id")
+  startLat        Decimal  @map("start_lat") @db.Decimal(10, 7)
+  startLng        Decimal  @map("start_lng") @db.Decimal(10, 7)
+  startAddress    String?  @map("start_address")
+  startedAt       DateTime @map("started_at") @db.Timestamptz(6)
+  endLat          Decimal? @map("end_lat") @db.Decimal(10, 7)
+  endLng          Decimal? @map("end_lng") @db.Decimal(10, 7)
+  endAddress      String?  @map("end_address")
+  endedAt         DateTime? @map("ended_at") @db.Timestamptz(6)
+  distanceKm      Decimal? @map("distance_km") @db.Decimal(8, 2)
+  litersConsumed  Decimal? @map("liters_consumed") @db.Decimal(8, 2)
+  fuelCost        Int?     @map("fuel_cost")
+  vehicleFee      Int?     @map("vehicle_fee")
+  subtotal        Int?
+  tollAmount      Int      @default(0) @map("toll_amount")
+  totalAmount     Int?     @map("total_amount")
+  snapshotKmPerLiter    Decimal? @map("snapshot_km_per_liter") @db.Decimal(6, 2)
+  snapshotFuelPrice     Int?     @map("snapshot_fuel_price")
+  snapshotFeePct        Decimal? @map("snapshot_fee_pct") @db.Decimal(5, 2)
+  status          String   @default("IN_PROGRESS") // IN_PROGRESS | COMPLETED | CANCELLED
+
+  rendicion       FinanceRendicion?
+  attachments     FinanceAttachment[]
+
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([tenantId, submitterId], map: "idx_finance_trips_tenant_submitter")
+  @@index([status], map: "idx_finance_trips_status")
+  @@map("finance_trips")
+  @@schema("finance")
+}
+
+model FinanceApproval {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  rendicionId     String   @map("rendicion_id") @db.Uuid
+  rendicion       FinanceRendicion @relation(fields: [rendicionId], references: [id], onDelete: Cascade)
+  approverId      String   @map("approver_id")
+  approvalOrder   Int      @default(1) @map("approval_order")
+  decision        String?  // APPROVED | REJECTED
+  comment         String?
+  decidedAt       DateTime? @map("decided_at") @db.Timestamptz(6)
+
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([rendicionId, approverId], map: "uq_finance_approval_rendicion_approver")
+  @@index([rendicionId], map: "idx_finance_approvals_rendicion")
+  @@index([approverId], map: "idx_finance_approvals_approver")
+  @@map("finance_approvals")
+  @@schema("finance")
+}
+
+model FinanceAttachment {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String   @map("tenant_id")
+  rendicionId     String?  @map("rendicion_id") @db.Uuid
+  rendicion       FinanceRendicion? @relation(fields: [rendicionId], references: [id], onDelete: Cascade)
+  tripId          String?  @map("trip_id") @db.Uuid
+  trip            FinanceTrip? @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  fileName        String   @map("file_name")
+  mimeType        String   @map("mime_type")
+  size            Int
+  storageKey      String   @map("storage_key")
+  publicUrl       String   @map("public_url")
+  attachmentType  String   @default("OTHER") @map("attachment_type") // RECEIPT | INVOICE | TOLL | OTHER
+  uploadedById    String   @map("uploaded_by_id")
+
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([rendicionId], map: "idx_finance_attachments_rendicion")
+  @@index([tripId], map: "idx_finance_attachments_trip")
+  @@map("finance_attachments")
+  @@schema("finance")
+}
+
+model FinancePayment {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String   @map("tenant_id")
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  code            String   @unique
+  type            String   @default("MANUAL") // BATCH_SANTANDER | MANUAL
+  bankFileName    String?  @map("bank_file_name")
+  bankFileUrl     String?  @map("bank_file_url")
+  totalAmount     Int      @map("total_amount")
+  rendicionCount  Int      @map("rendicion_count")
+  paidById        String   @map("paid_by_id")
+  paidAt          DateTime @default(now()) @map("paid_at") @db.Timestamptz(6)
+  notes           String?
+
+  rendiciones     FinanceRendicion[]
+
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([tenantId], map: "idx_finance_payments_tenant")
+  @@index([code], map: "idx_finance_payments_code")
+  @@map("finance_payments")
+  @@schema("finance")
 }

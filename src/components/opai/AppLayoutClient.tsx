@@ -8,6 +8,7 @@ import {
   Calculator,
   ClipboardList,
   Settings,
+  Receipt,
 } from 'lucide-react';
 import { AppShell, AppSidebar, type NavItem } from '@/components/opai';
 import { type RolePermissions, hasModuleAccess } from '@/lib/permissions';
@@ -57,6 +58,12 @@ export function AppLayoutClient({
       label: 'Ops',
       icon: ClipboardList,
       show: hasModuleAccess(permissions, 'ops'),
+    },
+    {
+      href: '/finanzas',
+      label: 'Finanzas',
+      icon: Receipt,
+      show: hasModuleAccess(permissions, 'finance'),
     },
     {
       href: '/opai/configuracion',

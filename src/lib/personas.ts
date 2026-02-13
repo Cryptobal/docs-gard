@@ -2,6 +2,8 @@ export const GUARDIA_LIFECYCLE_STATUSES = [
   "postulante",
   "seleccionado",
   "contratado_activo",
+  "supervisor",
+  "administrativo",
   "inactivo",
   "desvinculado",
 ] as const;

@@ -13,6 +13,7 @@ Inferencia semantica sugerida (sinonimos de usuario -> flujo canónico):
 - "turnos extra", "TE", "horas extra de turno" -> **Turnos Extra** (`/te/registro`, `/te/aprobaciones`).
 - "control de rondas", "puntos de control", "QR de ronda" -> **Ops > Rondas** (checkpoints/plantillas/programacion).
 - "accesos", "dar/quitar permisos", "perfiles" -> **Configuracion > Usuarios/Roles**.
+- "pasar prospecto a cliente", "convertir lead", "cambiar prospecto a cliente" -> **CRM > Leads/Cuentas** (`/crm/leads`, `/crm/accounts`).
 
 ## Hub
 
@@ -202,6 +203,24 @@ Impacto:
 
 Impacto:
 - Ajustes de CPQ impactan construccion y valorizacion de cotizaciones.
+
+## Finanzas (Rendiciones)
+
+- **Rendiciones**
+  - URL: `/finanzas/rendiciones`
+  - Sirve para: crear y gestionar rendiciones de gastos/kilometraje.
+  - Si envias rendicion: pasa a flujo de aprobacion.
+- **Aprobaciones**
+  - URL: `/finanzas/aprobaciones`
+  - Sirve para: revisar y aprobar/rechazar rendiciones pendientes.
+  - Si apruebas: avanza estado de rendicion (IN_APPROVAL/APPROVED).
+- **Pagos**
+  - URL: `/finanzas/pagos`
+  - Sirve para: cierre administrativo y pago de rendiciones aprobadas.
+  - Si pagas: cierra ciclo financiero de la rendicion.
+- **Reportes**
+  - URL: `/finanzas/reportes`
+  - Sirve para: seguimiento historico y analitica de rendiciones.
 
 ## FX (UF/UTM)
 

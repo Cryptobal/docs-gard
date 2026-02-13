@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { openai } from "@/lib/openai";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
+import { hasCapability } from "@/lib/permissions";
 import { canUseAiHelpChat, getAiHelpChatConfig } from "@/lib/ai/help-chat-config";
 import { retrieveDocsContext } from "@/lib/ai/help-chat-retrieval";
 import {
   getGuardiasMetrics,
+  getPendingRendicionesForApproval,
   getUfUtmIndicators,
   searchGuardiasByNameOrRut,
 } from "@/lib/ai/help-chat-tools";
@@ -77,10 +79,20 @@ async function runModelWithTools(params: {
   userMessage: string;
   docsContext: string;
   tenantId: string;
+  userId: string;
   allowDataQuestions: boolean;
+  canViewAllRendiciones: boolean;
   appBaseUrl: string;
 }): Promise<ToolCallResult> {
-  const { userMessage, docsContext, tenantId, allowDataQuestions, appBaseUrl } = params;
+  const {
+    userMessage,
+    docsContext,
+    tenantId,
+    userId,
+    allowDataQuestions,
+    canViewAllRendiciones,
+    appBaseUrl,
+  } = params;
   let toolCallsUsed = 0;
   const fallback = fallbackMessage(userMessage);
   const todayLabel = new Date().toLocaleString("es-CL", {
@@ -144,6 +156,26 @@ async function runModelWithTools(params: {
             parameters: {
               type: "object",
               properties: {},
+              additionalProperties: false,
+            },
+          },
+        },
+        {
+          type: "function",
+          function: {
+            name: "get_pending_rendiciones",
+            description:
+              "Obtiene rendiciones pendientes por aprobar (del aprobador actual o de todo el tenant si tiene permiso).",
+            parameters: {
+              type: "object",
+              properties: {
+                scope: {
+                  type: "string",
+                  enum: ["mine", "all"],
+                  description: "mine: solo las mías por aprobar; all: todas las pendientes.",
+                },
+                limit: { type: "number", description: "Cantidad máxima de resultados (1-20)." },
+              },
               additionalProperties: false,
             },
           },
@@ -230,6 +262,25 @@ async function runModelWithTools(params: {
             error: "No fue posible consultar UF/UTM en este momento.",
           };
         }
+      } else if (toolName === "get_pending_rendiciones") {
+        const scope = args.scope === "all" && canViewAllRendiciones ? "all" : "mine";
+        const limit = typeof args.limit === "number" ? args.limit : 8;
+        try {
+          result = {
+            ok: true,
+            data: await getPendingRendicionesForApproval({
+              tenantId,
+              userId,
+              includeAll: scope === "all",
+              limit,
+            }),
+          };
+        } catch {
+          result = {
+            ok: false,
+            error: "No fue posible consultar rendiciones pendientes en este momento.",
+          };
+        }
       }
 
       messages.push({
@@ -247,6 +298,7 @@ export async function POST(request: NextRequest) {
   try {
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
+    const perms = await resolveApiPerms(ctx);
 
     const cfg = await getAiHelpChatConfig(ctx.tenantId);
     if (!canUseAiHelpChat(ctx.userRole, cfg)) {
@@ -323,7 +375,9 @@ export async function POST(request: NextRequest) {
       userMessage,
       docsContext,
       tenantId: ctx.tenantId,
+      userId: ctx.userId,
       allowDataQuestions: cfg.allowDataQuestions,
+      canViewAllRendiciones: hasCapability(perms, "rendicion_view_all"),
       appBaseUrl,
     });
     let assistantText = normalizeAssistantLinks(

@@ -157,3 +157,91 @@ export async function getUfUtmIndicators(): Promise<FxIndicatorsResult> {
       : null,
   };
 }
+
+export type PendingRendicionItem = {
+  id: string;
+  code: string;
+  status: string;
+  amount: number;
+  date: string;
+  submitterId: string;
+  submitterName: string;
+  description: string | null;
+};
+
+export type PendingRendicionesResult = {
+  scope: "mine" | "all";
+  totalPending: number;
+  items: PendingRendicionItem[];
+};
+
+export async function getPendingRendicionesForApproval(params: {
+  tenantId: string;
+  userId: string;
+  includeAll: boolean;
+  limit?: number;
+}): Promise<PendingRendicionesResult> {
+  const { tenantId, userId, includeAll, limit = 8 } = params;
+  const take = Math.max(1, Math.min(limit, 20));
+  const pendingStatuses = ["SUBMITTED", "IN_APPROVAL"];
+
+  const baseWhere = {
+    tenantId,
+    status: { in: pendingStatuses },
+  } as const;
+
+  const where = includeAll
+    ? baseWhere
+    : {
+        ...baseWhere,
+        approvals: {
+          some: {
+            approverId: userId,
+            decision: null,
+          },
+        },
+      };
+
+  const [totalPending, rows] = await Promise.all([
+    prisma.financeRendicion.count({ where }),
+    prisma.financeRendicion.findMany({
+      where,
+      select: {
+        id: true,
+        code: true,
+        status: true,
+        amount: true,
+        date: true,
+        submitterId: true,
+        description: true,
+      },
+      orderBy: [{ createdAt: "desc" }],
+      take,
+    }),
+  ]);
+
+  const submitterIds = [...new Set(rows.map((r) => r.submitterId))];
+  const submitters =
+    submitterIds.length > 0
+      ? await prisma.admin.findMany({
+          where: { id: { in: submitterIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+  const submitterMap = Object.fromEntries(submitters.map((s) => [s.id, s.name]));
+
+  return {
+    scope: includeAll ? "all" : "mine",
+    totalPending,
+    items: rows.map((row) => ({
+      id: row.id,
+      code: row.code,
+      status: row.status,
+      amount: row.amount,
+      date: row.date.toISOString().slice(0, 10),
+      submitterId: row.submitterId,
+      submitterName: submitterMap[row.submitterId] ?? row.submitterId,
+      description: row.description ?? null,
+    })),
+  };
+}

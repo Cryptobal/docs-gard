@@ -6,11 +6,13 @@ export const ROLES = {
   EDITOR: "editor",
   RRHH: "rrhh",
   OPERACIONES: "operaciones",
+  FINANZAS: "finanzas",
   RECLUTAMIENTO: "reclutamiento",
   SOLO_OPS: "solo_ops",
   SOLO_CRM: "solo_crm",
   SOLO_DOCUMENTOS: "solo_documentos",
   SOLO_PAYROLL: "solo_payroll",
+  SOLO_FINANZAS: "solo_finanzas",
   VIEWER: "viewer",
 } as const;
 
@@ -80,7 +82,7 @@ export interface RolePolicy {
   opsCapabilities: OpsCapability[];
 }
 
-const ALL_APPS: AppKey[] = ["hub", "docs", "crm", "cpq", "payroll", "ops", "portal", "admin"];
+const ALL_APPS: AppKey[] = ["hub", "docs", "crm", "cpq", "payroll", "ops", "finance", "portal", "admin"];
 const ALL_CRM_SUBMODULES: CrmSubmoduleKey[] = [
   "overview",
   "leads",
@@ -164,7 +166,7 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
   },
   editor: {
     rank: 2,
-    appAccess: ["hub", "docs", "crm", "cpq", "payroll", "ops"],
+    appAccess: ["hub", "docs", "crm", "cpq", "payroll", "ops", "finance"],
     permissions: [
       PERMISSIONS.EDIT_TEMPLATES,
       PERMISSIONS.VIEW_TEMPLATES,
@@ -216,6 +218,15 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
       "rondas_resolve",
     ],
   },
+  finanzas: {
+    rank: 2,
+    appAccess: ["hub", "finance"],
+    permissions: [PERMISSIONS.VIEW_PRESENTATIONS],
+    crmSubmodules: [],
+    configSubmodules: [],
+    docsSubmodules: [],
+    opsCapabilities: [],
+  },
   reclutamiento: {
     rank: 2,
     appAccess: ["hub", "ops"],
@@ -255,6 +266,15 @@ export const ROLE_POLICIES: Record<Role, RolePolicy> = {
   solo_payroll: {
     rank: 1,
     appAccess: ["hub", "payroll"],
+    permissions: [],
+    crmSubmodules: [],
+    configSubmodules: [],
+    docsSubmodules: [],
+    opsCapabilities: [],
+  },
+  solo_finanzas: {
+    rank: 1,
+    appAccess: ["hub", "finance"],
     permissions: [],
     crmSubmodules: [],
     configSubmodules: [],

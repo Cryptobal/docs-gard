@@ -43,6 +43,7 @@ export const MODULE_KEYS = [
   "payroll",
   "cpq",
   "config",
+  "finance",
 ] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
 
@@ -82,6 +83,14 @@ export const SUBMODULE_KEYS = {
     "payroll",
     "notificaciones",
     "ops",
+    "finanzas",
+  ] as const,
+  finance: [
+    "rendiciones",
+    "aprobaciones",
+    "pagos",
+    "reportes",
+    "configuracion",
   ] as const,
 } as const satisfies Record<ModuleKey, readonly string[]>;
 
@@ -97,6 +106,12 @@ export const CAPABILITY_KEYS = [
   "rondas_configure",
   "rondas_resolve_alerts",
   "control_nocturno_approve",
+  "rendicion_submit",
+  "rendicion_approve",
+  "rendicion_pay",
+  "rendicion_configure",
+  "rendicion_view_all",
+  "rendicion_export",
 ] as const;
 export type CapabilityKey = (typeof CAPABILITY_KEYS)[number];
 
@@ -150,6 +165,7 @@ export const MODULE_META: ModuleMeta[] = [
   { key: "payroll", label: "Payroll" },
   { key: "cpq", label: "CPQ" },
   { key: "config", label: "Configuración" },
+  { key: "finance", label: "Finanzas" },
 ];
 
 export const SUBMODULE_META: SubmoduleMeta[] = [
@@ -176,6 +192,12 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   // ── Payroll ──
   { key: "payroll.simulador", module: "payroll", submodule: "simulador", label: "Simulador", href: "/payroll/simulator" },
   { key: "payroll.parametros", module: "payroll", submodule: "parametros", label: "Parámetros", href: "/payroll/parameters" },
+  // ── Finance ──
+  { key: "finance.rendiciones", module: "finance", submodule: "rendiciones", label: "Rendiciones", href: "/finanzas/rendiciones" },
+  { key: "finance.aprobaciones", module: "finance", submodule: "aprobaciones", label: "Aprobaciones", href: "/finanzas/aprobaciones" },
+  { key: "finance.pagos", module: "finance", submodule: "pagos", label: "Pagos", href: "/finanzas/pagos" },
+  { key: "finance.reportes", module: "finance", submodule: "reportes", label: "Reportes", href: "/finanzas/reportes" },
+  { key: "finance.configuracion", module: "finance", submodule: "configuracion", label: "Configuración", href: "/finanzas/configuracion" },
   // ── Config ──
   { key: "config.usuarios", module: "config", submodule: "usuarios", label: "Usuarios", href: "/opai/configuracion/usuarios" },
   { key: "config.integraciones", module: "config", submodule: "integraciones", label: "Integraciones", href: "/opai/configuracion/integraciones" },
@@ -186,6 +208,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "config.payroll", module: "config", submodule: "payroll", label: "Payroll", href: "/opai/configuracion/payroll" },
   { key: "config.notificaciones", module: "config", submodule: "notificaciones", label: "Notificaciones", href: "/opai/configuracion/notificaciones" },
   { key: "config.ops", module: "config", submodule: "ops", label: "Operaciones", href: "/opai/configuracion/ops" },
+  { key: "config.finanzas", module: "config", submodule: "finanzas", label: "Finanzas", href: "/opai/configuracion/finanzas" },
 ];
 
 export const CAPABILITY_META: CapabilityMeta[] = [
@@ -198,6 +221,12 @@ export const CAPABILITY_META: CapabilityMeta[] = [
   { key: "rondas_configure", label: "Configurar rondas", description: "Puede crear/editar checkpoints, plantillas y programación de rondas" },
   { key: "rondas_resolve_alerts", label: "Resolver alertas rondas", description: "Puede marcar como resueltas las alertas de rondas" },
   { key: "control_nocturno_approve", label: "Aprobar control nocturno", description: "Puede aprobar o rechazar reportes de control nocturno" },
+  { key: "rendicion_submit", label: "Crear rendiciones", description: "Puede crear y enviar rendiciones de gastos" },
+  { key: "rendicion_approve", label: "Aprobar rendiciones", description: "Puede aprobar o rechazar rendiciones de gastos" },
+  { key: "rendicion_pay", label: "Pagar rendiciones", description: "Puede generar pagos masivos o manuales de rendiciones" },
+  { key: "rendicion_configure", label: "Configurar rendiciones", description: "Puede configurar ítems, parámetros y reglas de rendiciones" },
+  { key: "rendicion_view_all", label: "Ver todas las rendiciones", description: "Puede ver rendiciones de todos los usuarios, no solo las propias" },
+  { key: "rendicion_export", label: "Exportar rendiciones", description: "Puede exportar rendiciones a CSV/Excel" },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -223,6 +252,8 @@ const ROLE_ALIASES: Record<string, string> = {
   "solo crm": "solo_crm",
   "solo documentos": "solo_documentos",
   "solo payroll": "solo_payroll",
+  "solo finanzas": "solo_finanzas",
+  finance: "finanzas",
   lectura: "viewer",
 };
 
@@ -237,6 +268,31 @@ function fullPermissions(): RolePermissions {
   const capabilities: Partial<Record<CapabilityKey, boolean>> = {};
   for (const c of CAPABILITY_KEYS) capabilities[c] = true;
   return { modules, submodules: {}, capabilities };
+}
+
+// ── Permisos del rol finanzas ──
+function finanzasPermissions(): RolePermissions {
+  return {
+    modules: {
+      hub: "view",
+      ops: "none",
+      crm: "none",
+      docs: "none",
+      payroll: "none",
+      cpq: "none",
+      config: "none",
+      finance: "full",
+    },
+    submodules: {},
+    capabilities: {
+      rendicion_submit: true,
+      rendicion_approve: true,
+      rendicion_pay: true,
+      rendicion_configure: true,
+      rendicion_view_all: true,
+      rendicion_export: true,
+    },
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -257,9 +313,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       payroll: "edit",
       cpq: "edit",
       config: "none",
+      finance: "edit",
     },
     submodules: {},
-    capabilities: { te_approve: true, rondas_resolve_alerts: true },
+    capabilities: { te_approve: true, rondas_resolve_alerts: true, rendicion_submit: true, rendicion_view_all: true },
   },
 
   rrhh: {
@@ -271,9 +328,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       payroll: "none",
       cpq: "none",
       config: "none",
+      finance: "view",
     },
     submodules: {},
-    capabilities: { guardias_blacklist: true },
+    capabilities: { guardias_blacklist: true, rendicion_view_all: true },
   },
 
   operaciones: {
@@ -285,10 +343,13 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       payroll: "none",
       cpq: "none",
       config: "none",
+      finance: "edit",
     },
-    submodules: {},
-    capabilities: { te_approve: true, rondas_configure: true, rondas_resolve_alerts: true, control_nocturno_approve: true },
+    submodules: { "finance.pagos": "none", "finance.configuracion": "none" },
+    capabilities: { te_approve: true, rondas_configure: true, rondas_resolve_alerts: true, control_nocturno_approve: true, rendicion_submit: true, rendicion_approve: true },
   },
+
+  finanzas: finanzasPermissions(),
 
   reclutamiento: {
     modules: {
@@ -299,6 +360,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       payroll: "none",
       cpq: "none",
       config: "none",
+      finance: "none",
     },
     submodules: { "ops.rondas": "none" },
     capabilities: {},
@@ -313,6 +375,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       payroll: "none",
       cpq: "none",
       config: "none",
+      finance: "none",
     },
     submodules: {},
     capabilities: {},
@@ -327,6 +390,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       payroll: "none",
       cpq: "none",
       config: "none",
+      finance: "none",
     },
     submodules: {},
     capabilities: {},
@@ -341,6 +405,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       payroll: "none",
       cpq: "none",
       config: "none",
+      finance: "none",
     },
     submodules: {},
     capabilities: {},
@@ -355,10 +420,13 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       payroll: "edit",
       cpq: "none",
       config: "none",
+      finance: "none",
     },
     submodules: {},
     capabilities: {},
   },
+
+  solo_finanzas: finanzasPermissions(),
 
   viewer: {
     modules: {
@@ -369,6 +437,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       payroll: "none",
       cpq: "none",
       config: "none",
+      finance: "none",
     },
     submodules: {},
     capabilities: {},
@@ -547,6 +616,20 @@ export const ROLE_TEMPLATE_SEEDS: RoleTemplateSeed[] = [
     permissions: DEFAULT_ROLE_PERMISSIONS.solo_payroll,
   },
   {
+    slug: "finanzas",
+    name: "Finanzas",
+    description: "Acceso completo al módulo de rendiciones de gastos y finanzas.",
+    isSystem: false,
+    permissions: DEFAULT_ROLE_PERMISSIONS.finanzas,
+  },
+  {
+    slug: "solo_finanzas",
+    name: "Solo Finanzas",
+    description: "Acceso exclusivo al módulo de finanzas/rendiciones.",
+    isSystem: false,
+    permissions: DEFAULT_ROLE_PERMISSIONS.solo_finanzas,
+  },
+  {
     slug: "viewer",
     name: "Viewer",
     description: "Solo lectura en documentos.",
@@ -614,6 +697,14 @@ export function pathToPermission(
   if (pathname.startsWith("/opai/configuracion/ops")) return { module: "config", submodule: "ops" };
   if (pathname.startsWith("/opai/configuracion")) return { module: "config" };
 
+  // Finance submodules
+  if (pathname.startsWith("/finanzas/rendiciones")) return { module: "finance", submodule: "rendiciones" };
+  if (pathname.startsWith("/finanzas/aprobaciones")) return { module: "finance", submodule: "aprobaciones" };
+  if (pathname.startsWith("/finanzas/pagos")) return { module: "finance", submodule: "pagos" };
+  if (pathname.startsWith("/finanzas/reportes")) return { module: "finance", submodule: "reportes" };
+  if (pathname.startsWith("/finanzas/configuracion")) return { module: "finance", submodule: "configuracion" };
+  if (pathname === "/finanzas" || pathname.startsWith("/finanzas/")) return { module: "finance" };
+
   // Hub
   if (pathname === "/hub" || pathname.startsWith("/hub/")) return { module: "hub" };
 
@@ -633,6 +724,7 @@ export function apiPathToModule(pathname: string): ModuleKey | null {
     return "docs";
   if (pathname.startsWith("/api/payroll/")) return "payroll";
   if (pathname.startsWith("/api/cpq/")) return "cpq";
+  if (pathname.startsWith("/api/finance/")) return "finance";
   return null;
 }
 
@@ -665,6 +757,16 @@ export function apiPathToSubmodule(
   // Payroll
   if (pathname.startsWith("/api/payroll/simulator")) return { module: "payroll", submodule: "simulador" };
   if (pathname.startsWith("/api/payroll/parameters")) return { module: "payroll", submodule: "parametros" };
+
+  // Finance
+  if (pathname.startsWith("/api/finance/rendiciones")) return { module: "finance", submodule: "rendiciones" };
+  if (pathname.startsWith("/api/finance/approvals")) return { module: "finance", submodule: "aprobaciones" };
+  if (pathname.startsWith("/api/finance/payments")) return { module: "finance", submodule: "pagos" };
+  if (pathname.startsWith("/api/finance/reports")) return { module: "finance", submodule: "reportes" };
+  if (pathname.startsWith("/api/finance/config") || pathname.startsWith("/api/finance/items") || pathname.startsWith("/api/finance/cost-centers"))
+    return { module: "finance", submodule: "configuracion" };
+  if (pathname.startsWith("/api/finance/trips")) return { module: "finance", submodule: "rendiciones" };
+  if (pathname.startsWith("/api/finance/attachments")) return { module: "finance", submodule: "rendiciones" };
 
   return null;
 }

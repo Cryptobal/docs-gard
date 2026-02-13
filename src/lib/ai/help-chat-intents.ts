@@ -325,6 +325,49 @@ const INTENTS: IntentDefinition[] = [
     ],
   },
   {
+    key: "finance_rendiciones",
+    moduleName: "Finanzas",
+    submoduleName: "Rendiciones",
+    aliases: [
+      "rendicion",
+      "rendiciones",
+      "gasto por rendir",
+      "aprobar rendiciones",
+      "faltan por aprobar",
+      "finanzas",
+    ],
+    purpose: "Registrar, enviar y aprobar rendiciones de gastos y kilometraje.",
+    mainLinks: [
+      { label: "Rendiciones", path: "/finanzas/rendiciones" },
+      { label: "Aprobaciones", path: "/finanzas/aprobaciones" },
+      { label: "Pagos", path: "/finanzas/pagos" },
+    ],
+    steps: [
+      {
+        action: "Crea o revisa la rendicion con sus datos y respaldo.",
+        outcome: "El documento queda listo para envio.",
+        links: [{ label: "Rendiciones", path: "/finanzas/rendiciones" }],
+      },
+      {
+        action: "Envia la rendicion al flujo de aprobacion.",
+        outcome: "Pasa a estado SUBMITTED/IN_APPROVAL segun configuracion.",
+      },
+      {
+        action: "Revisa y resuelve aprobaciones pendientes.",
+        outcome: "La rendicion avanza a APPROVED o REJECTED.",
+        links: [{ label: "Aprobaciones", path: "/finanzas/aprobaciones" }],
+      },
+      {
+        action: "Gestiona pago cuando corresponda.",
+        outcome: "Cierra el ciclo administrativo de rendicion.",
+        links: [{ label: "Pagos", path: "/finanzas/pagos" }],
+      },
+    ],
+    impacts: [
+      "Impacta flujo financiero, conciliacion y estado administrativo del gasto.",
+    ],
+  },
+  {
     key: "config_roles_permisos",
     moduleName: "Configuracion",
     submoduleName: "Usuarios/Roles",
@@ -450,6 +493,46 @@ function buildTurnosAmbiguousAnswer(appBaseUrl: string): string {
   ].join("\n");
 }
 
+function isProspectToClientQuestion(message: string): boolean {
+  const mentionsProspect = message.includes("prospecto") || message.includes("lead");
+  const mentionsClient = message.includes("cliente");
+  const asksConversion =
+    message.includes("pasar") ||
+    message.includes("paso") ||
+    message.includes("convertir") ||
+    message.includes("conversion") ||
+    message.includes("cambiar");
+
+  return mentionsProspect && mentionsClient && asksConversion;
+}
+
+function buildProspectToClientAnswer(appBaseUrl: string): string {
+  return [
+    "Perfecto, para **pasar un prospecto/lead a cliente** sigue este flujo:",
+    "",
+    "**Donde se hace**:",
+    `- Leads: ${go("/crm/leads", appBaseUrl)}`,
+    `- Cuentas (verificacion final): ${go("/crm/accounts", appBaseUrl)}`,
+    "",
+    "**Paso a paso**:",
+    "1) Abre el lead/prospecto que quieres convertir.",
+    "   Resultado esperado: quedas en la ficha comercial del registro.",
+    `   Ingresa aca: Leads: ${go("/crm/leads", appBaseUrl)}`,
+    "2) Ejecuta la accion de conversion o cambio de tipo a cliente (segun la vista habilitada).",
+    "   Resultado esperado: el registro cambia de prospecto a cliente.",
+    "3) Completa/valida datos obligatorios de cuenta e instalacion si el flujo lo solicita.",
+    "   Resultado esperado: el cliente queda listo para operacion/cotizacion.",
+    "4) Guarda los cambios y valida que aparezca en Cuentas.",
+    "   Resultado esperado: la cuenta ya queda en cartera de clientes.",
+    `   Ingresa aca: Cuentas: ${go("/crm/accounts", appBaseUrl)}`,
+    "",
+    "**Que impacta**:",
+    "- Habilita continuar con deals/cotizaciones y preparacion operativa (instalaciones y flujos de Ops).",
+    `- Deal comercial: ${go("/crm/deals", appBaseUrl)}`,
+    `- Instalaciones: ${go("/crm/installations", appBaseUrl)}`,
+  ].join("\n");
+}
+
 function isFunctionalQuestion(message: string): boolean {
   return FUNCTIONAL_MARKERS.some((marker) => message.includes(marker));
 }
@@ -463,6 +546,15 @@ export function shouldPreferFunctionalInference(
   assistantText: string,
 ): boolean {
   const msg = normalize(userMessage);
+  const asksRendicionData =
+    msg.includes("rendicion") &&
+    (msg.includes("faltan") ||
+      msg.includes("pendiente") ||
+      msg.includes("pendientes") ||
+      msg.includes("aprobacion") ||
+      msg.includes("aprobar"));
+
+  if (asksRendicionData) return false;
   if (!isFunctionalQuestion(msg) || isDataHeavyQuestion(msg)) return false;
   const hasClickableLink = /\[[^\]]+\]\(https?:\/\/[^\s)]+\)/.test(assistantText);
   return assistantText.length < 220 || !hasClickableLink;
@@ -484,6 +576,10 @@ export function resolveFunctionalIntent(userMessage: string, appBaseUrl: string)
 
   if (asksTurnosGeneric) {
     return buildTurnosAmbiguousAnswer(appBaseUrl);
+  }
+
+  if (isProspectToClientQuestion(msg)) {
+    return buildProspectToClientAnswer(appBaseUrl);
   }
 
   const scored = INTENTS.map((def) => ({ def, score: scoreIntent(msg, def) }))

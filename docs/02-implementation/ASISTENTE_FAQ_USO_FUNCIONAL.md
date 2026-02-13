@@ -55,6 +55,16 @@ Sí. En CRM puedes registrar nuevas cuentas como **prospecto** o **cliente**.
 4. Completa empresa, contacto y canal de origen.
 5. Guarda para iniciar el flujo comercial.
 
+### ¿Cómo paso un prospecto a cliente?
+1. Entra a **CRM > Leads** y abre el prospecto.
+2. Ejecuta la acción de **convertir/cambiar a cliente** según la vista habilitada.
+3. Completa los datos obligatorios de cuenta (e instalación si aplica).
+4. Guarda cambios.
+5. Valida en **CRM > Cuentas** que el registro ya aparece como cliente.
+
+Impacto:
+- Habilita continuidad comercial en **Deals/Cotizaciones** y preparación operativa en instalaciones/Ops.
+
 ### ¿Cómo se relaciona CRM con Ops?
 Desde CRM defines cuentas, negocios e instalaciones. En Ops usas esas instalaciones para operar puestos, guardias y pauta.
 
@@ -144,6 +154,17 @@ Para simulación y apoyo en cálculos de remuneraciones con parámetros vigentes
 
 ### ¿Qué relación tiene con Ops?
 Payroll se alimenta de datos operacionales como asistencia/turnos extra y parámetros económicos vigentes.
+
+## Finanzas: rendiciones y aprobaciones
+
+### ¿Dónde gestiono rendiciones?
+En **Finanzas > Rendiciones** (`/finanzas/rendiciones`).
+
+### ¿Dónde apruebo rendiciones pendientes?
+En **Finanzas > Aprobaciones** (`/finanzas/aprobaciones`).
+
+### ¿Qué pasa cuando una rendición se aprueba?
+La rendición avanza en su estado administrativo y queda disponible para flujo de pago según reglas del tenant.
 
 ## FX: UF y UTM
 
