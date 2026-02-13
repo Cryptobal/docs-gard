@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { DocumentosSubnav } from "@/components/opai/DocumentosSubnav";
 import { DocTemplatesClient } from "@/components/docs/DocTemplatesClient";
-import { hasDocsSubmoduleAccess } from "@/lib/module-access";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
 
 export default async function DocTemplatesPage() {
   const session = await auth();
@@ -10,7 +10,8 @@ export default async function DocTemplatesPage() {
     redirect("/opai/login?callbackUrl=/opai/documentos/templates");
   }
 
-  if (!hasDocsSubmoduleAccess(session.user.role, "templates")) {
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "docs", "presentaciones")) {
     redirect("/opai/inicio");
   }
 

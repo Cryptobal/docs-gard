@@ -11,7 +11,7 @@ import { FileText, Eye, Calendar } from 'lucide-react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
-import { hasDocsSubmoduleAccess } from '@/lib/module-access';
+import { resolvePagePerms, canView } from '@/lib/permissions-server';
 
 export default async function TemplatesPage() {
   const session = await auth();
@@ -19,7 +19,8 @@ export default async function TemplatesPage() {
     redirect('/opai/login?callbackUrl=/opai/templates');
   }
 
-  if (!hasDocsSubmoduleAccess(session.user.role, 'templates')) {
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, 'docs', 'presentaciones')) {
     redirect('/opai/inicio');
   }
 

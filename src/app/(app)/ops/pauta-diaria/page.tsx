@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { hasAppAccess } from "@/lib/app-access";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { prisma } from "@/lib/prisma";
 import { PageHeader } from "@/components/opai";
@@ -11,10 +11,12 @@ export default async function OpsAsistenciaDiariaPage() {
   if (!session?.user) {
     redirect("/opai/login?callbackUrl=/ops/pauta-diaria");
   }
-  const role = session.user.role;
-  if (!hasAppAccess(role, "ops")) {
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "ops")) {
     redirect("/hub");
   }
+
+  const role = session.user.role;
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
 

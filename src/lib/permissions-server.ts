@@ -111,3 +111,32 @@ export async function getPermissionsFromAuth(auth: {
     roleTemplateId: auth.roleTemplateId,
   });
 }
+
+// ── Page guard helpers ──
+
+import { canView, canEdit, hasModuleAccess, hasCapability } from "./permissions";
+import type { ModuleKey, CapabilityKey } from "./permissions";
+
+export { canView, canEdit, hasModuleAccess, hasCapability };
+export type { ModuleKey, CapabilityKey };
+
+interface SessionUser {
+  role: string;
+  roleTemplateId?: string | null;
+  [key: string]: unknown;
+}
+
+/**
+ * Resolver permisos desde la sesión de auth.
+ * Usa el cache del template (5min TTL) así que es barato.
+ * 
+ * Uso en page.tsx:
+ *   const perms = await resolvePagePerms(session.user);
+ *   if (!canView(perms, "ops")) redirect("/hub");
+ */
+export async function resolvePagePerms(user: SessionUser): Promise<RolePermissions> {
+  return resolvePermissions({
+    role: user.role,
+    roleTemplateId: user.roleTemplateId,
+  });
+}

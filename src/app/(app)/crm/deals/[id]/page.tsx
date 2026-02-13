@@ -4,7 +4,7 @@
 
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { hasConfigSubmoduleAccess, hasCrmSubmoduleAccess } from "@/lib/module-access";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader, Breadcrumb } from "@/components/opai";
@@ -20,12 +20,10 @@ export default async function CrmDealDetailPage({
   if (!session?.user) {
     redirect(`/opai/login?callbackUrl=/crm/deals/${id}`);
   }
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "crm", "deals")) redirect("/crm");
+  const canConfigureCrm = canView(perms, "config", "crm");
   const role = session.user.role;
-
-  if (!hasCrmSubmoduleAccess(role, "deals")) {
-    redirect("/crm");
-  }
-  const canConfigureCrm = hasConfigSubmoduleAccess(role, "crm");
 
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
   const deal = await prisma.crmDeal.findFirst({

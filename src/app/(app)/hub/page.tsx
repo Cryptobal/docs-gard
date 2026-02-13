@@ -11,12 +11,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { getDefaultTenantId } from '@/lib/tenant';
-import { hasAppAccess } from '@/lib/app-access';
-import {
-  hasConfigSubmoduleAccess,
-  hasCrmSubmoduleAccess,
-  hasDocsSubmoduleAccess,
-} from '@/lib/module-access';
+import { resolvePagePerms, canView, hasModuleAccess } from '@/lib/permissions-server';
 import { timeAgo } from '@/lib/utils';
 import { PageHeader } from '@/components/opai';
 import { KpiCard } from '@/components/opai/KpiCard';
@@ -50,24 +45,21 @@ export default async function HubPage() {
     redirect('/opai/login?callbackUrl=/hub');
   }
 
-  const role = session.user.role;
-  if (!hasAppAccess(role, 'hub')) {
-    redirect('/opai/inicio');
-  }
+  const perms = await resolvePagePerms(session.user);
 
   const tenantId = session.user.tenantId ?? await getDefaultTenantId();
   const now = new Date();
   const thirtyDaysAgo = new Date(now);
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const canUseCrmOverview = hasCrmSubmoduleAccess(role, 'overview');
-  const canUseDocsOverview = hasDocsSubmoduleAccess(role, 'overview');
+  const canUseCrmOverview = canView(perms, 'crm');
+  const canUseDocsOverview = canView(perms, 'docs');
   const canUseCrmSearch = canUseCrmOverview;
-  const canOpenLeads = hasCrmSubmoduleAccess(role, 'leads');
-  const canOpenDeals = hasCrmSubmoduleAccess(role, 'deals');
-  const canOpenQuotes = hasCrmSubmoduleAccess(role, 'quotes');
-  const canCreateProposal = hasDocsSubmoduleAccess(role, 'document_editor');
-  const canConfigureCrm = hasConfigSubmoduleAccess(role, 'crm');
+  const canOpenLeads = canView(perms, 'crm', 'leads');
+  const canOpenDeals = canView(perms, 'crm', 'deals');
+  const canOpenQuotes = canView(perms, 'crm', 'quotes');
+  const canCreateProposal = canView(perms, 'docs', 'gestion');
+  const canConfigureCrm = canView(perms, 'config', 'crm');
 
   const docsSignals = canUseDocsOverview
     ? await getDocsSignals(tenantId, thirtyDaysAgo)

@@ -4,7 +4,7 @@
 
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
-import { hasCrmSubmoduleAccess } from '@/lib/module-access';
+import { resolvePagePerms, canView } from '@/lib/permissions-server';
 import { getDefaultTenantId } from '@/lib/tenant';
 import { prisma } from '@/lib/prisma';
 import { PageHeader } from '@/components/opai';
@@ -47,8 +47,9 @@ function toPercent(value: number, total: number): number {
 export default async function CRMPage() {
   const session = await auth();
   if (!session?.user) redirect('/opai/login?callbackUrl=/crm');
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, 'crm')) redirect('/hub');
   const role = session.user.role;
-  if (!hasCrmSubmoduleAccess(role, 'overview')) redirect('/hub');
 
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
   const now = new Date();

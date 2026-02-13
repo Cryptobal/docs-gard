@@ -4,7 +4,7 @@
 
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { hasCrmSubmoduleAccess } from "@/lib/module-access";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
@@ -15,11 +15,9 @@ export default async function CrmInstallationsPage() {
   if (!session?.user) {
     redirect("/opai/login?callbackUrl=/crm/installations");
   }
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "crm", "installations")) redirect("/crm");
   const role = session.user.role;
-
-  if (!hasCrmSubmoduleAccess(role, "installations")) {
-    redirect("/crm");
-  }
 
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
   const [installations, accounts] = await Promise.all([

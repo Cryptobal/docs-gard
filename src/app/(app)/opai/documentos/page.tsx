@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { DocumentosSubnav } from "@/components/opai/DocumentosSubnav";
 import { DocsClient } from "@/components/docs/DocsClient";
-import { hasDocsSubmoduleAccess } from "@/lib/module-access";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
 
 export default async function DocumentosPage() {
   const session = await auth();
@@ -10,7 +10,8 @@ export default async function DocumentosPage() {
     redirect("/opai/login?callbackUrl=/opai/documentos");
   }
 
-  if (!hasDocsSubmoduleAccess(session.user.role, "documents")) {
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "docs", "gestion")) {
     redirect("/opai/inicio");
   }
 

@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/opai";
 import { ConfigBackLink } from "@/components/opai";
 import { CrmConfigClient } from "@/components/crm/CrmConfigClient";
 import { FollowUpConfigSection } from "@/components/crm/FollowUpConfigSection";
-import { hasConfigSubmoduleAccess } from "@/lib/module-access";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
 
 export default async function CrmConfigPage() {
   const session = await auth();
@@ -14,8 +14,8 @@ export default async function CrmConfigPage() {
     redirect("/opai/login?callbackUrl=/opai/configuracion/crm");
   }
 
-  const role = session.user.role;
-  if (!hasConfigSubmoduleAccess(role, "crm")) {
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "config", "crm")) {
     redirect("/opai/configuracion");
   }
 

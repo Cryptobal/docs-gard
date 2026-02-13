@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/opai";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { ConfigBackLink, IntegrationsGmailClient } from "@/components/opai";
-import { hasConfigSubmoduleAccess } from "@/lib/module-access";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
 
 export default async function IntegracionesPage() {
   const session = await auth();
@@ -12,8 +12,8 @@ export default async function IntegracionesPage() {
     redirect("/opai/login?callbackUrl=/opai/configuracion/integraciones");
   }
 
-  const role = session.user.role;
-  if (!hasConfigSubmoduleAccess(role, "integrations")) {
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "config", "integraciones")) {
     redirect("/opai/configuracion");
   }
 

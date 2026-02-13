@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { PageHeader } from "@/components/opai";
 import { ConfigBackLink } from "@/components/opai";
 import { CpqConfigTabs } from "@/components/cpq/CpqConfigTabs";
-import { hasConfigSubmoduleAccess } from "@/lib/module-access";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
 
 export default async function CpqConfigPage() {
   const session = await auth();
@@ -11,8 +11,8 @@ export default async function CpqConfigPage() {
     redirect("/opai/login?callbackUrl=/opai/configuracion/cpq");
   }
 
-  const role = session.user.role;
-  if (!hasConfigSubmoduleAccess(role, "cpq")) {
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "config", "cpq")) {
     redirect("/opai/configuracion");
   }
 

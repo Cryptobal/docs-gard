@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { PageHeader } from "@/components/opai";
 import { ConfigBackLink } from "@/components/opai";
-import { hasConfigSubmoduleAccess } from "@/lib/module-access";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { DocCategoriesClient } from "@/components/docs/DocCategoriesClient";
 
 export default async function CategoriasPlantillasPage() {
@@ -11,8 +11,8 @@ export default async function CategoriasPlantillasPage() {
     redirect("/opai/login?callbackUrl=/opai/configuracion/categorias-plantillas");
   }
 
-  const role = session.user.role;
-  if (!hasConfigSubmoduleAccess(role, "doc_categories")) {
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "config", "categorias")) {
     redirect("/opai/configuracion");
   }
 

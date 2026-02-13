@@ -4,7 +4,7 @@
 
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { hasCrmSubmoduleAccess } from "@/lib/module-access";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { normalizeEmailAddress } from "@/lib/email-address";
@@ -22,11 +22,9 @@ export default async function CrmContactDetailPage({
   if (!session?.user) {
     redirect(`/opai/login?callbackUrl=/crm/contacts/${id}`);
   }
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "crm", "contacts")) redirect("/crm");
   const role = session.user.role;
-
-  if (!hasCrmSubmoduleAccess(role, "contacts")) {
-    redirect("/crm");
-  }
 
   const tenantId = session.user?.tenantId ?? (await getDefaultTenantId());
 

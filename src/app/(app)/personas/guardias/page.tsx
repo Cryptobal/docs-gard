@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { hasAppAccess } from "@/lib/app-access";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { PageHeader } from "@/components/opai";
@@ -11,8 +11,8 @@ export default async function GuardiasPage() {
   if (!session?.user) {
     redirect("/opai/login?callbackUrl=/personas/guardias");
   }
-  const role = session.user.role;
-  if (!hasAppAccess(role, "ops")) {
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "ops")) {
     redirect("/hub");
   }
 
@@ -50,7 +50,7 @@ export default async function GuardiasPage() {
       <PersonasSubnav />
       <GuardiasClient
         initialGuardias={JSON.parse(JSON.stringify(guardias))}
-        userRole={role}
+        userRole={session.user.role}
       />
     </div>
   );

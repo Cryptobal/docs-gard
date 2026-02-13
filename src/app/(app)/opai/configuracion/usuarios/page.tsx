@@ -4,7 +4,6 @@
 
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { hasPermission, PERMISSIONS, type Role } from "@/lib/rbac";
 import { listUsers, listPendingInvitations, listRoleTemplates } from "@/app/(app)/opai/actions/users";
 import { PageHeader } from "@/components/opai";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +12,7 @@ import InvitationsTable from "@/components/usuarios/InvitationsTable";
 import InviteUserButton from "@/components/usuarios/InviteUserButton";
 import RolesHelpCard from "@/components/usuarios/RolesHelpCard";
 import { ConfigBackLink } from "@/components/opai";
-import { hasConfigSubmoduleAccess } from "@/lib/module-access";
+import { resolvePagePerms, canView, hasCapability } from "@/lib/permissions-server";
 
 export default async function UsuariosConfigPage() {
   const session = await auth();
@@ -21,14 +20,10 @@ export default async function UsuariosConfigPage() {
   if (!session?.user) {
     redirect("/opai/login");
   }
-  const role = session.user.role;
 
-  const canManageUsers = hasPermission(
-    role as Role,
-    PERMISSIONS.MANAGE_USERS
-  );
+  const perms = await resolvePagePerms(session.user);
 
-  if (!hasConfigSubmoduleAccess(role, "users") || !canManageUsers) {
+  if (!canView(perms, "config", "usuarios") || !hasCapability(perms, "manage_users")) {
     redirect("/opai/inicio");
   }
 

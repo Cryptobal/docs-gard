@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { DocumentosSubnav } from "@/components/opai/DocumentosSubnav";
 import { DocGenerateClient } from "@/components/docs/DocGenerateClient";
 import { Suspense } from "react";
-import { hasDocsSubmoduleAccess } from "@/lib/module-access";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
 
 export default async function NewDocumentPage() {
   const session = await auth();
@@ -11,7 +11,8 @@ export default async function NewDocumentPage() {
     redirect("/opai/login?callbackUrl=/opai/documentos/nuevo");
   }
 
-  if (!hasDocsSubmoduleAccess(session.user.role, "document_editor")) {
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "docs", "gestion")) {
     redirect("/opai/documentos");
   }
 

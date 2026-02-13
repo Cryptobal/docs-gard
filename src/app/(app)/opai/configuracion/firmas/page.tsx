@@ -4,7 +4,7 @@ import { PageHeader, ConfigBackLink } from "@/components/opai";
 import { prisma } from "@/lib/prisma";
 import { getDefaultTenantId } from "@/lib/tenant";
 import { SignatureManagerClient } from "@/components/crm/SignatureManagerClient";
-import { hasConfigSubmoduleAccess } from "@/lib/module-access";
+import { resolvePagePerms, canView } from "@/lib/permissions-server";
 
 export default async function FirmasPage() {
   const session = await auth();
@@ -12,8 +12,8 @@ export default async function FirmasPage() {
     redirect("/opai/login?callbackUrl=/opai/configuracion/firmas");
   }
 
-  const role = session.user.role;
-  if (!hasConfigSubmoduleAccess(role, "signatures")) {
+  const perms = await resolvePagePerms(session.user);
+  if (!canView(perms, "config", "firmas")) {
     redirect("/opai/configuracion");
   }
 
