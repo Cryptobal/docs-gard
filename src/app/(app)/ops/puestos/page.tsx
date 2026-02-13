@@ -18,7 +18,14 @@ export default async function OpsPuestosPage() {
 
   const tenantId = session.user.tenantId ?? (await getDefaultTenantId());
 
-  const [clients, puestos, asignaciones, guardias] = await Promise.all([
+  // Current month range for pauta coverage check
+  const now = new Date();
+  const curMonth = now.getUTCMonth(); // 0-based
+  const curYear = now.getUTCFullYear();
+  const monthStart = new Date(Date.UTC(curYear, curMonth, 1));
+  const monthEnd = new Date(Date.UTC(curYear, curMonth + 1, 0, 23, 59, 59));
+
+  const [clients, puestos, asignaciones, guardias, pautaRows] = await Promise.all([
     prisma.crmAccount.findMany({
       where: { tenantId, type: "client", isActive: true },
       select: {
@@ -71,7 +78,24 @@ export default async function OpsPuestosPage() {
       },
       orderBy: [{ persona: { lastName: "asc" } }],
     }),
+    // Pauta coverage: which installations have pauta for the current month
+    prisma.opsPautaMensual.groupBy({
+      by: ["installationId"],
+      where: {
+        tenantId,
+        date: { gte: monthStart, lte: monthEnd },
+      },
+      _count: { id: true },
+    }),
   ]);
+
+  // Build coverage map: installationId → true
+  const pautaCoverage: Record<string, boolean> = {};
+  for (const row of pautaRows) {
+    if (row._count.id > 0) {
+      pautaCoverage[row.installationId] = true;
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -85,6 +109,7 @@ export default async function OpsPuestosPage() {
         initialPuestos={JSON.parse(JSON.stringify(puestos))}
         initialAsignaciones={JSON.parse(JSON.stringify(asignaciones))}
         guardias={JSON.parse(JSON.stringify(guardias))}
+        pautaCoverage={pautaCoverage}
       />
     </div>
   );

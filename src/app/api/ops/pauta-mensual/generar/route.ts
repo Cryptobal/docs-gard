@@ -6,9 +6,7 @@ import {
   createOpsAuditLog,
   ensureOpsAccess,
   getMonthDateRange,
-  getWeekdayKey,
   listDatesBetween,
-  weekdayMatches,
 } from "@/lib/ops";
 
 export async function POST(request: NextRequest) {
@@ -59,16 +57,13 @@ export async function POST(request: NextRequest) {
     const { start, end } = getMonthDateRange(body.year, body.month);
     const monthDates = listDatesBetween(start, end);
 
-    // Generate rows: for each puesto × slot × day
-    // Only for dates within the puesto's active range
+    // Generate rows: for each puesto × slot × every day of the month
+    // The pauta covers day 1 to last day — series painting determines work/rest
     const data = monthDates.flatMap((date) => {
-      const weekday = getWeekdayKey(date);
       return puestos
         .filter((puesto) => {
-          if (!weekdayMatches(puesto.weekdays, weekday)) return false;
-          // Check activeFrom: don't generate before puesto start date
+          // Only check active range, not weekdays
           if (puesto.activeFrom && date < puesto.activeFrom) return false;
-          // Check activeUntil: don't generate after puesto end date
           if (puesto.activeUntil && date >= puesto.activeUntil) return false;
           return true;
         })

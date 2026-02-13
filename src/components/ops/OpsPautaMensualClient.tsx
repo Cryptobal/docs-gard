@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,7 +24,13 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { CalendarDays, ChevronDown, ChevronUp, FileDown, Loader2, Trash2, ExternalLink } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { CalendarDays, FileDown, Loader2, MoreVertical, Trash2, ExternalLink, RefreshCw } from "lucide-react";
 
 /* ── constants ─────────────────────────────────── */
 
@@ -197,12 +204,27 @@ export function OpsPautaMensualClient({
     }
     return FALLBACK_PATTERNS;
   }, [shiftPatterns]);
+  const searchParams = useSearchParams();
+  const urlInstallationId = searchParams.get("installationId");
+
+  // Resolve initial client/installation from URL param or defaults
+  const initialIds = useMemo(() => {
+    if (urlInstallationId) {
+      for (const c of initialClients) {
+        const inst = c.installations.find((i) => i.id === urlInstallationId);
+        if (inst) return { clientId: c.id, installationId: inst.id };
+      }
+    }
+    return {
+      clientId: initialClients[0]?.id ?? "",
+      installationId: initialClients[0]?.installations?.[0]?.id ?? "",
+    };
+  }, [initialClients, urlInstallationId]);
+
   const today = new Date();
   const [clients] = useState<ClientOption[]>(initialClients);
-  const [clientId, setClientId] = useState<string>(initialClients[0]?.id ?? "");
-  const [installationId, setInstallationId] = useState<string>(
-    initialClients[0]?.installations?.[0]?.id ?? ""
-  );
+  const [clientId, setClientId] = useState<string>(initialIds.clientId);
+  const [installationId, setInstallationId] = useState<string>(initialIds.installationId);
   const [month, setMonth] = useState<number>(today.getUTCMonth() + 1);
   const [year, setYear] = useState<number>(today.getUTCFullYear());
   const [overwrite, setOverwrite] = useState<boolean>(false);
@@ -217,7 +239,6 @@ export function OpsPautaMensualClient({
     if (typeof window === "undefined") return "week";
     return window.matchMedia("(min-width: 768px)").matches ? "month" : "week";
   });
-  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Mobile: sheet para ver nombre completo del puesto y enlace a Puestos
   const [puestoSheet, setPuestoSheet] = useState<{ puestoId: string; puestoName: string } | null>(null);
@@ -261,6 +282,9 @@ export function OpsPautaMensualClient({
   } | null>(null);
   const [pintarSoloDiaSaving, setPintarSoloDiaSaving] = useState(false);
 
+  // Regenerar pauta (sobrescribir) — modal de confirmación
+  const [regenerarConfirmOpen, setRegenerarConfirmOpen] = useState(false);
+
   // Long-press en móvil: emular clic derecho → eliminar (evitar que el tap abra pintar)
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTargetRef = useRef<{ puestoId: string; slotNumber: number; dateKey: string } | null>(null);
@@ -279,10 +303,14 @@ export function OpsPautaMensualClient({
   // Days of the month
   const monthDays = useMemo(() => daysInMonth(year, month), [year, month]);
 
-  // Fetch pauta
+  // Estado vacío: si la instalación no tiene puestos
+  const [emptyReason, setEmptyReason] = useState<"no_puestos" | "generated_empty" | null>(null);
+
+  // Fetch pauta (y auto-generar si hay puestos pero no hay pauta)
   const fetchPauta = useCallback(async () => {
     if (!installationId) return;
     setLoading(true);
+    setEmptyReason(null);
     try {
       const res = await fetch(
         `/api/ops/pauta-mensual?installationId=${installationId}&month=${month}&year=${year}`,
@@ -291,12 +319,60 @@ export function OpsPautaMensualClient({
       const payload = await res.json();
       if (!res.ok || !payload.success)
         throw new Error(payload.error || "Error cargando pauta");
-      setItems(payload.data.items as PautaItem[]);
-      setSeries(payload.data.series as SerieInfo[]);
-      if (payload.data.asignaciones) {
-        setSlotAsignaciones(payload.data.asignaciones as SlotAsignacion[]);
+
+      const fetchedItems = payload.data.items as PautaItem[];
+
+      if (fetchedItems.length === 0) {
+        // No hay pauta → intentar auto-generar silenciosamente
+        try {
+          const genRes = await fetch("/api/ops/pauta-mensual/generar", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ installationId, month, year, overwrite: false }),
+          });
+          const genPayload = await genRes.json();
+
+          if (genRes.ok && genPayload.success && genPayload.data?.created > 0) {
+            // Auto-generación exitosa → re-fetch
+            const res2 = await fetch(
+              `/api/ops/pauta-mensual?installationId=${installationId}&month=${month}&year=${year}`,
+              { cache: "no-store" }
+            );
+            const payload2 = await res2.json();
+            if (res2.ok && payload2.success) {
+              setItems(payload2.data.items as PautaItem[]);
+              setSeries(payload2.data.series as SerieInfo[]);
+              if (payload2.data.asignaciones) setSlotAsignaciones(payload2.data.asignaciones as SlotAsignacion[]);
+              setExecutionByCell((payload2.data.executionByCell || {}) as Record<string, ExecutionCell>);
+              setLoading(false);
+              return;
+            }
+          }
+
+          // Si generar falló o creó 0 filas → determinar razón
+          if (!genRes.ok && genPayload.error?.includes("puestos")) {
+            setEmptyReason("no_puestos");
+          } else if (genPayload.data?.created === 0) {
+            setEmptyReason("generated_empty");
+          } else {
+            setEmptyReason("no_puestos");
+          }
+        } catch {
+          setEmptyReason("no_puestos");
+        }
+
+        setItems([]);
+        setSeries([]);
+        setSlotAsignaciones([]);
+        setExecutionByCell({});
+      } else {
+        setItems(fetchedItems);
+        setSeries(payload.data.series as SerieInfo[]);
+        if (payload.data.asignaciones) {
+          setSlotAsignaciones(payload.data.asignaciones as SlotAsignacion[]);
+        }
+        setExecutionByCell((payload.data.executionByCell || {}) as Record<string, ExecutionCell>);
       }
-      setExecutionByCell((payload.data.executionByCell || {}) as Record<string, ExecutionCell>);
     } catch (error) {
       console.error(error);
       toast.error("No se pudo cargar la pauta mensual");
@@ -371,18 +447,19 @@ export function OpsPautaMensualClient({
     });
   }, [items, series, slotAsignaciones]);
 
-  // Generate pauta
-  const handleGenerate = async () => {
+  // Generate pauta (forceOverwrite: true para regenerar/sobrescribir)
+  const handleGenerate = async (forceOverwrite?: boolean) => {
     if (!installationId) {
       toast.error("Selecciona una instalación");
       return;
     }
+    const useOverwrite = forceOverwrite ?? overwrite;
     setLoading(true);
     try {
       const res = await fetch("/api/ops/pauta-mensual/generar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ installationId, month, year, overwrite }),
+        body: JSON.stringify({ installationId, month, year, overwrite: useOverwrite }),
       });
       const payload = await res.json();
       if (!res.ok || !payload.success)
@@ -421,6 +498,11 @@ export function OpsPautaMensualClient({
       year: String(year),
     });
     window.open(`/api/ops/pauta-mensual/export-excel?${params.toString()}`, "_blank");
+  };
+
+  const handleRegenerar = async () => {
+    setRegenerarConfirmOpen(false);
+    await handleGenerate(true);
   };
 
   // Open serie modal
@@ -577,50 +659,16 @@ export function OpsPautaMensualClient({
   /* ── render ── */
   return (
     <div className="space-y-3">
-      {/* Controls — collapsible on mobile */}
+      {/* Controls — filtros siempre visibles, layout compacto */}
       <Card>
         <CardContent className="pt-4 pb-3 space-y-3">
-          {/* Header row: status + toggle filters */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {loading ? (
-                <div className="flex items-center gap-2 text-sm text-emerald-400">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Cargando…
-                </div>
-              ) : items.length > 0 ? (
-                <div className="flex items-center gap-2 text-sm text-emerald-400">
-                  <CalendarDays className="h-4 w-4" />
-                  <span className="hidden sm:inline">Pauta cargada ·</span> {items.length} reg.
-                </div>
-              ) : null}
-            </div>
-            <div className="flex items-center gap-2">
-              {items.length === 0 && !loading && (
-                <Button onClick={handleGenerate} disabled={loading} size="sm">
-                  <CalendarDays className="mr-1.5 h-4 w-4" />
-                  Generar
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setFiltersOpen(!filtersOpen)}
-                className="text-xs"
-              >
-                Filtros
-                {filtersOpen ? <ChevronUp className="ml-1 h-3 w-3" /> : <ChevronDown className="ml-1 h-3 w-3" />}
-              </Button>
-            </div>
-          </div>
-
-          {/* Filters — collapsed by default on mount */}
-          {filtersOpen && (
-            <div className="grid gap-3 grid-cols-2 md:grid-cols-4 animate-in slide-in-from-top-2 duration-200">
-              <div className="space-y-1">
+          <div className="flex flex-col gap-3">
+            {/* Filtros: Cliente + Instalación (fila 1), Mes + Año (fila 2 en móvil) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+              <div className="space-y-1 col-span-2 sm:col-span-1">
                 <Label className="text-xs">Cliente</Label>
                 <select
-                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
                   value={clientId}
                   onChange={(e) => setClientId(e.target.value)}
                 >
@@ -629,10 +677,10 @@ export function OpsPautaMensualClient({
                   ))}
                 </select>
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 col-span-2 sm:col-span-1">
                 <Label className="text-xs">Instalación</Label>
                 <select
-                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
                   value={installationId}
                   onChange={(e) => setInstallationId(e.target.value)}
                 >
@@ -644,7 +692,7 @@ export function OpsPautaMensualClient({
               <div className="space-y-1">
                 <Label className="text-xs">Mes</Label>
                 <select
-                  className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  className="h-8 w-full rounded-md border border-input bg-background px-2 text-sm"
                   value={month}
                   onChange={(e) => setMonth(Number(e.target.value))}
                 >
@@ -661,21 +709,50 @@ export function OpsPautaMensualClient({
                   max={2100}
                   value={year}
                   onChange={(e) => setYear(Number(e.target.value) || year)}
-                  className="h-9"
+                  className="h-8 text-sm"
                 />
               </div>
-              <div className="col-span-2 md:col-span-4 flex flex-wrap gap-2">
-                <Button variant="outline" onClick={handleExportPdf} disabled={loading || items.length === 0} size="sm" className="text-xs h-8">
-                  <FileDown className="mr-1.5 h-3.5 w-3.5" />
-                  PDF
+            </div>
+            {/* Status + Exportar + Regenerar */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {loading ? (
+                <div className="flex items-center gap-2 text-xs text-emerald-400">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Cargando…
+                </div>
+              ) : items.length > 0 ? (
+                <div className="flex items-center gap-1 text-xs text-emerald-400">
+                  <CalendarDays className="h-3.5 w-3.5" />
+                  {items.length} registros
+                </div>
+              ) : null}
+              <div className="flex items-center gap-1.5 ml-auto">
+                <Button variant="outline" onClick={handleExportPdf} disabled={loading || items.length === 0} size="sm" className="text-[10px] h-7 px-2">
+                  <FileDown className="h-3 w-3 sm:mr-1" />
+                  <span className="hidden sm:inline">PDF</span>
                 </Button>
-                <Button variant="outline" onClick={handleExportExcel} disabled={loading || items.length === 0} size="sm" className="text-xs h-8">
-                  <FileDown className="mr-1.5 h-3.5 w-3.5" />
-                  Excel
+                <Button variant="outline" onClick={handleExportExcel} disabled={loading || items.length === 0} size="sm" className="text-[10px] h-7 px-2">
+                  <FileDown className="h-3 w-3 sm:mr-1" />
+                  <span className="hidden sm:inline">Excel</span>
                 </Button>
+                {items.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground">
+                        <MoreVertical className="h-3.5 w-3.5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setRegenerarConfirmOpen(true)}>
+                        <RefreshCw className="mr-2 h-3.5 w-3.5" />
+                        Regenerar pauta
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
             </div>
-          )}
+          </div>
 
           {/* View mode toggle: Semana / Mes */}
           {matrix.length > 0 && (
@@ -708,15 +785,55 @@ export function OpsPautaMensualClient({
       </Card>
 
       {/* Matrix */}
+      {!loading && matrix.length === 0 ? (
+        <Card>
+          <CardContent className="pt-4 pb-3">
+            {emptyReason === "no_puestos" ? (
+              <EmptyState
+                icon={<CalendarDays className="h-8 w-8" />}
+                title="Sin puestos configurados"
+                description={`${installations.find((i) => i.id === installationId)?.name ?? "Esta instalación"} no tiene puestos activos. Configura puestos desde el CRM o desde Puestos operativos.`}
+                action={
+                  installationId && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <Link href={`/crm/installations/${installationId}`}>
+                        <Button variant="outline" size="sm">
+                          <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                          Configurar en CRM
+                        </Button>
+                      </Link>
+                      <Link href="/ops/puestos">
+                        <Button variant="outline" size="sm">
+                          Ir a Puestos
+                        </Button>
+                      </Link>
+                    </div>
+                  )
+                }
+                compact
+              />
+            ) : (
+              <EmptyState
+                icon={<CalendarDays className="h-8 w-8" />}
+                title="Sin pauta"
+                description={
+                  installationId
+                    ? `No se pudo generar pauta para ${installations.find((i) => i.id === installationId)?.name ?? "esta instalación"} en ${MESES[month - 1]} ${year}. Verifica que los puestos tengan días de la semana configurados.`
+                    : "Selecciona un cliente e instalación."
+                }
+                compact
+              />
+            )}
+          </CardContent>
+        </Card>
+      ) : (
       <Card>
         <CardContent className="pt-4 pb-3">
-          {matrix.length === 0 ? (
-            <EmptyState
-              icon={<CalendarDays className="h-8 w-8" />}
-              title="Sin pauta mensual"
-              description="Genera la pauta para comenzar a planificar."
-              compact
-            />
+          {loading && matrix.length === 0 ? (
+            <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              Cargando pauta…
+            </div>
           ) : (
             <div className="overflow-hidden sm:overflow-x-auto -mx-4 px-4 sm:-mx-6 sm:px-6">
               <table className="w-full text-xs border-collapse table-fixed sm:table-auto">
@@ -986,6 +1103,7 @@ export function OpsPautaMensualClient({
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Serie painting modal */}
       <Dialog open={serieModalOpen} onOpenChange={setSerieModalOpen}>
@@ -1189,6 +1307,26 @@ export function OpsPautaMensualClient({
           <DialogFooter>
             <Button variant="ghost" onClick={() => setEliminarSerieModalOpen(false)}>
               Cancelar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmación Regenerar pauta (sobrescribir) */}
+      <Dialog open={regenerarConfirmOpen} onOpenChange={setRegenerarConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Regenerar pauta</DialogTitle>
+            <DialogDescription>
+              Se sobrescribirán todas las celdas de la pauta actual para {installations.find((i) => i.id === installationId)?.name ?? "esta instalación"} en {MESES[month - 1]} {year}. ¿Continuar?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRegenerarConfirmOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={() => void handleRegenerar()} disabled={loading}>
+              {loading ? "Regenerando…" : "Regenerar"}
             </Button>
           </DialogFooter>
         </DialogContent>
