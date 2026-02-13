@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -36,6 +37,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CrmDetailLayout } from "@/components/crm/CrmDetailLayout";
+import type { RecordAction } from "@/components/crm/RecordActions";
 import {
   AFP_CHILE,
   BANK_ACCOUNT_TYPES,
@@ -205,6 +207,7 @@ function lifecycleBadgeVariant(
 }
 
 export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRole, personaAdminId }: GuardiaDetailClientProps) {
+  const router = useRouter();
   const [guardia, setGuardia] = useState(initialGuardia);
   const [uploading, setUploading] = useState(false);
   const [creatingDoc, setCreatingDoc] = useState(false);
@@ -304,6 +307,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
   const [loadingDocLinks, setLoadingDocLinks] = useState(false);
   const [linkingDoc, setLinkingDoc] = useState(false);
   const [unlinkingDocId, setUnlinkingDocId] = useState<string | null>(null);
+  const [desvinculando, setDesvinculando] = useState(false);
   const [linkForm, setLinkForm] = useState({
     documentId: "",
     role: "related",
@@ -688,6 +692,40 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
       toast.error("No se pudo eliminar documento");
     } finally {
       setDeletingDocId(null);
+    }
+  };
+
+  const handleDesvincular = async () => {
+    if (desvinculando) return;
+    if (
+      !window.confirm(
+        "¿Desvincular a este guardia? Se registrará como desvinculado y ya no podrá ser asignado a puestos."
+      )
+    )
+      return;
+    setDesvinculando(true);
+    try {
+      const response = await fetch(`/api/personas/guardias/${guardia.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lifecycleStatus: "desvinculado" }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error || "No se pudo desvincular");
+      }
+      setGuardia((prev) => ({
+        ...prev,
+        lifecycleStatus: "desvinculado",
+        status: "desvinculado",
+      }));
+      toast.success("Guardia desvinculado");
+      router.push("/personas/guardias");
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo desvincular al guardia");
+    } finally {
+      setDesvinculando(false);
     }
   };
 
@@ -1922,6 +1960,20 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
     },
   ];
 
+  const recordActions: RecordAction[] = [];
+  if (
+    canManageGuardias &&
+    guardia.lifecycleStatus !== "desvinculado" &&
+    !guardia.isBlacklisted
+  ) {
+    recordActions.push({
+      label: "Desvincular guardia",
+      icon: Trash2,
+      variant: "destructive",
+      onClick: () => void handleDesvincular(),
+    });
+  }
+
   return (
     <>
       <CrmDetailLayout
@@ -1933,6 +1985,7 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
         badge={{ label: guardiaBadgeLabel, variant: guardiaBadgeVariant }}
         backHref="/personas/guardias"
         backLabel="Guardias"
+        actions={recordActions.length > 0 ? recordActions : undefined}
         extra={
           guardia.isBlacklisted ? (
             <span className="text-[11px] rounded-full bg-red-500/15 px-2 py-1 text-red-400">
