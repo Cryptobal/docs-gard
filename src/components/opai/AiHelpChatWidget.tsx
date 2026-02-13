@@ -22,6 +22,28 @@ type ChatMessage = {
 
 const MAX_VISIBLE_MESSAGES = 120;
 
+function renderBoldText(text: string, keyPrefix: string) {
+  const nodes: Array<JSX.Element | string> = [];
+  const regex = /\*\*(.+?)\*\*/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null = regex.exec(text);
+
+  while (match) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+    nodes.push(<strong key={`${keyPrefix}-b-${match.index}`}>{match[1]}</strong>);
+    lastIndex = regex.lastIndex;
+    match = regex.exec(text);
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes.length ? nodes : text;
+}
+
 function renderMessageContent(content: string) {
   const lines = content.split("\n");
   return lines.map((line, idx) => (
@@ -40,14 +62,17 @@ function linkifyLine(line: string) {
 
   while (match) {
     if (match.index > lastIndex) {
-      parts.push(line.slice(lastIndex, match.index));
+      const textPart = line.slice(lastIndex, match.index);
+      const rendered = renderBoldText(textPart, `pre-${match.index}`);
+      if (Array.isArray(rendered)) parts.push(...rendered);
+      else parts.push(rendered);
     }
 
     const label = match[1];
     const markdownHref = match[2];
     const rawHref = match[3];
     const href = markdownHref ?? rawHref;
-    const text = label ?? "Ingresa acá";
+    const text = label ?? href.replace(/^https?:\/\//, "");
 
     if (href) {
       parts.push(
@@ -68,7 +93,10 @@ function linkifyLine(line: string) {
   }
 
   if (lastIndex < line.length) {
-    parts.push(line.slice(lastIndex));
+    const textPart = line.slice(lastIndex);
+    const rendered = renderBoldText(textPart, `post-${lastIndex}`);
+    if (Array.isArray(rendered)) parts.push(...rendered);
+    else parts.push(rendered);
   }
 
   return parts.length > 0 ? parts : line;

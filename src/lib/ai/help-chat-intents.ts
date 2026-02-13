@@ -63,13 +63,19 @@ const DATA_MARKERS = [
 ];
 
 function normalize(text: string): string {
-  return text
+  const cleaned = text
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+
+  // Correcciones comunes de tipeo para mejorar inferencia.
+  return cleaned
+    .replace(/\bcelalar\b/g, "celular")
+    .replace(/\baplicasion\b/g, "aplicacion")
+    .replace(/\bmovile\b/g, "movil");
 }
 
 function toAbsoluteUrl(pathname: string, appBaseUrl: string): string {
@@ -509,6 +515,7 @@ function isInstallHomeScreenQuestion(message: string): boolean {
     message.includes("aplicacion");
   const mentionsMobileDevice =
     message.includes("celular") ||
+    message.includes("cel") ||
     message.includes("telefono") ||
     message.includes("movil") ||
     message.includes("iphone") ||
@@ -536,7 +543,7 @@ function buildInstallHomeScreenAnswer(): string {
     "1) **Dispositivo**: iPhone o Android",
     "2) **Navegador**: Safari, Chrome, Edge, Firefox, Samsung Internet o app Google",
     "",
-    `Mientras tanto, aqui tienes el paso a paso para **${url}**:`,
+    `Mientras tanto, aqui tienes el paso a paso para [www.opai.gard.cl](${url}):`,
     "",
     "**iPhone**",
     "- **Safari**:",
