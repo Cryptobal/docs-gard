@@ -61,6 +61,7 @@ export const SUBMODULE_KEYS = {
     "guardias",
     "rondas",
     "control_nocturno",
+    "tickets",
   ] as const,
   crm: [
     "leads",
@@ -180,6 +181,7 @@ export const SUBMODULE_META: SubmoduleMeta[] = [
   { key: "ops.guardias", module: "ops", submodule: "guardias", label: "Guardias", href: "/personas/guardias" },
   { key: "ops.rondas", module: "ops", submodule: "rondas", label: "Rondas", href: "/ops/rondas" },
   { key: "ops.control_nocturno", module: "ops", submodule: "control_nocturno", label: "Control nocturno", href: "/ops/control-nocturno" },
+  { key: "ops.tickets", module: "ops", submodule: "tickets", label: "Tickets", href: "/ops/tickets" },
   // ── CRM ──
   { key: "crm.leads", module: "crm", submodule: "leads", label: "Leads", href: "/crm/leads" },
   { key: "crm.accounts", module: "crm", submodule: "accounts", label: "Cuentas", href: "/crm/accounts" },
@@ -658,6 +660,7 @@ export function pathToPermission(
   if (pathname.startsWith("/ops/ppc")) return { module: "ops", submodule: "ppc" };
   if (pathname.startsWith("/ops/control-nocturno")) return { module: "ops", submodule: "control_nocturno" };
   if (pathname.startsWith("/ops/rondas")) return { module: "ops", submodule: "rondas" };
+  if (pathname.startsWith("/ops/tickets")) return { module: "ops", submodule: "tickets" };
   if (pathname.startsWith("/personas/guardias") || pathname.startsWith("/personas/lista-negra"))
     return { module: "ops", submodule: "guardias" };
   if (pathname === "/ops" || pathname.startsWith("/ops/")) return { module: "ops" };
@@ -742,6 +745,7 @@ export function apiPathToSubmodule(
   if (pathname.startsWith("/api/ops/marcacion")) return { module: "ops", submodule: "marcaciones" };
   if (pathname.startsWith("/api/ops/control-nocturno")) return { module: "ops", submodule: "control_nocturno" };
   if (pathname.startsWith("/api/ops/rondas")) return { module: "ops", submodule: "rondas" };
+  if (pathname.startsWith("/api/ops/tickets") || pathname.startsWith("/api/ops/ticket-categories")) return { module: "ops", submodule: "tickets" };
   if (pathname.startsWith("/api/te/")) return { module: "ops", submodule: "turnos_extra" };
   if (pathname.startsWith("/api/personas/guardias")) return { module: "ops", submodule: "guardias" };
   // CRM

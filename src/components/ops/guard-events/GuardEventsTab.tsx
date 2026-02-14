@@ -16,6 +16,7 @@ import {
   Plus,
   ShieldAlert,
   Stethoscope,
+  Ticket,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -744,6 +745,21 @@ function EventDetailView({
       <div className="border-t border-border pt-3">
         <EventDocuments event={event} />
       </div>
+
+      {/* Create ticket from event */}
+      {event.status !== "cancelled" && (
+        <div className="border-t border-border pt-3">
+          <a
+            href={`/ops/tickets?source=guard_event&sourceId=${event.id}&title=${encodeURIComponent(
+              `${getSubtypeLabel(event.subtype)} — ${event.guardiaName ?? "Guardia"}`
+            )}`}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+          >
+            <Ticket className="h-3.5 w-3.5" />
+            Crear ticket asociado
+          </a>
+        </div>
+      )}
 
       {/* Action buttons */}
       {(canApprove || canCancel) && (
