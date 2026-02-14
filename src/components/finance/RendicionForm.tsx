@@ -280,8 +280,13 @@ export function RendicionForm({
       errs.description = "Si no adjuntas imagen, debes indicar el motivo en las observaciones";
     }
 
-    // Solo exigir imagen si la config lo requiere Y no es "sin respaldo"
-    if (config?.requireImage && documentType !== "SIN_RESPALDO" && attachments.length === 0) {
+    // Solo exigir imagen si la config lo requiere, no es "sin respaldo" y no es kilometraje
+    if (
+      config?.requireImage &&
+      type !== "MILEAGE" &&
+      documentType !== "SIN_RESPALDO" &&
+      attachments.length === 0
+    ) {
       errs.attachments = "Debes adjuntar al menos una imagen";
     }
 
@@ -816,7 +821,7 @@ export function RendicionForm({
         <CardContent className="pt-5">
           <Label className="mb-3 block">
             Imágenes / Documentos
-            {config?.requireImage && (
+            {config?.requireImage && type !== "MILEAGE" && (
               <span className="text-red-400 ml-1">*</span>
             )}
           </Label>

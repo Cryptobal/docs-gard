@@ -1546,9 +1546,14 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
       label: "Documentos vinculados (Docs)",
       children: (
         <div className="space-y-3">
-          <p className="text-sm text-muted-foreground -mt-1">
-            Vincula contratos/anexos del módulo Docs a esta ficha de guardia para mantener trazabilidad.
-          </p>
+          <div className="text-sm text-muted-foreground -mt-1 space-y-1">
+            <p>
+              Aquí puedes vincular documentos que ya existen en el módulo <strong>Documentos</strong> (OPAI) a esta ficha de guardia. Sirve para mantener trazabilidad: por ejemplo, asociar el contrato o un anexo generado en Docs con este guardia, y ver desde su ficha qué documentos formales tiene vinculados.
+            </p>
+            <p className="text-xs">
+              El <strong>tipo de vínculo</strong> indica la relación: <em>Principal</em> (documento central, ej. contrato vigente), <em>Relacionado</em> (anexos, certificados complementarios) o <em>Copia</em> (duplicado o respaldo).
+            </p>
+          </div>
           <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
             <select
               className="h-10 rounded-md border border-border bg-background px-3 text-sm"
@@ -1568,10 +1573,11 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
               value={linkForm.role}
               disabled={!canManageDocs}
               onChange={(e) => setLinkForm((prev) => ({ ...prev, role: e.target.value }))}
+              title="Tipo de vínculo del documento con esta ficha"
             >
-              <option value="primary">primary</option>
-              <option value="related">related</option>
-              <option value="copy">copy</option>
+              <option value="primary">Principal</option>
+              <option value="related">Relacionado</option>
+              <option value="copy">Copia</option>
             </select>
             <Button
               type="button"
@@ -1592,7 +1598,8 @@ export function GuardiaDetailClient({ initialGuardia, asignaciones = [], userRol
                   <div>
                     <p className="text-sm font-medium">{item.document.title}</p>
                     <p className="text-xs text-muted-foreground">
-                      {item.document.category} · {item.document.status} · rol {item.role}
+                      {item.document.category} · {item.document.status}
+                      {item.role === "primary" ? " · Principal" : item.role === "related" ? " · Relacionado" : " · Copia"}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
@@ -44,6 +44,9 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const pathname = usePathname();
   const collapsed = !isSidebarOpen;
+  const [tooltip, setTooltip] = useState<{ label: string; top: number } | null>(null);
+
+  const showTooltip = collapsed && !showCloseButton; // solo en desktop con sidebar contraído
 
   return (
     <aside
@@ -120,7 +123,13 @@ export function AppSidebar({
                 key={item.href}
                 href={item.href}
                 onClick={onNavigate}
-                title={collapsed ? item.label : undefined}
+                title={showTooltip ? undefined : (collapsed ? item.label : undefined)}
+                onMouseEnter={(e) => {
+                  if (!showTooltip) return;
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  setTooltip({ label: item.label, top: rect.top + rect.height / 2 });
+                }}
+                onMouseLeave={() => showTooltip && setTooltip(null)}
                 className={cn(
                   "group relative flex items-center rounded-md transition-colors",
                   showCloseButton ? "text-base" : "text-sm",
@@ -149,6 +158,15 @@ export function AppSidebar({
             );
           })}
         </div>
+        {/* Tooltip al hover cuando el sidebar está contraído (solo desktop) */}
+        {showTooltip && tooltip && (
+          <div
+            className="fixed left-[72px] z-50 -translate-y-1/2 px-2.5 py-1.5 rounded-md bg-popover text-popover-foreground text-sm font-medium shadow-md border border-border pointer-events-none whitespace-nowrap animate-in fade-in-0 zoom-in-95 duration-150"
+            style={{ top: tooltip.top }}
+          >
+            {tooltip.label}
+          </div>
+        )}
       </nav>
 
       {/* User footer — mt-auto para que quede abajo y no quede espacio vacío */}

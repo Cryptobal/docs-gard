@@ -94,20 +94,27 @@ export function CrmSectionNav({
     return () => observer.disconnect();
   }, [sections, activeSection]);
 
-  // Scroll suave al hacer clic en un tab
+  // Scroll suave al hacer clic en un tab. Primero abrimos la sección (onSectionClick),
+  // luego esperamos a que el layout se actualice antes de hacer scroll.
   const handleClick = useCallback(
     (key: string) => {
-      const el = document.getElementById(`section-${key}`);
-      if (!el) return;
       onSectionClick?.(key as CrmSectionKey);
 
       // Marcar como scroll por clic para evitar flicker del observer
       isClickScrolling.current = true;
       setActiveSection(key);
 
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      // Dar tiempo a que la sección se abra (expand) antes de hacer scroll
+      const scrollAfterExpand = () => {
+        const el = document.getElementById(`section-${key}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      };
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollAfterExpand();
+        });
+      });
 
-      // Esperar a que termine el scroll antes de re-activar el observer
       if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
       clickTimeoutRef.current = setTimeout(() => {
         isClickScrolling.current = false;

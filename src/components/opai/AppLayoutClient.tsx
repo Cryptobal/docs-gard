@@ -55,7 +55,7 @@ export function AppLayoutClient({
     },
     {
       href: '/ops',
-      label: 'Ops',
+      label: 'Operaciones',
       icon: ClipboardList,
       show: hasModuleAccess(permissions, 'ops'),
     },

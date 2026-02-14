@@ -97,12 +97,12 @@ function readCache(
     const raw = window.localStorage.getItem(cacheKey(pageType));
     if (!raw) return fallback;
     const parsed = JSON.parse(raw) as PersistedSectionPrefs;
+    const order = Array.isArray(parsed.order) ? parsed.order : [];
+    const collapsed = Array.isArray(parsed.collapsed)
+      ? parsed.collapsed
+      : getDefaultCollapsed(fixedSectionKey, sectionKeys);
     return sanitizePrefs(
-      {
-        order: Array.isArray(parsed.order) ? parsed.order : [],
-        // Siempre iniciar contraídas al entrar (excepto sección fija)
-        collapsed: getDefaultCollapsed(fixedSectionKey, sectionKeys),
-      },
+      { order, collapsed },
       fixedSectionKey,
       sectionKeys
     );
@@ -141,9 +141,18 @@ export function useSectionPreferences({
     [fixedSectionKey, stableKeys]
   );
 
+  // Sincronizar orden desde cache al cambiar tipo de página o claves; preservar collapsed
+  // para que las secciones no se cierren en cada re-render del padre.
   useEffect(() => {
-    safeSetPrefs(readCache(pageType, fixedSectionKey, stableKeys));
-  }, [pageType, fixedSectionKey, stableKeys, safeSetPrefs]);
+    const cached = readCache(pageType, fixedSectionKey, stableKeys);
+    setPrefs((prev) =>
+      sanitizePrefs(
+        { order: cached.order, collapsed: prev.collapsed },
+        fixedSectionKey,
+        stableKeys
+      )
+    );
+  }, [pageType, fixedSectionKey, stableKeys]);
 
   useEffect(() => {
     let cancelled = false;
@@ -161,11 +170,17 @@ export function useSectionPreferences({
         if (cancelled) return;
 
         if (response.ok && payload.success && payload.data) {
-          // Mantener solo orden persistente; colapso siempre inicia cerrado en cada entrada.
-          safeSetPrefs({
-            order: payload.data.order,
-            collapsed: getDefaultCollapsed(fixedSectionKey, stableKeys),
-          });
+          // Actualizar solo el orden desde el servidor; preservar estado abierto/cerrado local.
+          setPrefs((prev) =>
+            sanitizePrefs(
+              {
+                order: payload.data!.order ?? prev.order,
+                collapsed: prev.collapsed,
+              },
+              fixedSectionKey,
+              stableKeys
+            )
+          );
         } else {
           safeSetPrefs(defaultPrefs);
         }
@@ -189,6 +204,7 @@ export function useSectionPreferences({
     try {
       const data: PersistedSectionPrefs = {
         order: prefs.order,
+        collapsed: prefs.collapsed,
       };
       window.localStorage.setItem(cacheKey(pageType), JSON.stringify(data));
     } catch {
