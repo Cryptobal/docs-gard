@@ -41,8 +41,8 @@ export function CrmSubnav({
 
   return (
     <nav className={cn("mb-6 space-y-2", className)}>
-      {/* Tabs — desktop */}
-      <div className="hidden sm:block">
+      {/* Tabs — mobile + desktop */}
+      <div>
         <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
           {navItems.map((item) => {
             const isActive =
