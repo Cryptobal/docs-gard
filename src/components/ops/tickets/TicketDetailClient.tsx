@@ -33,7 +33,9 @@ import {
   getSlaRemaining,
   isSlaBreached,
   canTransitionTo,
+  isPendingMyApproval,
 } from "@/lib/tickets";
+import { TicketApprovalTimeline } from "./TicketApprovalTimeline";
 
 interface TicketDetailClientProps {
   ticketId: string;
@@ -107,6 +109,38 @@ export function TicketDetailClient({ ticketId, userRole }: TicketDetailClientPro
       toast.error("Error al agregar comentario");
     } finally {
       setSendingComment(false);
+    }
+  }
+
+  async function handleApproveTicket(approvalId: string, comment?: string) {
+    try {
+      const res = await fetch(`/api/ops/tickets/${ticketId}/approvals`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approvalId, action: "approve", comment: comment ?? null }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      toast.success("Aprobación registrada");
+      fetchTicket();
+    } catch {
+      toast.error("Error al aprobar");
+    }
+  }
+
+  async function handleRejectTicket(approvalId: string, comment: string) {
+    try {
+      const res = await fetch(`/api/ops/tickets/${ticketId}/approvals`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approvalId, action: "reject", comment }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+      toast.success("Rechazo registrado");
+      fetchTicket();
+    } catch {
+      toast.error("Error al rechazar");
     }
   }
 
@@ -241,6 +275,21 @@ export function TicketDetailClient({ ticketId, userRole }: TicketDetailClientPro
               </Button>
             );
           })}
+        </div>
+      )}
+
+      {/* Approval chain */}
+      {ticket.approvals && ticket.approvals.length > 0 && (
+        <div className="border-t border-border pt-3 space-y-2">
+          <TicketApprovalTimeline
+            approvals={ticket.approvals}
+            currentStep={ticket.currentApprovalStep}
+            approvalStatus={ticket.approvalStatus}
+            userGroupIds={[]}  // TODO: pass real group IDs
+            userId=""           // TODO: pass real user ID
+            onApprove={handleApproveTicket}
+            onReject={handleRejectTicket}
+          />
         </div>
       )}
 

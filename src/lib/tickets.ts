@@ -3,6 +3,9 @@
  *
  * Alineado con ETAPA_2_IMPLEMENTACION.md (OpsTicket, OpsTicketCategory, etc.)
  * Entidades lógicas (sin migración de DB todavía).
+ *
+ * v2: Añade TicketType con cadenas de aprobación configurables por tenant,
+ *     doble origen (guardia / interno), y ApprovalRecord por paso.
  */
 
 // ═══════════════════════════════════════════════════════════════
@@ -10,12 +13,16 @@
 // ═══════════════════════════════════════════════════════════════
 
 export type TicketStatus =
+  | "pending_approval"
   | "open"
   | "in_progress"
   | "waiting"
   | "resolved"
   | "closed"
+  | "rejected"
   | "cancelled";
+
+export type TicketApprovalStatus = "pending" | "approved" | "rejected";
 
 export type TicketPriority = "p1" | "p2" | "p3" | "p4";
 
@@ -28,6 +35,47 @@ export type TicketTeam =
   | "it_admin";
 
 export type TicketSource = "manual" | "incident" | "portal" | "guard_event" | "system";
+
+export type TicketOrigin = "guard" | "internal" | "both";
+
+export type ApproverType = "group" | "user";
+
+// ── Ticket Type (configurable per tenant) ──
+
+export interface TicketTypeApprovalStep {
+  id: string;
+  ticketTypeId: string;
+  stepOrder: number;
+  approverType: ApproverType;
+  approverGroupId: string | null; // FK → AdminGroup
+  approverUserId: string | null;  // FK → Admin
+  label: string; // "Aprobación RRHH"
+  isRequired: boolean;
+  // Populated
+  approverGroupName?: string;
+  approverUserName?: string;
+}
+
+export interface TicketType {
+  id: string;
+  tenantId: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  origin: TicketOrigin;
+  requiresApproval: boolean;
+  assignedTeam: TicketTeam;
+  defaultPriority: TicketPriority;
+  slaHours: number;
+  icon: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  approvalSteps: TicketTypeApprovalStep[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ── Legacy TicketCategory (backward compat, maps to TicketType) ──
 
 export interface TicketCategory {
   id: string;
@@ -42,10 +90,34 @@ export interface TicketCategory {
   sortOrder: number;
 }
 
+// ── Ticket Approval Record ──
+
+export interface TicketApproval {
+  id: string;
+  ticketId: string;
+  stepOrder: number;
+  stepLabel: string;
+  approverType: ApproverType;
+  approverGroupId: string | null;
+  approverGroupName?: string | null;
+  approverUserId: string | null;
+  approverUserName?: string | null;
+  decision: TicketApprovalStatus;
+  decidedById: string | null;
+  decidedByName: string | null;
+  comment: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+}
+
+// ── Ticket ──
+
 export interface Ticket {
   id: string;
   tenantId: string;
   code: string; // "TK-202602-0001"
+  ticketTypeId: string | null;
+  ticketType?: TicketType | null;
   categoryId: string;
   category?: TicketCategory;
   status: TicketStatus;
@@ -60,6 +132,8 @@ export interface Ticket {
   source: TicketSource;
   sourceLogId: string | null;
   sourceGuardEventId: string | null;
+  guardiaId: string | null;
+  guardiaName?: string | null;
   reportedBy: string;
   reportedByName?: string | null;
   slaDueAt: string | null;
@@ -68,6 +142,10 @@ export interface Ticket {
   closedAt: string | null;
   resolutionNotes: string | null;
   tags: string[];
+  // Approval tracking
+  currentApprovalStep: number | null;
+  approvalStatus: TicketApprovalStatus | null;
+  approvals?: TicketApproval[];
   createdAt: string;
   updatedAt: string;
   // Computed
@@ -105,12 +183,23 @@ export const TICKET_STATUS_CONFIG: Record<
   TicketStatus,
   { label: string; variant: "default" | "secondary" | "success" | "warning" | "destructive" | "outline"; order: number }
 > = {
+  pending_approval: { label: "Pendiente aprobación", variant: "secondary", order: -1 },
   open: { label: "Abierto", variant: "warning", order: 0 },
   in_progress: { label: "En progreso", variant: "default", order: 1 },
   waiting: { label: "En espera", variant: "secondary", order: 2 },
   resolved: { label: "Resuelto", variant: "success", order: 3 },
   closed: { label: "Cerrado", variant: "outline", order: 4 },
-  cancelled: { label: "Cancelado", variant: "destructive", order: 5 },
+  rejected: { label: "Rechazado", variant: "destructive", order: 5 },
+  cancelled: { label: "Cancelado", variant: "destructive", order: 6 },
+};
+
+export const APPROVAL_STATUS_CONFIG: Record<
+  TicketApprovalStatus,
+  { label: string; variant: "default" | "secondary" | "success" | "destructive" }
+> = {
+  pending: { label: "Pendiente", variant: "secondary" },
+  approved: { label: "Aprobado", variant: "success" },
+  rejected: { label: "Rechazado", variant: "destructive" },
 };
 
 export const TICKET_PRIORITY_CONFIG: Record<
@@ -141,7 +230,7 @@ export const TICKET_SOURCE_CONFIG: Record<TicketSource, { label: string }> = {
 };
 
 // ═══════════════════════════════════════════════════════════════
-//  SEED DATA — Categories (10 from ETAPA_2 spec)
+//  SEED DATA — Legacy Categories (backward compat)
 // ═══════════════════════════════════════════════════════════════
 
 export const TICKET_CATEGORIES_SEED: Omit<TicketCategory, "id">[] = [
@@ -155,6 +244,226 @@ export const TICKET_CATEGORIES_SEED: Omit<TicketCategory, "id">[] = [
   { slug: "pago_turno_extra", name: "Pago turno extra", description: "Consulta o reclamo sobre pago de turno extra", assignedTeam: "finanzas", defaultPriority: "p2", slaHours: 48, icon: "Banknote", isActive: true, sortOrder: 8 },
   { slug: "conducta_disciplina", name: "Conducta / Disciplina", description: "Reporte de conducta o situación disciplinaria", assignedTeam: "rrhh", defaultPriority: "p2", slaHours: 48, icon: "Gavel", isActive: true, sortOrder: 9 },
   { slug: "soporte_plataforma", name: "Soporte plataforma", description: "Problema técnico con la plataforma", assignedTeam: "it_admin", defaultPriority: "p3", slaHours: 72, icon: "Monitor", isActive: true, sortOrder: 10 },
+];
+
+// ═══════════════════════════════════════════════════════════════
+//  SEED DATA — Ticket Types with approval chains
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Seed ticket types: each has an origin (guard/internal/both),
+ * whether it requires approval, and a default approval chain
+ * referencing group slugs (resolved to IDs at seed time).
+ */
+export interface TicketTypeSeed {
+  slug: string;
+  name: string;
+  description: string;
+  origin: TicketOrigin;
+  requiresApproval: boolean;
+  assignedTeam: TicketTeam;
+  defaultPriority: TicketPriority;
+  slaHours: number;
+  icon: string;
+  /** Group slugs for default approval chain (in order) */
+  approvalChainGroupSlugs: string[];
+}
+
+export const TICKET_TYPE_SEEDS: TicketTypeSeed[] = [
+  // ── Guard-origin tickets ──
+  {
+    slug: "solicitud_vacaciones",
+    name: "Solicitud de vacaciones",
+    description: "El guardia solicita días de vacaciones",
+    origin: "guard",
+    requiresApproval: true,
+    assignedTeam: "rrhh",
+    defaultPriority: "p3",
+    slaHours: 48,
+    icon: "Palmtree",
+    approvalChainGroupSlugs: ["rrhh", "operaciones"],
+  },
+  {
+    slug: "solicitud_permiso_con_goce",
+    name: "Permiso con goce de sueldo",
+    description: "El guardia solicita un permiso remunerado",
+    origin: "guard",
+    requiresApproval: true,
+    assignedTeam: "rrhh",
+    defaultPriority: "p2",
+    slaHours: 48,
+    icon: "CalendarDays",
+    approvalChainGroupSlugs: ["rrhh", "operaciones"],
+  },
+  {
+    slug: "solicitud_permiso_sin_goce",
+    name: "Permiso sin goce de sueldo",
+    description: "El guardia solicita un permiso no remunerado",
+    origin: "guard",
+    requiresApproval: true,
+    assignedTeam: "rrhh",
+    defaultPriority: "p2",
+    slaHours: 48,
+    icon: "CalendarDays",
+    approvalChainGroupSlugs: ["rrhh"],
+  },
+  {
+    slug: "aviso_licencia_medica",
+    name: "Licencia médica (aviso)",
+    description: "El guardia notifica presentación de licencia médica",
+    origin: "guard",
+    requiresApproval: false,
+    assignedTeam: "rrhh",
+    defaultPriority: "p2",
+    slaHours: 24,
+    icon: "Stethoscope",
+    approvalChainGroupSlugs: [],
+  },
+  {
+    slug: "reclamo_pago",
+    name: "Reclamo de sueldo / pago",
+    description: "Consulta o reclamo sobre liquidación o pago",
+    origin: "guard",
+    requiresApproval: false,
+    assignedTeam: "finanzas",
+    defaultPriority: "p3",
+    slaHours: 72,
+    icon: "Banknote",
+    approvalChainGroupSlugs: [],
+  },
+  {
+    slug: "problema_instalacion",
+    name: "Problema en instalación",
+    description: "El guardia reporta un problema en su lugar de trabajo",
+    origin: "guard",
+    requiresApproval: false,
+    assignedTeam: "ops",
+    defaultPriority: "p2",
+    slaHours: 24,
+    icon: "AlertTriangle",
+    approvalChainGroupSlugs: [],
+  },
+  {
+    slug: "solicitud_uniforme_equipo",
+    name: "Solicitud de uniforme / equipo",
+    description: "El guardia solicita uniforme, implementos o equipamiento",
+    origin: "guard",
+    requiresApproval: false,
+    assignedTeam: "inventario",
+    defaultPriority: "p4",
+    slaHours: 72,
+    icon: "Package",
+    approvalChainGroupSlugs: [],
+  },
+  {
+    slug: "solicitud_general_guardia",
+    name: "Solicitud general",
+    description: "Otro tipo de solicitud del guardia",
+    origin: "guard",
+    requiresApproval: false,
+    assignedTeam: "rrhh",
+    defaultPriority: "p3",
+    slaHours: 72,
+    icon: "MessageSquare",
+    approvalChainGroupSlugs: [],
+  },
+  // ── Internal-origin tickets ──
+  {
+    slug: "cambio_instalacion",
+    name: "Cambio de instalación de guardia",
+    description: "Solicitar traslado de un guardia a otra instalación",
+    origin: "internal",
+    requiresApproval: true,
+    assignedTeam: "ops",
+    defaultPriority: "p2",
+    slaHours: 48,
+    icon: "MapPin",
+    approvalChainGroupSlugs: ["operaciones", "gerencia"],
+  },
+  {
+    slug: "cambio_pauta",
+    name: "Cambio de pauta mensual",
+    description: "Solicitar modificación a la pauta de un guardia",
+    origin: "internal",
+    requiresApproval: true,
+    assignedTeam: "ops",
+    defaultPriority: "p2",
+    slaHours: 48,
+    icon: "CalendarDays",
+    approvalChainGroupSlugs: ["operaciones"],
+  },
+  {
+    slug: "desvinculacion",
+    name: "Desvinculación / Finiquito",
+    description: "Solicitar la desvinculación de un guardia",
+    origin: "internal",
+    requiresApproval: true,
+    assignedTeam: "rrhh",
+    defaultPriority: "p1",
+    slaHours: 24,
+    icon: "FileWarning",
+    approvalChainGroupSlugs: ["rrhh", "gerencia"],
+  },
+  {
+    slug: "solicitar_amonestacion",
+    name: "Solicitar amonestación",
+    description: "Solicitar aplicar una amonestación a un guardia",
+    origin: "internal",
+    requiresApproval: true,
+    assignedTeam: "rrhh",
+    defaultPriority: "p2",
+    slaHours: 48,
+    icon: "ShieldAlert",
+    approvalChainGroupSlugs: ["rrhh", "operaciones"],
+  },
+  {
+    slug: "cambio_sueldo",
+    name: "Cambio de sueldo",
+    description: "Solicitar ajuste salarial de un guardia",
+    origin: "internal",
+    requiresApproval: true,
+    assignedTeam: "rrhh",
+    defaultPriority: "p1",
+    slaHours: 72,
+    icon: "DollarSign",
+    approvalChainGroupSlugs: ["rrhh", "finanzas", "gerencia"],
+  },
+  {
+    slug: "ausencia_reemplazo",
+    name: "Ausencia / Reemplazo urgente",
+    description: "Guardia ausente, necesita reemplazo inmediato",
+    origin: "internal",
+    requiresApproval: false,
+    assignedTeam: "ops",
+    defaultPriority: "p1",
+    slaHours: 2,
+    icon: "ShieldAlert",
+    approvalChainGroupSlugs: [],
+  },
+  {
+    slug: "incidente_operacional",
+    name: "Incidente operacional",
+    description: "Problema en terreno que requiere acción inmediata",
+    origin: "internal",
+    requiresApproval: false,
+    assignedTeam: "ops",
+    defaultPriority: "p2",
+    slaHours: 24,
+    icon: "AlertTriangle",
+    approvalChainGroupSlugs: [],
+  },
+  {
+    slug: "soporte_plataforma",
+    name: "Soporte plataforma",
+    description: "Problema técnico con la plataforma OPAI",
+    origin: "both",
+    requiresApproval: false,
+    assignedTeam: "it_admin",
+    defaultPriority: "p3",
+    slaHours: 72,
+    icon: "Monitor",
+    approvalChainGroupSlugs: [],
+  },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -190,11 +499,13 @@ export function getSlaRemaining(slaDueAt: string | null): string | null {
 /** Whether a ticket can be transitioned to a given status */
 export function canTransitionTo(current: TicketStatus, target: TicketStatus): boolean {
   const transitions: Record<TicketStatus, TicketStatus[]> = {
+    pending_approval: ["cancelled"], // approval flow handles open/rejected
     open: ["in_progress", "waiting", "resolved", "cancelled"],
     in_progress: ["waiting", "resolved", "cancelled"],
     waiting: ["in_progress", "resolved", "cancelled"],
     resolved: ["closed", "in_progress"], // reopen
     closed: [],
+    rejected: ["open"], // can re-open a rejected ticket
     cancelled: [],
   };
   return transitions[current]?.includes(target) ?? false;
@@ -202,5 +513,32 @@ export function canTransitionTo(current: TicketStatus, target: TicketStatus): bo
 
 /** Statuses considered "active" (not terminal) */
 export function isActiveStatus(status: TicketStatus): boolean {
-  return ["open", "in_progress", "waiting"].includes(status);
+  return ["pending_approval", "open", "in_progress", "waiting"].includes(status);
+}
+
+/** Check if a ticket is awaiting a specific user's approval (by their group memberships) */
+export function isPendingMyApproval(
+  ticket: Ticket,
+  userGroupIds: string[],
+  userId: string,
+): boolean {
+  if (ticket.status !== "pending_approval" || !ticket.approvals) return false;
+  const currentStep = ticket.approvals.find(
+    (a) => a.stepOrder === ticket.currentApprovalStep && a.decision === "pending",
+  );
+  if (!currentStep) return false;
+  if (currentStep.approverType === "user") {
+    return currentStep.approverUserId === userId;
+  }
+  return currentStep.approverGroupId != null && userGroupIds.includes(currentStep.approverGroupId);
+}
+
+/** Get the origin label */
+export function getOriginLabel(origin: TicketOrigin): string {
+  const labels: Record<TicketOrigin, string> = {
+    guard: "Guardia",
+    internal: "Interno",
+    both: "Ambos",
+  };
+  return labels[origin];
 }

@@ -114,6 +114,8 @@ export const CAPABILITY_KEYS = [
   "rendicion_configure",
   "rendicion_view_all",
   "rendicion_export",
+  "ticket_approve",
+  "ticket_manage_types",
 ] as const;
 export type CapabilityKey = (typeof CAPABILITY_KEYS)[number];
 
@@ -231,6 +233,8 @@ export const CAPABILITY_META: CapabilityMeta[] = [
   { key: "rendicion_configure", label: "Configurar rendiciones", description: "Puede configurar ítems, parámetros y reglas de rendiciones" },
   { key: "rendicion_view_all", label: "Ver todas las rendiciones", description: "Puede ver rendiciones de todos los usuarios, no solo las propias" },
   { key: "rendicion_export", label: "Exportar rendiciones", description: "Puede exportar rendiciones a CSV/Excel" },
+  { key: "ticket_approve", label: "Aprobar tickets", description: "Puede aprobar o rechazar tickets que le correspondan según su grupo" },
+  { key: "ticket_manage_types", label: "Configurar tipos de ticket", description: "Puede crear/editar tipos de solicitud y cadenas de aprobación" },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -320,7 +324,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       finance: "edit",
     },
     submodules: {},
-    capabilities: { te_approve: true, rondas_resolve_alerts: true, rendicion_submit: true, rendicion_view_all: true },
+    capabilities: { te_approve: true, rondas_resolve_alerts: true, rendicion_submit: true, rendicion_view_all: true, ticket_approve: true },
   },
 
   rrhh: {
@@ -335,7 +339,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       finance: "view",
     },
     submodules: {},
-    capabilities: { guardias_blacklist: true, rendicion_view_all: true },
+    capabilities: { guardias_blacklist: true, rendicion_view_all: true, ticket_approve: true },
   },
 
   operaciones: {
@@ -350,7 +354,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       finance: "edit",
     },
     submodules: { "finance.pagos": "none", "finance.configuracion": "none" },
-    capabilities: { te_approve: true, rondas_configure: true, rondas_resolve_alerts: true, control_nocturno_approve: true, rendicion_submit: true, rendicion_approve: true },
+    capabilities: { te_approve: true, rondas_configure: true, rondas_resolve_alerts: true, control_nocturno_approve: true, rendicion_submit: true, rendicion_approve: true, ticket_approve: true },
   },
 
   finanzas: finanzasPermissions(),
